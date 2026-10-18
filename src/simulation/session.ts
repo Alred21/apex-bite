@@ -13,7 +13,6 @@ import {
   CameraMode,
   CameraState,
   CircuitData,
-  CircuitSample,
   CoachingInsightCategory,
   CornerExecutionCard,
   DrillState,
@@ -42,10 +41,8 @@ import {
   FLYING_START_SPEED_MPS,
   FLYING_START_DISTANCE_METERS,
   WHEELBASE_METERS,
-  MAX_STEER_ANGLE_RAD,
-  KART_HALF_WIDTH_METERS,
 } from './kart-parameters';
-import { stepKartDynamics } from './kart-dynamics';
+import { stepKartOnCircuit } from './kart-world';
 export {
   FIXED_TIMESTEP_SECONDS, MAX_KART_SPEED_KPH, MAX_KART_SPEED_MPS,
   FLYING_START_SPEED_KPH, FLYING_START_SPEED_MPS, FLYING_START_DISTANCE_METERS,
@@ -78,25 +75,6 @@ export interface SimulationSession {
   exportTrainingDataJson(): string;
   importTrainingDataJson(json: string): SessionSnapshot;
   getSnapshot(): SessionSnapshot;
-}
-
-function findNearestCircuitSample(
-  samples: CircuitSample[],
-  x: number,
-  z: number,
-): CircuitSample {
-  let best = samples[0];
-  let bestDistSq = Infinity;
-  for (const s of samples) {
-    const dx = x - s.center.x;
-    const dz = z - s.center.z;
-    const dSq = dx * dx + dz * dz;
-    if (dSq < bestDistSq) {
-      bestDistSq = dSq;
-      best = s;
-    }
-  }
-  return best;
 }
 
 function resolveTurnAtDistance(
@@ -360,6 +338,7 @@ export function createSimulationSession(
 
   let tick = 0;
   let elapsedSeconds = 0;
+  let accumulatedStepSeconds = 0;
   let mode: PracticeMode = 'Time Trial';
   let cameraMode: CameraMode = 'Chase Cam';
   let racingLineVisible = true;
@@ -414,6 +393,8 @@ export function createSimulationSession(
     position: { ...startSample.center },
     headingRad: initialHeading,
     speedMps: FLYING_START_SPEED_MPS,
+    velocity: { x: Math.cos(initialHeading) * FLYING_START_SPEED_MPS, z: Math.sin(initialHeading) * FLYING_START_SPEED_MPS },
+    yawRateRadPerSecond: 0,
     speedKph: FLYING_START_SPEED_KPH,
     forwardAccelMps2: 0,
     lateralAccelMps2: 0,
@@ -427,6 +408,7 @@ export function createSimulationSession(
     barrierContact: false,
     barrierContactCount: 0,
     lapDistanceMeters: startSample.distanceMeters,
+    unwrappedDistanceMeters: startSample.distanceMeters,
     lapProgress: startSample.progress,
     currentTurn: resolveTurnAtDistance(startSample.distanceMeters, circuit.turns),
     currentSector: startSample.sector,
@@ -450,6 +432,8 @@ export function createSimulationSession(
       position: { ...startSample.center },
       headingRad: initialHeading,
       speedMps: FLYING_START_SPEED_MPS,
+    velocity: { x: Math.cos(initialHeading) * FLYING_START_SPEED_MPS, z: Math.sin(initialHeading) * FLYING_START_SPEED_MPS },
+    yawRateRadPerSecond: 0,
       speedKph: FLYING_START_SPEED_KPH,
       forwardAccelMps2: 0,
       lateralAccelMps2: 0,
@@ -463,6 +447,7 @@ export function createSimulationSession(
       barrierContact: false,
       barrierContactCount: kart.barrierContactCount,
       lapDistanceMeters: startSample.distanceMeters,
+    unwrappedDistanceMeters: startSample.distanceMeters,
       lapProgress: startSample.progress,
       currentTurn: resolveTurnAtDistance(startSample.distanceMeters, circuit.turns),
       currentSector: startSample.sector,
@@ -496,6 +481,8 @@ export function createSimulationSession(
       position: { ...entryLinePt.position },
       headingRad: entryLinePt.headingRad,
       speedMps: entryLinePt.targetSpeedMps,
+      velocity: { x: Math.cos(entryLinePt.headingRad) * entryLinePt.targetSpeedMps, z: Math.sin(entryLinePt.headingRad) * entryLinePt.targetSpeedMps },
+      yawRateRadPerSecond: 0,
       speedKph: entryLinePt.targetSpeedKph,
       forwardAccelMps2: 0,
       lateralAccelMps2: 0,
@@ -509,6 +496,7 @@ export function createSimulationSession(
       barrierContact: false,
       barrierContactCount: kart.barrierContactCount,
       lapDistanceMeters: sample.distanceMeters,
+      unwrappedDistanceMeters: sample.distanceMeters,
       lapProgress: sample.progress,
       currentTurn: resolveTurnAtDistance(sample.distanceMeters, circuit.turns),
       currentSector: sample.sector,
@@ -635,12 +623,30 @@ export function createSimulationSession(
   }
 
   function step(dtSeconds = FIXED_TIMESTEP_SECONDS, input: DriverInput = {}): SessionSnapshot {
+    if (!Number.isFinite(dtSeconds) || dtSeconds < 0 || dtSeconds > 1) {
+      throw new RangeError('Simulation interval must be finite and between zero and one second.');
+    }
     if (mode === 'Time Trial' && timeTrial.status === 'Finished') return getSnapshot();
+    accumulatedStepSeconds += dtSeconds;
+    while (accumulatedStepSeconds >= FIXED_TIMESTEP_SECONDS - 1e-12) {
+      fixedStep(FIXED_TIMESTEP_SECONDS, input);
+      accumulatedStepSeconds = Math.max(0, accumulatedStepSeconds - FIXED_TIMESTEP_SECONDS);
+      if (mode === 'Time Trial' && timeTrial.status === 'Finished') {
+        accumulatedStepSeconds = 0;
+        break;
+      }
+    }
+    return getSnapshot();
+  }
+
+  function fixedStep(dtSeconds: number, input: DriverInput): SessionSnapshot {
+    if (mode === 'Time Trial' && timeTrial.status === 'Finished') return getSnapshot();
+    const finiteInput = (value: number | undefined): number => Number.isFinite(value) ? value! : 0;
     const keyThrottle = input.keys?.up ? 1 : 0;
-    const gpThrottle = input.gamepad?.throttle ?? 0;
+    const gpThrottle = finiteInput(input.gamepad?.throttle);
     const throttle = Math.max(
       0,
-      Math.min(1, Math.max(input.throttle ?? 0, keyThrottle, gpThrottle)),
+      Math.min(1, Math.max(finiteInput(input.throttle), keyThrottle, gpThrottle)),
     );
 
     // Two-stage progressive brake curve on keyboard S / ArrowDown vs Spacebar full lock
@@ -658,22 +664,22 @@ export function createSimulationSession(
       keyboardBrakeHoldSeconds = 0;
     }
 
-    const gpBrake = input.gamepad?.brake ?? 0;
+    const gpBrake = finiteInput(input.gamepad?.brake);
     const brake = fullBrake
       ? 1.0
-      : Math.max(0, Math.min(1, Math.max(input.brake ?? 0, shapedKeyBrake, gpBrake)));
+      : Math.max(0, Math.min(1, Math.max(finiteInput(input.brake), shapedKeyBrake, gpBrake)));
 
     // Slip-aware progressive steering for keyboard (with tight-hairpin hold release) vs direct analog input
     const speedRatio = Math.min(1, kart.speedMps / MAX_KART_SPEED_MPS);
     const keySteerTarget = (input.keys?.right ? 1 : 0) - (input.keys?.left ? 1 : 0);
     const gpDeadzone = input.gamepad?.deadzone ?? 0.06;
-    const rawGpSteer = input.gamepad?.steer ?? 0;
+    const rawGpSteer = finiteInput(input.gamepad?.steer);
     const gpSteer = Math.abs(rawGpSteer) > gpDeadzone ? rawGpSteer : 0;
     const hasDirectSteer = input.steer !== undefined || Math.abs(gpSteer) > 0;
 
     if (hasDirectSteer) {
       keyboardSteerHoldSeconds = 0;
-      const direct = input.steer !== undefined ? input.steer : gpSteer;
+      const direct = input.steer !== undefined ? finiteInput(input.steer) : gpSteer;
       smoothedSteer = Math.max(-1, Math.min(1, direct));
     } else if (keySteerTarget !== 0) {
       keyboardSteerHoldSeconds += dtSeconds;
@@ -700,101 +706,21 @@ export function createSimulationSession(
       }
     }
 
-    const dynamics = stepKartDynamics(kart, { throttle, brake, steer: smoothedSteer }, dtSeconds);
-    const { steerAngleRad, isTrailBraking, axleScrub, lateralAccelMps2 } = dynamics;
-    const absSteerNorm = Math.abs(steerAngleRad) / MAX_STEER_ANGLE_RAD;
-    const prevSpeed = kart.speedMps;
-    let nextSpeedMps = dynamics.speedMps;
-    let nextHeading = dynamics.headingRad;
-    const nextPosition = dynamics.position;
-
-    const prevDistance = kart.lapDistanceMeters;
     const prevSector = kart.currentSector;
-    const nearest = findNearestCircuitSample(
-      circuit.samples,
-      nextPosition.x,
-      nextPosition.z,
-    );
-
-    // Continuous indoor Barrier collision & tangential wall friction
-    const relX = nextPosition.x - nearest.center.x;
-    const relZ = nextPosition.z - nearest.center.z;
-    const lateralOffset = relX * nearest.normal.x + relZ * nearest.normal.z;
-    const maxLateral = nearest.widthMeters * 0.5 - KART_HALF_WIDTH_METERS;
-
-    let barrierContact = false;
-    let barrierContactCount = kart.barrierContactCount;
-
-    if (Math.abs(lateralOffset) > maxLateral) {
-      barrierContact = true;
-      const isInitialImpact = !kart.barrierContact;
-      if (isInitialImpact) {
-        barrierContactCount += 1;
-      }
+    const previousDistance = kart.lapDistanceMeters;
+    kart = stepKartOnCircuit(circuit, kart, { throttle, brake, steer: smoothedSteer }, dtSeconds);
+    const nextPosition = kart.position;
+    const nextHeading = kart.headingRad;
+    const nextSpeedKph = kart.speedKph;
+    const nextSector = kart.currentSector;
+    const { axleScrub, isTrailBraking, barrierContact } = kart;
+    const nearest = { distanceMeters: kart.lapDistanceMeters, progress: kart.lapProgress };
+    if (barrierContact) {
       lap.isClean = false;
       drillIsClean = false;
-
-      const clampedLat = Math.sign(lateralOffset) * (maxLateral - 0.015);
-      const alongTang = relX * nearest.tangent.x + relZ * nearest.tangent.z;
-      nextPosition.x =
-        nearest.center.x +
-        nearest.tangent.x * alongTang +
-        nearest.normal.x * clampedLat;
-      nextPosition.z =
-        nearest.center.z +
-        nearest.tangent.z * alongTang +
-        nearest.normal.z * clampedLat;
-
-      const trackHeading = Math.atan2(nearest.tangent.z, nearest.tangent.x);
-      const angleDiff = wrapAngleRad(nextHeading - trackHeading);
-      const sinImpact = Math.abs(Math.sin(angleDiff));
-
-      if (isInitialImpact) {
-        const impactLoss = Math.min(0.55, Math.max(0.06, sinImpact * 0.65));
-        nextSpeedMps *= 1 - impactLoss;
-      }
-
-      const wallFrictionDecel = (2.6 + sinImpact * 6.0) * dtSeconds;
-      nextSpeedMps = Math.max(0, nextSpeedMps - wallFrictionDecel);
-      nextHeading = trackHeading + angleDiff * 0.2;
     }
-
-    const actualForwardAccel = (nextSpeedMps - prevSpeed) / Math.max(1e-6, dtSeconds);
-    const slipRatio = Math.min(
-      1,
-      Math.max(
-        axleScrub,
-        Math.abs(lateralAccelMps2) / 14.0 +
-          (brake > 0.8 && absSteerNorm > 0.2 ? 0.35 : 0),
-      ),
-    );
-
     tick += 1;
     elapsedSeconds += dtSeconds;
-    const nextSpeedKph = nextSpeedMps * 3.6;
-    const nextSector = nearest.sector;
-
-    kart = {
-      position: nextPosition,
-      headingRad: nextHeading,
-      speedMps: nextSpeedMps,
-      speedKph: nextSpeedKph,
-      forwardAccelMps2: actualForwardAccel,
-      lateralAccelMps2,
-      steerAngleRad,
-      steeringWheelAngleRad: steerAngleRad * 2.2,
-      throttleInput: throttle,
-      brakeInput: brake,
-      isTrailBraking,
-      axleScrub,
-      slipRatio,
-      barrierContact,
-      barrierContactCount,
-      lapDistanceMeters: nearest.distanceMeters,
-      lapProgress: nearest.progress,
-      currentTurn: resolveTurnAtDistance(nearest.distanceMeters, circuit.turns),
-      currentSector: nextSector,
-    };
 
     if (mode === 'Corner Drill') {
       drillCurrentSegmentSeconds += dtSeconds;
@@ -897,7 +823,7 @@ export function createSimulationSession(
     }
 
     // Start / Finish line crossing (wrapping from end of circuit > 200m to start < 40m)
-    if (prevDistance > 200 && nearest.distanceMeters < 40) {
+    if (previousDistance > circuit.totalLengthMeters * 0.8 && nearest.distanceMeters < circuit.totalLengthMeters * 0.2) {
       if (lap.lapNumber >= 1) {
         const finishedLapSeconds = lap.currentLapSeconds;
         const s1 = lap.currentSectorSplits[0] ?? finishedLapSeconds * 0.32;
@@ -983,6 +909,7 @@ export function createSimulationSession(
   }
 
   function setPracticeMode(nextMode: PracticeMode): SessionSnapshot {
+    accumulatedStepSeconds = 0;
     if (mode === nextMode) {
       return getSnapshot();
     }
@@ -1000,6 +927,7 @@ export function createSimulationSession(
       throw new RangeError('Choose 1–99 timed laps or unlimited practice.');
     }
     if (timeTrial.lapLimit !== lapLimit) {
+      accumulatedStepSeconds = 0;
       timeTrial.lapLimit = lapLimit;
       if (mode === 'Time Trial') spawnAtTimeTrialFlyingStart();
     }
@@ -1007,6 +935,7 @@ export function createSimulationSession(
   }
 
   function selectDrillTarget(targetId: DrillTargetId): SessionSnapshot {
+    accumulatedStepSeconds = 0;
     const found = drillCatalog.find((d) => d.id === targetId);
     if (found) {
       activeDrillTarget = found;
@@ -1017,6 +946,7 @@ export function createSimulationSession(
   }
 
   function reset(): SessionSnapshot {
+    accumulatedStepSeconds = 0;
     if (mode === 'Corner Drill') {
       spawnAtDrillFlyingEntry();
     } else {
@@ -1148,6 +1078,7 @@ export function createSimulationSession(
       kart: {
         ...kart,
         position: { ...kart.position },
+        velocity: { ...kart.velocity },
       },
       camera: computeCameraState(kart, cameraMode),
       lap: {

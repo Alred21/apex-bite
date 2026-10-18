@@ -11,3 +11,14 @@ export const MAX_REAR_BRAKE_DECEL_MPS2 = 8.8;
 export const WHEELBASE_METERS = 1.06;
 export const MAX_STEER_ANGLE_RAD = 0.46;
 export const KART_HALF_WIDTH_METERS = 0.45;
+
+export const MAX_TIRE_ACCEL_MPS2 = 10.5;
+
+/** Encloses the detailed rental Kart, including tires at full steering lock. */
+export const KART_DIMENSIONS = Object.freeze({
+  halfWidthMeters: KART_HALF_WIDTH_METERS,
+  frontExtentMeters: 0.88,
+  rearExtentMeters: 0.80,
+  wheelbaseMeters: WHEELBASE_METERS,
+});
+export const BARRIER_HALF_THICKNESS_METERS = 0.12;

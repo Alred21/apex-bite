@@ -2,7 +2,7 @@ import type { DrillTargetId, GhostSampleFrame, SectorSplitsTuple } from './types
 
 /** Advance either identifier whenever player handling or Circuit geometry becomes incompatible. */
 export const CURRENT_TRAINING_REVISION: TrainingRevision = {
-  handling: 'kart-v1',
+  handling: 'kart-v2',
   circuit: 'k1-toronto-v1',
 };
 

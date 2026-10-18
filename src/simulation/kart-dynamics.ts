@@ -1,83 +1,82 @@
-import { MAX_KART_SPEED_MPS, MAX_STEER_ANGLE_RAD, WHEELBASE_METERS, PEAK_LAUNCH_ACCEL_MPS2, MOTOR_DRAG_DECEL_MPS2, MAX_REAR_BRAKE_DECEL_MPS2 } from './kart-parameters';
-import type { KartState } from './types';
+import {
+  MAX_KART_SPEED_MPS, MAX_STEER_ANGLE_RAD, WHEELBASE_METERS,
+  PEAK_LAUNCH_ACCEL_MPS2, MOTOR_DRAG_DECEL_MPS2, MAX_REAR_BRAKE_DECEL_MPS2,
+  MAX_TIRE_ACCEL_MPS2,
+} from './kart-parameters';
+import type { Vector2D } from './types';
+import { wrapAngleRad } from './circuit';
 
 export interface KartCommand { throttle: number; brake: number; steer: number; }
 
-/** Pure player/reference dynamics; has no Session or Racing Line dependency. */
-export function stepKartDynamics(kart: Pick<KartState, 'position' | 'headingRad' | 'speedMps'>, command: KartCommand, dtSeconds: number) {
-  const { throttle, brake } = command;
+/** All integration state is explicit so a Reference Lap can execute the exact same solver. */
+export interface PlanarKartState {
+  position: Vector2D;
+  headingRad: number;
+  speedMps: number;
+  velocity: Vector2D;
+  yawRateRadPerSecond: number;
+}
+
+export function normalizeKartCommand(command: KartCommand): KartCommand {
+  const clamp = (value: number, low: number, high: number): number =>
+    Number.isFinite(value) ? Math.max(low, Math.min(high, value)) : 0;
+  const brake = clamp(command.brake, 0, 1);
+  return {
+    throttle: brake > 0 ? 0 : clamp(command.throttle, 0, 1),
+    brake,
+    steer: clamp(command.steer, -1, 1),
+  };
+}
+
+/**
+ * Grip-limited bicycle approximation with rear-only braking and continuous live-axle drag.
+ * This is a deliberately small planar model, not a four-wheel suspension simulator.
+ */
+export function stepKartDynamics(kart: PlanarKartState, rawCommand: KartCommand, dtSeconds: number) {
+  const command = normalizeKartCommand(rawCommand);
+  const { throttle, brake, steer } = command;
   const speedRatio = Math.min(1, kart.speedMps / MAX_KART_SPEED_MPS);
-    const steerAngleRad = command.steer * MAX_STEER_ANGLE_RAD;
-    const absSteerNorm = Math.abs(steerAngleRad) / MAX_STEER_ANGLE_RAD;
+  const steerAngleRad = steer * MAX_STEER_ANGLE_RAD;
+  const demandedLateralAccel = kart.speedMps ** 2 * Math.tan(steerAngleRad) / WHEELBASE_METERS;
+  const lateralLoadTransfer = Math.min(1, Math.abs(demandedLateralAccel) / MAX_TIRE_ACCEL_MPS2);
+  const insideRearLoad = Math.max(0.12, 0.9 + throttle * 0.08 - brake * 0.48 - lateralLoadTransfer * 0.28);
+  const axleScrub = Math.min(1, speedRatio * Math.abs(steer) * insideRearLoad);
 
-    const isTrailBraking =
-      kart.speedMps > 2.0 &&
-      absSteerNorm > 0.08 &&
-      brake >= 0.2 &&
-      brake <= 0.72;
+  const motorAccel = throttle * PEAK_LAUNCH_ACCEL_MPS2 * (1 - 0.12 * speedRatio ** 2);
+  // Braking shifts load away from the rear axle, progressively reducing its available grip.
+  const rearLoadFraction = 0.57 - brake * 0.14;
+  const rearBrakeLimit = MAX_TIRE_ACCEL_MPS2 * rearLoadFraction;
+  const brakeDecel = Math.min(brake * MAX_REAR_BRAKE_DECEL_MPS2 + (1 - throttle) * MOTOR_DRAG_DECEL_MPS2, rearBrakeLimit);
+  const rollingDrag = 0.22 * speedRatio ** 2;
+  const scrubDrag = kart.speedMps > 0.5 ? axleScrub * 2.2 : 0;
+  const longitudinalAccel = motorAccel - (kart.speedMps > 0.001 ? rollingDrag + brakeDecel + scrubDrag : 0);
+  const speedMps = Math.max(0, Math.min(MAX_KART_SPEED_MPS, kart.speedMps + longitudinalAccel * dtSeconds));
 
-    // Continuous planar four-tire longitudinal & lateral load transfer
-    const longWeightTransfer = isTrailBraking
-      ? 0.42 + brake * 0.22
-      : brake > 0.72
-        ? 0.32
-        : brake > 0.01
-          ? brake * 0.35
-          : -throttle * 0.12;
-    const latWeightTransfer = Math.min(0.28, (kart.speedMps / MAX_KART_SPEED_MPS) * absSteerNorm * 0.24);
-    const insideRearUnload = Math.max(
-      -0.15,
-      Math.min(0.74, longWeightTransfer + (isTrailBraking ? latWeightTransfer * 0.35 : 0)),
-    );
-
-    const rawAxleScrub =
-      speedRatio *
-      absSteerNorm *
-      1.15 *
-      Math.max(0.18, 0.92 - insideRearUnload);
-    const axleScrub = Math.max(0, Math.min(1, rawAxleScrub));
-
-    // Direct-drive electric motor torque curve tapering into hard 45.0 km/h electronic governor
-    const torqueFactor = Math.max(0.88, 1 - 0.12 * Math.pow(speedRatio, 1.8));
-    const driveAccel = throttle * PEAK_LAUNCH_ACCEL_MPS2 * torqueFactor;
-
-    const coastDrag =
-      kart.speedMps > 0.001
-        ? (1 - throttle) * MOTOR_DRAG_DECEL_MPS2 + 0.22 * speedRatio * speedRatio
-        : 0;
-    const scrubDrag = kart.speedMps > 0.5 ? axleScrub * 2.2 : 0;
-
-    const effectiveBrakeDecelFactor = isTrailBraking ? 0.55 : 1.0;
-    const brakeDecel =
-      kart.speedMps > 0.001
-        ? brake * MAX_REAR_BRAKE_DECEL_MPS2 * effectiveBrakeDecelFactor
-        : 0;
-    const rawAccel = driveAccel - coastDrag - scrubDrag - brakeDecel;
-
-    const prevSpeed = kart.speedMps;
-    const nextSpeedMps = Math.max(
-      0,
-      Math.min(MAX_KART_SPEED_MPS, prevSpeed + rawAccel * dtSeconds),
-    );
-
-    const understeerPenalty = 1 - 0.36 * axleScrub;
-    const trailRotationBoost =
-      isTrailBraking ? 1.28 : brake > 0.85 && absSteerNorm > 0.2 ? 1.35 : 1.0;
-    const yawRate =
-      nextSpeedMps > 0.05
-        ? (nextSpeedMps / WHEELBASE_METERS) *
-          Math.tan(steerAngleRad) *
-          understeerPenalty *
-          trailRotationBoost
-        : 0;
-    const nextHeading = kart.headingRad + yawRate * dtSeconds;
-    const lateralAccelMps2 = nextSpeedMps * yawRate;
-
-    const nextPosition = {
-      x: kart.position.x + Math.cos(nextHeading) * nextSpeedMps * dtSeconds,
-      z: kart.position.z + Math.sin(nextHeading) * nextSpeedMps * dtSeconds,
-    };
-
-  return { position: nextPosition, headingRad: nextHeading, speedMps: nextSpeedMps,
-    forwardAccelMps2: rawAccel, lateralAccelMps2, steerAngleRad, isTrailBraking, axleScrub };
+  // Combined tire budget: drive/braking and turning share the same finite grip.
+  const tireLongitudinalDemand = motorAccel - brakeDecel - scrubDrag;
+  const lateralBudget = Math.sqrt(Math.max(0, MAX_TIRE_ACCEL_MPS2 ** 2 - tireLongitudinalDemand ** 2));
+  const desiredYaw = speedMps > 0.05 ? speedMps * Math.tan(steerAngleRad) / WHEELBASE_METERS / (1 + 0.25 * axleScrub) : 0;
+  const yawLimit = speedMps > 0.05 ? lateralBudget / speedMps : 0;
+  const yawTarget = Math.max(-yawLimit, Math.min(yawLimit, desiredYaw));
+  const response = 1 - Math.exp(-dtSeconds / 0.095);
+  const yawRateRadPerSecond = Math.max(-yawLimit, Math.min(yawLimit,
+    kart.yawRateRadPerSecond + (yawTarget - kart.yawRateRadPerSecond) * response));
+  const headingRad = kart.headingRad + yawRateRadPerSecond * dtSeconds;
+  const previousTravelHeading = kart.speedMps > 0.05 ? Math.atan2(kart.velocity.z, kart.velocity.x) : headingRad;
+  const neededTravelTurn = wrapAngleRad(headingRad - previousTravelHeading);
+  const maximumTravelTurn = speedMps > 0.05 ? lateralBudget / speedMps * dtSeconds : Math.PI;
+  const travelTurn = Math.max(-maximumTravelTurn, Math.min(maximumTravelTurn, neededTravelTurn));
+  const travelHeading = previousTravelHeading + travelTurn;
+  const velocity = { x: Math.cos(travelHeading) * speedMps, z: Math.sin(travelHeading) * speedMps };
+  const position = { x: kart.position.x + velocity.x * dtSeconds, z: kart.position.z + velocity.z * dtSeconds };
+  const lateralAccelMps2 = speedMps * travelTurn / dtSeconds;
+  const gripDemandRatio = Math.abs(demandedLateralAccel) / Math.max(0.1, lateralBudget);
+  const slipRatio = Math.min(1, Math.max(axleScrub, Math.abs(Math.sin(headingRad - travelHeading)), 1 - 1 / Math.max(1, gripDemandRatio)));
+  const isTrailBraking = speedMps > 2 && Math.abs(steer) > 0.08 && brake > 0.05 && brake < 0.8;
+  return {
+    position, headingRad, velocity, yawRateRadPerSecond, speedMps,
+    forwardAccelMps2: (speedMps - kart.speedMps) / dtSeconds,
+    lateralAccelMps2, steerAngleRad, isTrailBraking, axleScrub, slipRatio,
+    throttleInput: throttle, brakeInput: brake,
+  };
 }

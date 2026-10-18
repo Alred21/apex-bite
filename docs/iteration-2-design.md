@@ -4,7 +4,7 @@ This document records the design interview begun on 2026-10-18. Both question ro
 
 Published as [GitHub issue #8](https://github.com/Alred21/apex-bite/issues/8), labeled `ready-for-agent`. The issue contains the implementation scope, 50 User Stories, Testing Decisions, and Out of Scope boundaries. [Publication screenshot](iteration-2-published.jpg).
 
-The proposed [ticket breakdown](iteration-2-ticket-plan.md) records complete slices and their blocking edges for approval before child issues are published.
+The approved breakdown is published as [GitHub sub-issues #9–#21](iteration-2-tickets.md) with native blocking relationships. GitHub holds the canonical ticket bodies and acceptance criteria.
 
 ## Settled decisions
 

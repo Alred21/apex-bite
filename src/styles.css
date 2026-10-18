@@ -528,3 +528,22 @@ body,
 }
 
 
+
+/* Training data stays inspectable on laptop and narrow screens. */
+.training-records {
+  max-height: 230px;
+  overflow: auto;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+.training-records section {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--panel-border);
+}
+.training-records h3 {
+  font-size: 0.8rem;
+  margin: 0 0 5px;
+}
+.training-records p { margin: 4px 0; }
+.hud-dialog { max-height: 90vh; overflow: auto; }
+.dialog-actions { flex-wrap: wrap; }

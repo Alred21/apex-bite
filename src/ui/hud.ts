@@ -180,9 +180,13 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
     <dialog id="hud-data-dialog" class="hud-dialog" closedby="any" aria-labelledby="hud-dialog-title">
       <form method="dialog" class="dialog-content">
         <h2 id="hud-dialog-title">Portable Training Data (JSON)</h2>
-        <p class="dialog-desc">Copy your Personal Bests & Ghost replays, or paste exported JSON below to restore:</p>
-        <textarea id="hud-data-textarea" rows="8" spellcheck="false"></textarea>
+        <p class="dialog-desc">Inspect current and legacy records below. Copy the JSON to back up every revision, or paste a backup to import. Imported revisions replace matching revisions; other saved revisions are retained.</p>
+        <div id="hud-data-records" class="training-records" aria-label="Current and legacy records"></div>
+        <label for="hud-data-textarea">Training data JSON</label>
+        <textarea id="hud-data-textarea" rows="6" spellcheck="false"></textarea>
+        <p id="hud-data-feedback" class="dialog-desc" role="status" aria-live="polite"></p>
         <div class="dialog-actions">
+          <button type="button" class="hud-btn" id="hud-btn-export-refresh">Refresh export</button>
           <button type="button" class="hud-btn" id="hud-btn-import-apply">Import JSON</button>
           <button type="submit" class="hud-btn">Close</button>
         </div>
@@ -237,6 +241,38 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
   const dataDialog = root.querySelector<HTMLDialogElement>('#hud-data-dialog')!;
   const dataTextarea = root.querySelector<HTMLTextAreaElement>('#hud-data-textarea')!;
   const importApplyBtn = root.querySelector<HTMLButtonElement>('#hud-btn-import-apply')!;
+  const exportRefreshBtn = root.querySelector<HTMLButtonElement>('#hud-btn-export-refresh')!;
+  const dataRecords = root.querySelector<HTMLElement>('#hud-data-records')!;
+  const dataFeedback = root.querySelector<HTMLElement>('#hud-data-feedback')!;
+  let latestTrainingData: SessionSnapshot['trainingData'] | null = null;
+
+  function refreshRecordInspection(): void {
+    if (!latestTrainingData) return;
+    dataRecords.replaceChildren();
+    const addRecords = (label: string, records: SessionSnapshot['trainingData']['current']): void => {
+      const section = document.createElement('section');
+      const heading = document.createElement('h3');
+      heading.textContent = `${label} · ${records.revision.handling} / ${records.revision.circuit}`;
+      const details = document.createElement('p');
+      const sectors = records.bestSectorSplits.map(formatSeconds).join(' / ');
+      const drills = Object.entries(records.drillPersonalBests).map(([id, seconds]) => `${id}: ${formatSeconds(seconds ?? null)}`).join(' · ');
+      details.textContent = `Personal Best: ${formatSeconds(records.personalBestSeconds)} · Sectors: ${sectors} · Ghost Kart: ${records.ghostFrameCount} replay frames`;
+      const drillDetails = document.createElement('p');
+      drillDetails.textContent = `Corner Drill records: ${drills || 'None'}`;
+      section.append(heading, details, drillDetails);
+      dataRecords.append(section);
+    };
+    addRecords('Current comparisons', latestTrainingData.current);
+    for (const records of latestTrainingData.legacy) addRecords('Legacy · excluded from current comparisons', records);
+    if (!latestTrainingData.legacy.length) {
+      const empty = document.createElement('p');
+      empty.textContent = 'No legacy records.';
+      dataRecords.append(empty);
+    }
+  }
+
+  // Text editing and dialog actions must not trigger driving shortcuts.
+  dataDialog.addEventListener('keydown', (event) => event.stopPropagation());
 
   // Fallback for browsers without <dialog closedby="any"> support (e.g. Safari)
   if (typeof HTMLDialogElement !== 'undefined' && !('closedBy' in HTMLDialogElement.prototype)) {
@@ -285,14 +321,31 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
 
   dataBtn.addEventListener('click', () => {
     dataTextarea.value = callbacks.onExportData?.() ?? '';
+    dataFeedback.textContent = latestTrainingData?.message ?? '';
+    refreshRecordInspection();
     dataDialog.showModal();
     dataBtn.blur();
   });
 
+  exportRefreshBtn.addEventListener('click', () => {
+    dataTextarea.value = callbacks.onExportData?.() ?? '';
+    dataFeedback.textContent = 'Export refreshed. Copy this JSON to keep all current and legacy records.';
+    refreshRecordInspection();
+  });
+
   importApplyBtn.addEventListener('click', () => {
-    if (dataTextarea.value.trim()) {
+    if (!dataTextarea.value.trim()) {
+      dataFeedback.textContent = 'Paste exported training data first.';
+      return;
+    }
+    try {
       callbacks.onImportData?.(dataTextarea.value.trim());
-      dataDialog.close();
+      dataTextarea.value = callbacks.onExportData?.() ?? '';
+      dataFeedback.textContent = 'Import complete. Current and legacy records have been retained.';
+      // The next HUD update refreshes the inspection from the committed session snapshot.
+      latestTrainingData = null;
+    } catch (error) {
+      dataFeedback.textContent = error instanceof Error ? error.message : 'Import failed. No records were changed.';
     }
   });
 
@@ -398,6 +451,9 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
 
   function update(snapshot: SessionSnapshot): void {
     const { kart, camera, lap, ghost, drill, mode } = snapshot;
+    const needsRecordRefresh = latestTrainingData === null;
+    latestTrainingData = snapshot.trainingData;
+    if (dataDialog.open && needsRecordRefresh) refreshRecordInspection();
     speedEl.textContent = kart.speedKph.toFixed(1);
     throttleBar.style.width = `${Math.round(kart.throttleInput * 100)}%`;
     brakeBar.style.width = `${Math.round(kart.brakeInput * 100)}%`;

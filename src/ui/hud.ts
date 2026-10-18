@@ -1,6 +1,9 @@
 import { DrillTargetId, PracticeMode, SessionSnapshot } from '../simulation/types';
+import { GraphicsQuality } from '../render/graphics';
 
 export interface HudCallbacks {
+  initialGraphicsQuality?: GraphicsQuality;
+  onSelectGraphicsQuality?: (quality: GraphicsQuality) => void;
   onToggleCamera?: () => void;
   onToggleRacingLine?: () => void;
   onCycleGhostMode?: () => void;
@@ -78,6 +81,12 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
           <button type="button" class="hud-btn" id="hud-btn-ghost" title="Cycle Ghost Kart Mode (G)">
             GHOST [G]: <strong id="hud-ghost-label">Track Record</strong>
           </button>
+          <label class="hud-select-wrap" id="hud-graphics-wrap" title="Performance reduces resolution and disables shadows. Balanced uses compact shadows. High increases resolution and shadow detail.">
+            <span>GRAPHICS:</span>
+            <select id="hud-graphics-quality" class="hud-select" aria-label="Graphics quality">
+              <option>Performance</option><option selected>Balanced</option><option>High</option>
+            </select>
+          </label>
           <button type="button" class="hud-btn" id="hud-btn-data" title="Export or Import Training Data JSON">
             DATA JSON
           </button>
@@ -217,6 +226,15 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
       </form>
     </dialog>
   `;
+
+  const graphicsWrap = root.querySelector<HTMLElement>('#hud-graphics-wrap')!;
+  const graphicsSelect = root.querySelector<HTMLSelectElement>('#hud-graphics-quality')!;
+  graphicsWrap.hidden = !callbacks.onSelectGraphicsQuality;
+  graphicsSelect.value = callbacks.initialGraphicsQuality ?? 'Balanced';
+  graphicsSelect.addEventListener('change', () => {
+    callbacks.onSelectGraphicsQuality?.(graphicsSelect.value as GraphicsQuality);
+    graphicsSelect.blur();
+  });
 
   const lapLimitWrap = root.querySelector<HTMLElement>('#hud-lap-limit-wrap')!;
   const lapLimitSelect = root.querySelector<HTMLSelectElement>('#hud-lap-limit')!;

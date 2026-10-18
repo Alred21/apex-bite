@@ -1,7 +1,11 @@
 import { DrillTargetId, PracticeMode, SessionSnapshot } from '../simulation/types';
 import { GraphicsQuality } from '../render/graphics';
+import type { KartAudioState } from '../audio/kart-audio';
 
 export interface HudCallbacks {
+  getAudioState?: () => KartAudioState;
+  onToggleAudio?: () => void;
+  onAudioVolume?: (volume: number) => void;
   initialGraphicsQuality?: GraphicsQuality;
   onSelectGraphicsQuality?: (quality: GraphicsQuality) => void;
   onToggleCamera?: () => void;
@@ -87,6 +91,11 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
               <option>Performance</option><option selected>Balanced</option><option>High</option>
             </select>
           </label>
+          <div class="hud-audio-controls" id="hud-audio-controls">
+            <button type="button" class="hud-btn" id="hud-btn-audio" title="Enable sound after a click, then toggle mute">SOUND: ENABLE</button>
+            <label class="hud-volume-label">VOL <input type="range" id="hud-audio-volume" aria-label="Sound volume" min="0" max="100" step="1" value="35"></label>
+            <meter id="hud-audio-meter" min="0" max="1" value="0" aria-label="Audio output level"></meter>
+          </div>
           <button type="button" class="hud-btn" id="hud-btn-data" title="Export or Import Training Data JSON">
             DATA JSON
           </button>
@@ -230,6 +239,14 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
       </form>
     </dialog>
   `;
+
+  const audioControls = root.querySelector<HTMLElement>('#hud-audio-controls')!;
+  const audioButton = root.querySelector<HTMLButtonElement>('#hud-btn-audio')!;
+  const audioVolume = root.querySelector<HTMLInputElement>('#hud-audio-volume')!;
+  const audioMeter = root.querySelector<HTMLMeterElement>('#hud-audio-meter')!;
+  audioControls.hidden = !callbacks.getAudioState;
+  audioButton.addEventListener('click', () => { callbacks.onToggleAudio?.(); audioButton.blur(); });
+  audioVolume.addEventListener('input', () => callbacks.onAudioVolume?.(Number(audioVolume.value) / 100));
 
   const graphicsWrap = root.querySelector<HTMLElement>('#hud-graphics-wrap')!;
   const graphicsSelect = root.querySelector<HTMLSelectElement>('#hud-graphics-quality')!;
@@ -519,6 +536,14 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
     latestTrainingData = snapshot.trainingData;
     if (dataDialog.open && needsRecordRefresh) refreshRecordInspection();
     const { kart, camera, lap, ghost, drill, mode, timeTrial } = snapshot;
+    const audio = callbacks.getAudioState?.();
+    if (audio) {
+      const label = audio.status === 'Off' ? 'ENABLE' : audio.status === 'Running' ? 'ON' : audio.status.toUpperCase();
+      audioButton.textContent = `SOUND: ${label}`;
+      audioButton.setAttribute('aria-pressed', String(audio.status === 'Running'));
+      audioVolume.value = String(Math.round(audio.volume * 100));
+      audioMeter.value = Math.min(1, audio.outputLevel * 10);
+    }
     lapLimitWrap.hidden = mode !== 'Time Trial';
     lapLimitSelect.value = timeTrial.lapLimit === null ? 'unlimited' : String(timeTrial.lapLimit);
     const finished = mode === 'Time Trial' && timeTrial.status === 'Finished';

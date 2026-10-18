@@ -1,17 +1,17 @@
 # Apex Bite
 
-A 3D indoor electric go-kart training simulator modeled after K1 Speed Toronto, designed to help drivers master the racing line, cornering physics, and turn-by-turn execution to beat the 24.499s track record.
+A 3D indoor electric go-kart training simulator modeled after K1 Speed Toronto, designed to help drivers improve Racing Line choice, cornering technique, and real-world lap performance.
 
 ## Language
 
 ### Track & Geometry
 
 **Circuit**:
-The complete closed-loop K1 Speed Toronto indoor track layout (~245m centerline length, variable ~4.8m–6.0m width) consisting of the start/finish straight and 11 clockwise-ordered turns (T1–T11) bounded by continuous indoor barriers.
+The complete closed-loop K1 Speed Toronto indoor track layout, consisting of the start/finish straight and 11 clockwise-ordered Turns (T1–T11) bounded by continuous indoor Barriers.
 _Avoid_: Map, level, stage, course
 
 **Turn**:
-One of the 11 officially numbered corners on the Circuit (T1 through T11), defined by an entry gate, an ideal apex point, and an exit gate.
+One of the 11 officially numbered corners on the Circuit (T1 through T11), with an entry, an apex target derived from the Reference Lap, and an exit.
 _Avoid_: Curve, bend
 
 **Corner Complex**:
@@ -27,7 +27,7 @@ The continuous red-and-white physical wall enclosing the indoor track surface; g
 _Avoid_: Fence, guardrail, off-track, runoff
 
 **Racing Line**:
-The optimal geometric path around the Circuit, rendered on the track surface with live speed-reactive color cues (Green = Full Throttle, Yellow = Coast/Lift, Red = Brake) comparing the Kart's current speed against the target speed profile ahead.
+The validated reference path for a fast, physically achievable full lap, accounting for compromises between connected Turns. Its throttle, coast, and brake cues account for the Kart's current speed, position, heading, and upcoming Turns; the path remains stable during a session.
 _Avoid_: Guide line, path, driving line, trajectory
 
 ### Kart & Physics
@@ -44,6 +44,10 @@ _Avoid_: Understeer drag, diff lock, tire bind
 Carrying controlled rear-only braking past the turn-in point to shift weight onto the front tires, unload the rear axle, and induce smooth rear rotation toward the apex.
 _Avoid_: Drift braking, handbrake turn, powerslide
 
+**Keyboard Assistance**:
+The translation of steering and pedal key presses into progressive Kart inputs, with steering response adapted to speed. The driver remains responsible for the Racing Line, braking points, and recovery from mistakes.
+_Avoid_: Autopilot, auto-steering, self-driving
+
 ### Cameras & Views
 
 **Helmet Cam**:
@@ -57,7 +61,7 @@ _Avoid_: Follow cam, drone view, orbit cam
 ### Training & Telemetry
 
 **Time Trial**:
-A continuous full-Circuit practice mode initialized from a Flying Start, tracking lap times, Sector splits, and live time-delta against a reference lap.
+A solo full-Circuit practice mode initialized from a Flying Start, tracking lap times, Sector splits, and live time-delta against a reference lap. A session has a selected lap limit, defaulting to 12 timed laps, or explicitly selected unlimited practice, with results presented after a limited session finishes.
 _Avoid_: Free roam, arcade mode, race mode, grand prix
 
 **Flying Start**:
@@ -73,19 +77,27 @@ The initial state at the start of a Corner Drill where the Kart spawns prior to 
 _Avoid_: Rolling spawn, boosted start, hot spawn
 
 **Time-Delta Bar**:
-A live horizontal HUD indicator showing the real-time time difference (`+/- 0.000s`) between the current run and the active reference lap (24.499s Track Record or Personal Best) at the exact same track progress point.
+A live horizontal HUD indicator showing the time difference between the current run and the active Reference Lap or Personal Best at the same Circuit progress point.
 _Avoid_: Split bar, gap meter
+
+**Reference Lap**:
+A complete simulated lap validated against the same Kart dynamics used by the driver, supplying consistent Racing Line speeds, Ghost Kart timing, and coaching targets. Its lap time is the outcome of an achievable traversal, rather than a prescribed real-world time.
+_Avoid_: Track Record Lap, synthetic record, target-time lap
+
+**Real-World Benchmark**:
+A lap time reported for the physical K1 Toronto Circuit, kept separate from the simulated Reference Lap. The supplied 24.499-second time is a comparison benchmark, not a constraint on simulated grip or lap timing.
+_Avoid_: Simulation record, Reference Lap
 
 **Corner Execution Card**:
 The post-attempt telemetry summary displayed after completing a Corner Drill, showing Segment Time and Delta, Entry/Min Apex/Exit Speeds, Apex Proximity, and a Coaching Insight.
 _Avoid_: Scoreboard, results popup, grade screen
 
 **Apex Proximity**:
-The minimum lateral distance (in centimeters) between the Kart's inside front tire and the ideal geometric apex point during a Turn pass.
+The minimum distance, in centimeters, between the Kart's inside front tire and the Reference Lap's inside-front-tire apex target during a Turn pass.
 _Avoid_: Corner distance, clip score, apex miss
 
 **Coaching Insight**:
-An automated physics-based diagnostic message generated from a Turn pass that identifies the primary cause of time loss or gain (such as late braking, missed apex, or excessive Axle Scrub).
+An evidence-based diagnostic message generated from a Turn pass describing measured execution and time loss or gain. A causal explanation is included only when the recorded driving evidence supports it.
 _Avoid_: Tip, hint, AI advice
 
 **Clean Lap**:
@@ -93,5 +105,5 @@ A completed lap in Time Trial (or attempt in Corner Drill) executed with zero Ba
 _Avoid_: Valid lap, legal lap, penalty-free lap
 
 **Ghost Kart**:
-A non-colliding translucent visual replay rendered simultaneously on the Circuit for spatial comparison, selectable between the built-in 24.499s Track Record Ghost, the player's Personal Best Ghost, Both, or Off.
+A non-colliding translucent replay of the Reference Lap or the driver's Personal Best, rendered on the Circuit for spatial comparison. Replays from earlier handling or Circuit versions remain legacy records, separate from current comparisons.
 _Avoid_: Shadow car, AI opponent, bot

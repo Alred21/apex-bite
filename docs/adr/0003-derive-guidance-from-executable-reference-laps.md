@@ -1,0 +1,3 @@
+# Derive training guidance from executable Reference Laps
+
+Racing Line geometry, target speeds, Ghost Kart timing, and coaching must agree with an achievable lap under the same Kart dynamics used by the player. We choose candidates for fast full-lap performance, including compromises between connected Turns, and validate swept Kart clearance and executable controls instead of pinning every apex and adjusting grip to force a 24.499-second result. The supplied 24.499-second Real-World Benchmark remains a separate comparison, and records from prior handling or Circuit versions are preserved as legacy data rather than mixed with current comparisons.

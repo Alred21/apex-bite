@@ -87,6 +87,9 @@ function bootstrap(): void {
       session.cycleGhostMode();
     },
     onToggleMode: togglePracticeMode,
+    onSelectTimeTrialLapLimit: (lapLimit) => {
+      session.setTimeTrialLapLimit(lapLimit);
+    },
     onSelectDrillTarget: (targetId) => {
       session.selectDrillTarget(targetId);
     },

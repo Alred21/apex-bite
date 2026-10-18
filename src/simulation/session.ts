@@ -31,6 +31,7 @@ import {
   SectorSplitsTuple,
   SessionSnapshot,
   TurnNumber,
+  TimeTrialState,
   Vector2D,
 } from './types';
 
@@ -68,6 +69,7 @@ export interface SimulationSession {
   toggleRacingLine(): SessionSnapshot;
   cycleGhostMode(): SessionSnapshot;
   setPracticeMode(mode: PracticeMode): SessionSnapshot;
+  setTimeTrialLapLimit(lapLimit: number | null): SessionSnapshot;
   selectDrillTarget(targetId: DrillTargetId): SessionSnapshot;
   reset(): SessionSnapshot;
   exportTrainingDataJson(): string;
@@ -385,6 +387,14 @@ export function createSimulationSession(
   let drillSawTrailBraking = false;
   let drillApexMinDistMeters = new Map<TurnNumber, number>();
 
+  let timeTrial: TimeTrialState = {
+    lapLimit: 12,
+    status: 'Flying Start',
+    completedLaps: [],
+    totalSeconds: 0,
+    bestCleanLapSeconds: null,
+  };
+
   let lap: LapSummaryState = {
     isClean: true,
     currentLapSeconds: 0,
@@ -420,6 +430,9 @@ export function createSimulationSession(
   };
 
   function spawnAtTimeTrialFlyingStart(): void {
+    timeTrial = { ...timeTrial, status: 'Flying Start', completedLaps: [], totalSeconds: 0, bestCleanLapSeconds: null };
+    lap.lastLapSeconds = null;
+    lap.lastSectorSplits = [null, null, null];
     keyboardBrakeHoldSeconds = 0;
     keyboardSteerHoldSeconds = 0;
     smoothedSteer = 0;
@@ -619,6 +632,7 @@ export function createSimulationSession(
   }
 
   function step(dtSeconds = FIXED_TIMESTEP_SECONDS, input: DriverInput = {}): SessionSnapshot {
+    if (mode === 'Time Trial' && timeTrial.status === 'Finished') return getSnapshot();
     const keyThrottle = input.keys?.up ? 1 : 0;
     const gpThrottle = input.gamepad?.throttle ?? 0;
     const throttle = Math.max(
@@ -904,7 +918,7 @@ export function createSimulationSession(
       return getSnapshot();
     }
 
-    lap.currentLapSeconds += dtSeconds;
+    if (lap.lapNumber >= 1) lap.currentLapSeconds += dtSeconds;
 
     // Record Ghost sample every 3 ticks (~40 Hz) during timed laps
     if (lap.lapNumber >= 1 && tick % 3 === 0) {
@@ -952,6 +966,16 @@ export function createSimulationSession(
         lap.currentSectorSplits[2] = s3;
         lap.lastSectorSplits = [s1, s2, s3];
         lap.lastLapSeconds = finishedLapSeconds;
+        timeTrial.completedLaps.push({
+          lapNumber: lap.lapNumber,
+          seconds: finishedLapSeconds,
+          isClean: lap.isClean,
+          sectorSplits: [s1, s2, s3],
+        });
+        timeTrial.totalSeconds += finishedLapSeconds;
+        if (lap.isClean && (timeTrial.bestCleanLapSeconds === null || finishedLapSeconds < timeTrial.bestCleanLapSeconds)) {
+          timeTrial.bestCleanLapSeconds = finishedLapSeconds;
+        }
 
         if (lap.isClean) {
           if (lap.bestSectorSplits[2] === null || s3 < lap.bestSectorSplits[2]) {
@@ -977,6 +1001,11 @@ export function createSimulationSession(
         }
       }
 
+      if (timeTrial.lapLimit !== null && timeTrial.completedLaps.length >= timeTrial.lapLimit) {
+        timeTrial.status = 'Finished';
+        return getSnapshot();
+      }
+      timeTrial.status = 'Driving';
       lap.lapNumber += 1;
       lap.currentLapSeconds = 0;
       lap.isClean = !barrierContact;
@@ -1022,6 +1051,17 @@ export function createSimulationSession(
       spawnAtDrillFlyingEntry();
     } else {
       spawnAtTimeTrialFlyingStart();
+    }
+    return getSnapshot();
+  }
+
+  function setTimeTrialLapLimit(lapLimit: number | null): SessionSnapshot {
+    if (lapLimit !== null && (!Number.isInteger(lapLimit) || lapLimit < 1 || lapLimit > 99)) {
+      throw new RangeError('Choose 1–99 timed laps or unlimited practice.');
+    }
+    if (timeTrial.lapLimit !== lapLimit) {
+      timeTrial.lapLimit = lapLimit;
+      if (mode === 'Time Trial') spawnAtTimeTrialFlyingStart();
     }
     return getSnapshot();
   }
@@ -1176,6 +1216,13 @@ export function createSimulationSession(
         lastSectorSplits: [...lap.lastSectorSplits] as SectorSplitsTuple,
         bestSectorSplits: [...lap.bestSectorSplits] as SectorSplitsTuple,
       },
+      timeTrial: {
+        ...timeTrial,
+        completedLaps: timeTrial.completedLaps.map((completed) => ({
+          ...completed,
+          sectorSplits: [...completed.sectorSplits] as SectorSplitsTuple,
+        })),
+      },
       racingLine,
       ghost,
       drill,
@@ -1195,6 +1242,7 @@ export function createSimulationSession(
     toggleRacingLine,
     cycleGhostMode,
     setPracticeMode,
+    setTimeTrialLapLimit,
     selectDrillTarget,
     reset,
     exportTrainingDataJson,

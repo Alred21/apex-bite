@@ -129,6 +129,21 @@ export interface RacingLineState {
 
 export type SectorSplitsTuple = [number | null, number | null, number | null];
 
+export interface CompletedTimeTrialLap {
+  lapNumber: number;
+  seconds: number;
+  isClean: boolean;
+  sectorSplits: SectorSplitsTuple;
+}
+
+export interface TimeTrialState {
+  lapLimit: number | null; // null explicitly selects unlimited practice
+  status: 'Flying Start' | 'Driving' | 'Finished';
+  completedLaps: CompletedTimeTrialLap[];
+  totalSeconds: number;
+  bestCleanLapSeconds: number | null;
+}
+
 export interface LapSummaryState {
   isClean: boolean;
   currentLapSeconds: number;
@@ -238,6 +253,7 @@ export interface SessionSnapshot {
   kart: KartState;
   camera: CameraState;
   lap: LapSummaryState;
+  timeTrial: TimeTrialState;
   racingLine: RacingLineState;
   ghost: GhostState;
   drill: DrillState;

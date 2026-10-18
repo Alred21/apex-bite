@@ -77,6 +77,8 @@ function bootstrap(): void {
   };
   const renderer = createCircuitRenderer(canvas, session.getSnapshot());
   const hud = createHudView(hudRoot, {
+    initialGraphicsQuality: renderer.getGraphicsQuality(),
+    onSelectGraphicsQuality: (quality) => renderer.setGraphicsQuality(quality),
     onToggleCamera: () => {
       session.toggleCamera();
     },

@@ -4,7 +4,7 @@ import {
   MAX_TIRE_ACCEL_MPS2,
 } from './kart-parameters';
 import type { Vector2D } from './types';
-import { wrapAngleRad } from './circuit';
+import { wrapAngleRad } from './planar-math';
 
 export interface KartCommand { throttle: number; brake: number; steer: number; }
 

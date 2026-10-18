@@ -333,6 +333,25 @@ export function createCircuitRenderer(
   const kartRig = buildKartMesh();
   scene.add(kartRig.root);
 
+  // Dynamic rear-tire scrub / skid marks pool on the indoor floor
+  const maxSkidMarks = 320;
+  const skidPool: THREE.Mesh[] = [];
+  const skidGeo = new THREE.PlaneGeometry(0.28, 0.16);
+  skidGeo.rotateX(-Math.PI / 2);
+  const skidMat = new THREE.MeshBasicMaterial({
+    color: 0x090b10,
+    transparent: true,
+    opacity: 0.48,
+  });
+  for (let i = 0; i < maxSkidMarks; i++) {
+    const m = new THREE.Mesh(skidGeo, skidMat);
+    m.visible = false;
+    scene.add(m);
+    skidPool.push(m);
+  }
+  let skidCursor = 0;
+  let lastSkidTick = -10;
+
   window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
@@ -347,6 +366,33 @@ export function createCircuitRenderer(
 
     kartRig.frontLeftPivot.rotation.y = -kart.steerAngleRad;
     kartRig.frontRightPivot.rotation.y = -kart.steerAngleRad;
+
+    // Emit rear-tire scrub/skid marks when sliding or experiencing heavy Axle Scrub
+    if (
+      (kart.axleScrub > 0.22 || kart.slipRatio > 0.28) &&
+      kart.speedKph > 8 &&
+      snapshot.tick - lastSkidTick >= 2
+    ) {
+      lastSkidTick = snapshot.tick;
+      const cosH = Math.cos(kart.headingRad);
+      const sinH = Math.sin(kart.headingRad);
+      const rightX = -sinH;
+      const rightZ = cosH;
+      const rearAxleX = kart.position.x - cosH * 0.52;
+      const rearAxleZ = kart.position.z - sinH * 0.52;
+
+      for (const side of [-0.58, 0.58]) {
+        const mark = skidPool[skidCursor % maxSkidMarks];
+        skidCursor += 1;
+        mark.position.set(
+          rearAxleX + rightX * side,
+          0.018,
+          rearAxleZ + rightZ * side,
+        );
+        mark.rotation.y = -kart.headingRad;
+        mark.visible = true;
+      }
+    }
 
     camera.position.set(camState.position.x, camState.position.y, camState.position.z);
     camera.lookAt(camState.lookAt.x, camState.lookAt.y, camState.lookAt.z);

@@ -35,19 +35,22 @@ import {
   Vector2D,
 } from './types';
 
-export const FIXED_TIMESTEP_SECONDS = 1 / 120;
-export const MAX_KART_SPEED_KPH = 45.0;
-export const MAX_KART_SPEED_MPS = MAX_KART_SPEED_KPH / 3.6; // 12.5 m/s
-export const FLYING_START_SPEED_KPH = 36.0;
-export const FLYING_START_SPEED_MPS = FLYING_START_SPEED_KPH / 3.6; // 10.0 m/s
-export const FLYING_START_DISTANCE_METERS = 236.0; // Exiting Turn 11 onto the main straight
+import {
+  FIXED_TIMESTEP_SECONDS,
+  MAX_KART_SPEED_MPS,
+  FLYING_START_SPEED_KPH,
+  FLYING_START_SPEED_MPS,
+  FLYING_START_DISTANCE_METERS,
+  WHEELBASE_METERS,
+  MAX_STEER_ANGLE_RAD,
+  KART_HALF_WIDTH_METERS,
+} from './kart-parameters';
+import { stepKartDynamics } from './kart-dynamics';
+export {
+  FIXED_TIMESTEP_SECONDS, MAX_KART_SPEED_KPH, MAX_KART_SPEED_MPS,
+  FLYING_START_SPEED_KPH, FLYING_START_SPEED_MPS, FLYING_START_DISTANCE_METERS,
+} from './kart-parameters';
 
-const PEAK_LAUNCH_ACCEL_MPS2 = 5.2;
-const MOTOR_DRAG_DECEL_MPS2 = 1.45;
-const MAX_REAR_BRAKE_DECEL_MPS2 = 8.8;
-const WHEELBASE_METERS = 1.06;
-const MAX_STEER_ANGLE_RAD = 0.46;
-const KART_HALF_WIDTH_METERS = 0.45;
 const STORAGE_KEY = 'apex-bite:training-data:v2';
 const LEGACY_STORAGE_KEY = 'apex-bite:training-data:v1';
 
@@ -697,76 +700,13 @@ export function createSimulationSession(
       }
     }
 
-    const steerAngleRad = smoothedSteer * MAX_STEER_ANGLE_RAD;
+    const dynamics = stepKartDynamics(kart, { throttle, brake, steer: smoothedSteer }, dtSeconds);
+    const { steerAngleRad, isTrailBraking, axleScrub, lateralAccelMps2 } = dynamics;
     const absSteerNorm = Math.abs(steerAngleRad) / MAX_STEER_ANGLE_RAD;
-
-    const isTrailBraking =
-      kart.speedMps > 2.0 &&
-      absSteerNorm > 0.08 &&
-      brake >= 0.2 &&
-      brake <= 0.72;
-
-    // Continuous planar four-tire longitudinal & lateral load transfer
-    const longWeightTransfer = isTrailBraking
-      ? 0.42 + brake * 0.22
-      : brake > 0.72
-        ? 0.32
-        : brake > 0.01
-          ? brake * 0.35
-          : -throttle * 0.12;
-    const latWeightTransfer = Math.min(0.28, (kart.speedMps / MAX_KART_SPEED_MPS) * absSteerNorm * 0.24);
-    const insideRearUnload = Math.max(
-      -0.15,
-      Math.min(0.74, longWeightTransfer + (isTrailBraking ? latWeightTransfer * 0.35 : 0)),
-    );
-
-    const rawAxleScrub =
-      speedRatio *
-      absSteerNorm *
-      1.15 *
-      Math.max(0.18, 0.92 - insideRearUnload);
-    const axleScrub = Math.max(0, Math.min(1, rawAxleScrub));
-
-    // Direct-drive electric motor torque curve tapering into hard 45.0 km/h electronic governor
-    const torqueFactor = Math.max(0.88, 1 - 0.12 * Math.pow(speedRatio, 1.8));
-    const driveAccel = throttle * PEAK_LAUNCH_ACCEL_MPS2 * torqueFactor;
-
-    const coastDrag =
-      kart.speedMps > 0.001
-        ? (1 - throttle) * MOTOR_DRAG_DECEL_MPS2 + 0.22 * speedRatio * speedRatio
-        : 0;
-    const scrubDrag = kart.speedMps > 0.5 ? axleScrub * 2.2 : 0;
-
-    const effectiveBrakeDecelFactor = isTrailBraking ? 0.55 : 1.0;
-    const brakeDecel =
-      kart.speedMps > 0.001
-        ? brake * MAX_REAR_BRAKE_DECEL_MPS2 * effectiveBrakeDecelFactor
-        : 0;
-    const rawAccel = driveAccel - coastDrag - scrubDrag - brakeDecel;
-
     const prevSpeed = kart.speedMps;
-    let nextSpeedMps = Math.max(
-      0,
-      Math.min(MAX_KART_SPEED_MPS, prevSpeed + rawAccel * dtSeconds),
-    );
-
-    const understeerPenalty = 1 - 0.36 * axleScrub;
-    const trailRotationBoost =
-      isTrailBraking ? 1.28 : brake > 0.85 && absSteerNorm > 0.2 ? 1.35 : 1.0;
-    const yawRate =
-      nextSpeedMps > 0.05
-        ? (nextSpeedMps / WHEELBASE_METERS) *
-          Math.tan(steerAngleRad) *
-          understeerPenalty *
-          trailRotationBoost
-        : 0;
-    let nextHeading = kart.headingRad + yawRate * dtSeconds;
-    const lateralAccelMps2 = nextSpeedMps * yawRate;
-
-    const nextPosition = {
-      x: kart.position.x + Math.cos(nextHeading) * nextSpeedMps * dtSeconds,
-      z: kart.position.z + Math.sin(nextHeading) * nextSpeedMps * dtSeconds,
-    };
+    let nextSpeedMps = dynamics.speedMps;
+    let nextHeading = dynamics.headingRad;
+    const nextPosition = dynamics.position;
 
     const prevDistance = kart.lapDistanceMeters;
     const prevSector = kart.currentSector;

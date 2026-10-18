@@ -23,6 +23,7 @@ const KART_HALF_WIDTH_METERS = 0.66;
 
 export interface SimulationSession {
   step(dtSeconds?: number, input?: DriverInput): SessionSnapshot;
+  toggleCamera(): SessionSnapshot;
   getSnapshot(): SessionSnapshot;
 }
 
@@ -99,7 +100,7 @@ export function createSimulationSession(): SimulationSession {
 
   let tick = 0;
   let elapsedSeconds = 0;
-  const cameraMode: CameraMode = 'Chase Cam';
+  let cameraMode: CameraMode = 'Chase Cam';
 
   // Progressive keyboard input shaper state
   let keyboardBrakeHoldSeconds = 0;
@@ -119,6 +120,7 @@ export function createSimulationSession(): SimulationSession {
     forwardAccelMps2: 0,
     lateralAccelMps2: 0,
     steerAngleRad: 0,
+    steeringWheelAngleRad: 0,
     throttleInput: 0,
     brakeInput: 0,
     isTrailBraking: false,
@@ -336,6 +338,7 @@ export function createSimulationSession(): SimulationSession {
       forwardAccelMps2: actualForwardAccel,
       lateralAccelMps2,
       steerAngleRad,
+      steeringWheelAngleRad: steerAngleRad * 2.2,
       throttleInput: throttle,
       brakeInput: brake,
       isTrailBraking,
@@ -349,6 +352,11 @@ export function createSimulationSession(): SimulationSession {
       currentSector: nearest.sector,
     };
 
+    return getSnapshot();
+  }
+
+  function toggleCamera(): SessionSnapshot {
+    cameraMode = cameraMode === 'Chase Cam' ? 'Helmet Cam' : 'Chase Cam';
     return getSnapshot();
   }
 
@@ -368,6 +376,7 @@ export function createSimulationSession(): SimulationSession {
 
   return {
     step,
+    toggleCamera,
     getSnapshot,
   };
 }

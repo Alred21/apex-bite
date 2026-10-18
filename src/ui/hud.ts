@@ -2,6 +2,7 @@ import { SessionSnapshot } from '../simulation/types';
 
 export interface HudCallbacks {
   onToggleCamera?: () => void;
+  onToggleRacingLine?: () => void;
 }
 
 export interface HudView {
@@ -16,6 +17,9 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
         <div class="quick-actions">
           <button type="button" class="hud-btn" id="hud-btn-camera" title="Switch Camera View (C or V)">
             CAM [C]: <strong id="hud-camera-label">Chase Cam</strong>
+          </button>
+          <button type="button" class="hud-btn" id="hud-btn-line" title="Toggle Dynamic Racing Line (L)">
+            LINE [L]: <strong id="hud-line-label">ON</strong>
           </button>
         </div>
       </div>
@@ -74,6 +78,8 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
   const trailPill = root.querySelector<HTMLElement>('#hud-trail-pill')!;
   const cameraBtn = root.querySelector<HTMLButtonElement>('#hud-btn-camera')!;
   const cameraLabel = root.querySelector<HTMLElement>('#hud-camera-label')!;
+  const lineBtn = root.querySelector<HTMLButtonElement>('#hud-btn-line')!;
+  const lineLabel = root.querySelector<HTMLElement>('#hud-line-label')!;
   const turnBadge = root.querySelector<HTMLElement>('#hud-turn-badge')!;
   const minimapCanvas = root.querySelector<HTMLCanvasElement>('#hud-minimap-canvas')!;
   const minimapCtx = minimapCanvas.getContext('2d')!;
@@ -81,6 +87,11 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
   cameraBtn.addEventListener('click', () => {
     callbacks.onToggleCamera?.();
     cameraBtn.blur();
+  });
+
+  lineBtn.addEventListener('click', () => {
+    callbacks.onToggleRacingLine?.();
+    lineBtn.blur();
   });
 
   function drawMinimap(snapshot: SessionSnapshot): void {
@@ -165,6 +176,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
     scrubBar.classList.toggle('high-scrub', kart.axleScrub > 0.25);
 
     cameraLabel.textContent = camera.mode;
+    lineLabel.textContent = snapshot.racingLine.visible ? 'ON' : 'OFF';
     turnBadge.textContent = kart.currentTurn
       ? `TURN ${kart.currentTurn} (S${kart.currentSector})`
       : `SECTOR ${kart.currentSector}`;

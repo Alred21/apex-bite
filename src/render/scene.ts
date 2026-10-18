@@ -299,6 +299,87 @@ function buildKartMesh(): {
   return { root, frontLeftPivot, frontRightPivot, steeringWheelPivot: wheelPivot };
 }
 
+function buildRacingLineRibbon(initialSnapshot: SessionSnapshot): {
+  mesh: THREE.Mesh;
+  updateColors: (snapshot: SessionSnapshot) => void;
+} {
+  const points = initialSnapshot.racingLine.points;
+  const n = points.length;
+  const halfWidth = 0.19;
+  const positions: number[] = [];
+  const colors: number[] = [];
+  const indices: number[] = [];
+
+  for (let i = 0; i <= n; i++) {
+    const pt = points[i % n];
+    const nx = -Math.sin(pt.headingRad);
+    const nz = Math.cos(pt.headingRad);
+    positions.push(
+      pt.position.x - nx * halfWidth,
+      0.025,
+      pt.position.z - nz * halfWidth,
+      pt.position.x + nx * halfWidth,
+      0.025,
+      pt.position.z + nz * halfWidth,
+    );
+    colors.push(0.13, 0.77, 0.37, 0.13, 0.77, 0.37);
+
+    if (i < n) {
+      const base = i * 2;
+      indices.push(base, base + 1, base + 2);
+      indices.push(base + 1, base + 3, base + 2);
+    }
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  const colorAttr = new THREE.Float32BufferAttribute(colors, 3);
+  geo.setAttribute('color', colorAttr);
+  geo.setIndex(indices);
+
+  const mat = new THREE.MeshBasicMaterial({
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.88,
+    side: THREE.DoubleSide,
+  });
+
+  const mesh = new THREE.Mesh(geo, mat);
+
+  function updateColors(snapshot: SessionSnapshot): void {
+    mesh.visible = snapshot.racingLine.visible;
+    if (!snapshot.racingLine.visible) return;
+
+    const pts = snapshot.racingLine.points;
+    const arr = colorAttr.array as Float32Array;
+    for (let i = 0; i <= n; i++) {
+      const cue = pts[i % n].liveCue;
+      let r = 0.133;
+      let g = 0.773;
+      let b = 0.369;
+      if (cue === 'Red') {
+        r = 0.937;
+        g = 0.267;
+        b = 0.267;
+      } else if (cue === 'Yellow') {
+        r = 0.918;
+        g = 0.702;
+        b = 0.031;
+      }
+      const offset = i * 6;
+      arr[offset] = r;
+      arr[offset + 1] = g;
+      arr[offset + 2] = b;
+      arr[offset + 3] = r;
+      arr[offset + 4] = g;
+      arr[offset + 5] = b;
+    }
+    colorAttr.needsUpdate = true;
+  }
+
+  return { mesh, updateColors };
+}
+
 export interface CircuitRenderer {
   render(snapshot: SessionSnapshot): void;
 }
@@ -351,6 +432,9 @@ export function createCircuitRenderer(
   scene.add(buildBarrierWallMesh(circuit, 'right'));
   scene.add(buildStartFinishAndGridBoxes(circuit));
 
+  const racingLineRibbon = buildRacingLineRibbon(initialSnapshot);
+  scene.add(racingLineRibbon.mesh);
+
   // Numbered Turn markers (1–11)
   for (const turn of circuit.turns) {
     const sprite = createTextSprite(String(turn.number));
@@ -388,6 +472,8 @@ export function createCircuitRenderer(
 
   function render(snapshot: SessionSnapshot): void {
     const { kart, camera: camState } = snapshot;
+    racingLineRibbon.updateColors(snapshot);
+
     kartRig.root.position.set(kart.position.x, 0, kart.position.z);
     // In Three.js, rotating around +Y by -headingRad aligns +X local axis with (cos(heading), sin(heading))
     kartRig.root.rotation.y = -kart.headingRad;

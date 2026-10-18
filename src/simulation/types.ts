@@ -102,6 +102,26 @@ export interface CameraState {
   lookAt: Vector3D;
 }
 
+export type RacingLineCue = 'Green' | 'Yellow' | 'Red';
+
+export interface RacingLinePoint {
+  index: number;
+  distanceMeters: number;
+  progress: number;
+  position: Vector2D;
+  headingRad: number;
+  targetSpeedMps: number;
+  targetSpeedKph: number;
+  benchmarkTimeSeconds: number;
+  liveCue: RacingLineCue;
+}
+
+export interface RacingLineState {
+  visible: boolean;
+  benchmarkLapSeconds: number;
+  points: RacingLinePoint[];
+}
+
 export interface LapSummaryState {
   isClean: boolean;
   currentLapSeconds: number;
@@ -115,4 +135,6 @@ export interface SessionSnapshot {
   kart: KartState;
   camera: CameraState;
   lap: LapSummaryState;
+  racingLine: RacingLineState;
 }
+

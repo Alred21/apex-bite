@@ -62,7 +62,9 @@ function bootstrap(): void {
   if (!canvas || !hudRoot) return;
 
   bindKeyboardListeners();
-  const session = createSimulationSession();
+  const session = createSimulationSession({
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+  });
   const renderer = createCircuitRenderer(canvas, session.getSnapshot());
   const hud = createHudView(hudRoot, {
     onToggleCamera: () => {
@@ -70,6 +72,13 @@ function bootstrap(): void {
     },
     onToggleRacingLine: () => {
       session.toggleRacingLine();
+    },
+    onCycleGhostMode: () => {
+      session.cycleGhostMode();
+    },
+    onExportData: () => session.exportTrainingDataJson(),
+    onImportData: (json) => {
+      session.importTrainingDataJson(json);
     },
   });
 
@@ -79,6 +88,8 @@ function bootstrap(): void {
       session.toggleCamera();
     } else if (e.code === 'KeyL') {
       session.toggleRacingLine();
+    } else if (e.code === 'KeyG') {
+      session.cycleGhostMode();
     }
   });
 

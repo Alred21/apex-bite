@@ -51,8 +51,8 @@ function buildRacingLineBaseline(circuit: CircuitData): CachedBaseline {
       if (dDist < -totalLen * 0.5) dDist += totalLen;
 
       const insideSign = turn.direction === 'Right' ? 1 : -1;
-      const insideMax = s.widthMeters * 0.5 - 0.55;
-      const outsideMax = -(s.widthMeters * 0.5 - 0.72) * insideSign;
+      const insideMax = s.widthMeters * 0.5 - 0.68;
+      const outsideMax = -(s.widthMeters * 0.5 - 0.78) * insideSign;
 
       if (Math.abs(dDist) < 11.0) {
         // Cosine bell curve peaking at the Turn apex
@@ -89,7 +89,7 @@ function buildRacingLineBaseline(circuit: CircuitData): CachedBaseline {
         Math.round((turn.apexDistanceMeters / totalLen) * n) % n;
       const sApex = samples[apexIdx];
       const insideSign = turn.direction === 'Right' ? 1 : -1;
-      smoothedOffsets[apexIdx] = insideSign * (sApex.widthMeters * 0.5 - 0.55);
+      smoothedOffsets[apexIdx] = insideSign * (sApex.widthMeters * 0.5 - 0.68);
     }
   }
 
@@ -240,11 +240,11 @@ export function evaluateLiveRacingLine(
               (2 * effectiveDist)
             : 0;
 
-        if (requiredDecel > 2.1 || (bp.defaultCue === 'Red' && speedExcess > -0.35)) {
+        if (requiredDecel > 1.85) {
           liveCue = 'Red';
         } else if (
           requiredDecel > 0.65 ||
-          (bp.targetSpeedMps < MAX_SPEED_MPS - 0.6 && speedExcess > -0.5)
+          (bp.targetSpeedMps < MAX_SPEED_MPS - 0.6 && speedExcess > 0.15 && distAhead < 12.0)
         ) {
           liveCue = 'Yellow';
         } else {

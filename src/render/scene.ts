@@ -380,6 +380,41 @@ function buildRacingLineRibbon(initialSnapshot: SessionSnapshot): {
   return { mesh, updateColors };
 }
 
+function buildGhostKartMesh(tintColor: number): THREE.Group {
+  const ghostRoot = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({
+    color: tintColor,
+    transparent: true,
+    opacity: 0.42,
+    roughness: 0.25,
+    emissive: tintColor,
+    emissiveIntensity: 0.25,
+  });
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.52, 0.22, 0.92), mat);
+  body.position.set(0, 0.18, 0);
+  const nose = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 0.74), mat);
+  nose.position.set(0.65, 0.22, 0);
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.42, 0.42), mat);
+  seat.position.set(-0.18, 0.36, 0);
+
+  const tireGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.18, 16);
+  for (const [tx, tz] of [
+    [-0.52, -0.58],
+    [-0.52, 0.58],
+    [0.54, -0.54],
+    [0.54, 0.54],
+  ]) {
+    const tire = new THREE.Mesh(tireGeo, mat);
+    tire.position.set(tx, 0.18, tz);
+    ghostRoot.add(tire);
+  }
+
+  ghostRoot.add(body, nose, seat);
+  ghostRoot.visible = false;
+  return ghostRoot;
+}
+
 export interface CircuitRenderer {
   render(snapshot: SessionSnapshot): void;
 }
@@ -445,6 +480,10 @@ export function createCircuitRenderer(
   const kartRig = buildKartMesh();
   scene.add(kartRig.root);
 
+  const trackRecordGhostMesh = buildGhostKartMesh(0xfacc15); // Gold 24.499s Track Record Ghost
+  const personalBestGhostMesh = buildGhostKartMesh(0x22c55e); // Emerald Personal Best Ghost
+  scene.add(trackRecordGhostMesh, personalBestGhostMesh);
+
   // Dynamic rear-tire scrub / skid marks pool on the indoor floor
   const maxSkidMarks = 320;
   const skidPool: THREE.Mesh[] = [];
@@ -471,16 +510,39 @@ export function createCircuitRenderer(
   });
 
   function render(snapshot: SessionSnapshot): void {
-    const { kart, camera: camState } = snapshot;
+    const { kart, camera: camState, ghost } = snapshot;
     racingLineRibbon.updateColors(snapshot);
 
     kartRig.root.position.set(kart.position.x, 0, kart.position.z);
-    // In Three.js, rotating around +Y by -headingRad aligns +X local axis with (cos(heading), sin(heading))
     kartRig.root.rotation.y = -kart.headingRad;
 
     kartRig.frontLeftPivot.rotation.y = -kart.steerAngleRad;
     kartRig.frontRightPivot.rotation.y = -kart.steerAngleRad;
     kartRig.steeringWheelPivot.rotation.x = -kart.steeringWheelAngleRad;
+
+    if (ghost.trackRecordPose) {
+      trackRecordGhostMesh.visible = true;
+      trackRecordGhostMesh.position.set(
+        ghost.trackRecordPose.position.x,
+        0,
+        ghost.trackRecordPose.position.z,
+      );
+      trackRecordGhostMesh.rotation.y = -ghost.trackRecordPose.headingRad;
+    } else {
+      trackRecordGhostMesh.visible = false;
+    }
+
+    if (ghost.personalBestPose) {
+      personalBestGhostMesh.visible = true;
+      personalBestGhostMesh.position.set(
+        ghost.personalBestPose.position.x,
+        0,
+        ghost.personalBestPose.position.z,
+      );
+      personalBestGhostMesh.rotation.y = -ghost.personalBestPose.headingRad;
+    } else {
+      personalBestGhostMesh.visible = false;
+    }
 
     // Emit rear-tire scrub/skid marks when sliding or experiencing heavy Axle Scrub
     if (

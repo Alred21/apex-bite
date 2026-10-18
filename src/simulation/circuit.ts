@@ -1,3 +1,5 @@
+import { wrapAngleRad } from './planar-math';
+export { wrapAngleRad } from './planar-math';
 import {
   CircuitData,
   CircuitSample,
@@ -77,13 +79,6 @@ const RAW_WAYPOINTS: ControlWaypoint[] = [
 const TARGET_CIRCUIT_LENGTH_METERS = 245.0;
 const TRACK_RECORD_SECONDS = 24.499;
 const SAMPLE_COUNT = 490; // ~0.5m per sample
-
-export function wrapAngleRad(rad: number): number {
-  let a = rad;
-  while (a > Math.PI) a -= 2 * Math.PI;
-  while (a < -Math.PI) a += 2 * Math.PI;
-  return a;
-}
 
 function catmullRom(p0: number, p1: number, p2: number, p3: number, t: number): number {
   const t2 = t * t;

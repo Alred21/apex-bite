@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createSimulationSession } from '../src/simulation/session';
 
+const baselineRevision = { handling: 'kart-v1', circuit: 'k1-toronto-v1' };
+
 const baselineData = {
   version: 1,
   personalBestSeconds: 31,
@@ -14,7 +16,7 @@ const baselineData = {
 
 describe('Revision-aware portable training records', () => {
   it('loads compatible baseline Personal Bests, Sector splits, Corner Drills, and Ghost Kart without discarding them', () => {
-    const session = createSimulationSession({ storage: {
+    const session = createSimulationSession({ trainingRevision: baselineRevision, storage: {
       getItem: () => JSON.stringify(baselineData),
       setItem: () => {},
     } });
@@ -36,7 +38,7 @@ describe('Revision-aware portable training records', () => {
     expect(migrated.drill.personalBests).toEqual({});
     expect(revised.cycleGhostMode().ghost.personalBestPose).toBeNull();
     expect(migrated.trainingData.legacy[0].personalBestSeconds).toBe(31);
-    const restore = createSimulationSession();
+    const restore = createSimulationSession({ trainingRevision: baselineRevision });
     restore.importTrainingDataJson(revised.exportTrainingDataJson());
     expect(restore.getSnapshot().lap.personalBestSeconds).toBe(31);
     // Importing another revision must retain existing current records and the other archive.
@@ -50,7 +52,7 @@ describe('Revision-aware portable training records', () => {
   });
 
   it('rejects malformed or unsupported imports atomically without overwriting good records', () => {
-    const session = createSimulationSession();
+    const session = createSimulationSession({ trainingRevision: baselineRevision });
     session.importTrainingDataJson(JSON.stringify(baselineData));
     const good = session.exportTrainingDataJson();
     const malformed = [
@@ -82,7 +84,7 @@ describe('Revision-aware portable training records', () => {
         values.set(key, value);
       },
     };
-    const session = createSimulationSession({ storage });
+    const session = createSimulationSession({ storage, trainingRevision: baselineRevision });
     session.importTrainingDataJson(JSON.stringify(baselineData));
     const good = session.exportTrainingDataJson();
     const saved = [...values];
@@ -91,7 +93,7 @@ describe('Revision-aware portable training records', () => {
     expect(session.exportTrainingDataJson()).toBe(good);
     expect([...values]).toEqual(saved);
     expect(session.getSnapshot().trainingData.persistence).toBe('error');
-    const restored = createSimulationSession({ storage });
+    const restored = createSimulationSession({ storage, trainingRevision: baselineRevision });
     expect(restored.getSnapshot().lap.personalBestSeconds).toBe(31);
   });
 
@@ -105,6 +107,15 @@ describe('Revision-aware portable training records', () => {
     inspection.legacy[0].drillPersonalBests.T3 = 999;
     expect(session.getSnapshot().trainingData.legacy[0].bestSectorSplits).toEqual([10, 12, 9]);
     expect(session.getSnapshot().trainingData.legacy[0].drillPersonalBests.T3).toBe(4.25);
+  });
+
+  it('preserves baseline achievements as legacy under the revised default handling', () => {
+    const session = createSimulationSession();
+    const migrated = session.importTrainingDataJson(JSON.stringify(baselineData));
+    expect(migrated.trainingData.revision.handling).toBe('kart-v2');
+    expect(migrated.lap.personalBestSeconds).toBeNull();
+    expect(migrated.trainingData.legacy[0].personalBestSeconds).toBe(31);
+    expect(migrated.trainingData.legacy[0].ghostFrameCount).toBe(2);
   });
 
 });

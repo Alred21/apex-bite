@@ -1,0 +1,9 @@
+# Electric Kart handling
+
+The driver and Reference Lap builder share the same pure120Hz world step. The grip-limited bicycle approximation includes continuous live-axle drag, electric torque tapering, off-throttle motor drag, rear-only mechanical/regenerative braking, and a combined longitudinal/lateral tire budget. It is a small planar training model, not a four-wheel suspension simulator. Trail Braking is telemetry describing the input regime; it does not switch on an extra rotation multiplier.
+
+All integration state is explicit: position, heading, velocity, speed, yaw rate, and wrapped/unwrapped Circuit progress. Normalized steering and pedals enter the same solver regardless of keyboard, gamepad or recorded reference commands. Braking inhibits motor drive. Keyboard shaping remains a separate input concern. Public session time intervals accumulate into120Hz ticks; invalid, negative or greater-than-one-second intervals are rejected without altering state.
+
+Whole-Kart contact uses an oriented envelope containing the detailed model and all steered tires: half-width0.45m, front extent0.88m and rear extent0.80m, with1.06m wheelbase. Wall chords use the rendered24cm thickness and4% join overlap. Sweeps bound envelope-point travel to2cm between queries, refine the first contact, and resolve remaining motion along the wall tangent. Velocity loses energy while heading remains continuous. Contact invalidates a Clean Lap. Segment projection stays near prior progress so an adjacent branch cannot steal timing progress.
+
+Handling revision `kart-v2` archives earlier achievements through the versioned training-data workflow. Complete prior Ghost replays remain exportable. Reference generation must reject initial or traversed contact, never treat collision correction as a feasible Racing Line. The pure world solver and clearance query have no Session or Racing Line dependency, preventing recursive initialization.

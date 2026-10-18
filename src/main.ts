@@ -82,6 +82,9 @@ function bootstrap(): void {
     onToggleCamera: () => {
       session.toggleCamera();
     },
+    onSetCameraSettings: (settings) => {
+      session.setCameraSettings(settings);
+    },
     onToggleRacingLine: () => {
       session.toggleRacingLine();
     },

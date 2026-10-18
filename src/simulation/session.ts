@@ -1,3 +1,4 @@
+import { createCameraPresentation } from './camera';
 import {
   CURRENT_TRAINING_REVISION,
   parseTrainingData,
@@ -11,7 +12,7 @@ import { buildK1TorontoCircuit, wrapAngleRad } from './circuit';
 import { evaluateLiveRacingLine } from './racing-line';
 import {
   CameraMode,
-  CameraState,
+  CameraSettings,
   CircuitData,
   CircuitSample,
   CoachingInsightCategory,
@@ -66,6 +67,7 @@ export interface SimulationSessionOptions {
 export interface SimulationSession {
   step(dtSeconds?: number, input?: DriverInput): SessionSnapshot;
   toggleCamera(): SessionSnapshot;
+  setCameraSettings(settings: Partial<CameraSettings>): SessionSnapshot;
   toggleRacingLine(): SessionSnapshot;
   cycleGhostMode(): SessionSnapshot;
   setPracticeMode(mode: PracticeMode): SessionSnapshot;
@@ -106,41 +108,6 @@ function resolveTurnAtDistance(
     }
   }
   return null;
-}
-
-function computeCameraState(kart: KartState, mode: CameraMode): CameraState {
-  const forwardX = Math.cos(kart.headingRad);
-  const forwardZ = Math.sin(kart.headingRad);
-
-  if (mode === 'Helmet Cam') {
-    return {
-      mode,
-      position: {
-        x: kart.position.x - forwardX * 0.12,
-        y: 0.78,
-        z: kart.position.z - forwardZ * 0.12,
-      },
-      lookAt: {
-        x: kart.position.x + forwardX * 8.0,
-        y: 0.45,
-        z: kart.position.z + forwardZ * 8.0,
-      },
-    };
-  }
-
-  return {
-    mode: 'Chase Cam',
-    position: {
-      x: kart.position.x - forwardX * 4.2,
-      y: 2.1,
-      z: kart.position.z - forwardZ * 4.2,
-    },
-    lookAt: {
-      x: kart.position.x + forwardX * 3.5,
-      y: 0.4,
-      z: kart.position.z + forwardZ * 3.5,
-    },
-  };
 }
 
 function interpolateGhostPose(
@@ -359,6 +326,7 @@ export function createSimulationSession(
   let elapsedSeconds = 0;
   let mode: PracticeMode = 'Time Trial';
   let cameraMode: CameraMode = 'Chase Cam';
+  const cameraPresentation = createCameraPresentation();
   let racingLineVisible = true;
   let ghostMode: GhostMode = 'Track Record';
 
@@ -464,6 +432,7 @@ export function createSimulationSession(
       currentTurn: resolveTurnAtDistance(startSample.distanceMeters, circuit.turns),
       currentSector: startSample.sector,
     };
+    cameraPresentation.reset(kart);
   }
 
   function spawnAtDrillFlyingEntry(): void {
@@ -510,6 +479,7 @@ export function createSimulationSession(
       currentTurn: resolveTurnAtDistance(sample.distanceMeters, circuit.turns),
       currentSector: sample.sector,
     };
+    cameraPresentation.reset(kart);
   }
 
   function loadFromStorage(): void {
@@ -856,6 +826,8 @@ export function createSimulationSession(
       currentSector: nextSector,
     };
 
+    cameraPresentation.step(kart, dtSeconds);
+
     if (mode === 'Corner Drill') {
       drillCurrentSegmentSeconds += dtSeconds;
       const firstTurn = circuit.turns[activeDrillTarget.turns[0] - 1];
@@ -1025,8 +997,14 @@ export function createSimulationSession(
     return getSnapshot();
   }
 
+  function setCameraSettings(settings: Partial<CameraSettings>): SessionSnapshot {
+    cameraPresentation.setSettings(settings);
+    return getSnapshot();
+  }
+
   function toggleCamera(): SessionSnapshot {
     cameraMode = cameraMode === 'Chase Cam' ? 'Helmet Cam' : 'Chase Cam';
+    cameraPresentation.reset(kart);
     return getSnapshot();
   }
 
@@ -1209,7 +1187,7 @@ export function createSimulationSession(
         ...kart,
         position: { ...kart.position },
       },
-      camera: computeCameraState(kart, cameraMode),
+      camera: cameraPresentation.getState(kart, cameraMode),
       lap: {
         ...lap,
         currentSectorSplits: [...lap.currentSectorSplits] as SectorSplitsTuple,
@@ -1239,6 +1217,7 @@ export function createSimulationSession(
   return {
     step,
     toggleCamera,
+    setCameraSettings,
     toggleRacingLine,
     cycleGhostMode,
     setPracticeMode,

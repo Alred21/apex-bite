@@ -556,3 +556,8 @@ body,
 .results-table th, .results-table td { padding: 10px 12px; border-bottom: 1px solid var(--panel-border); text-align: right; }
 .results-table th:first-child, .results-table td:first-child { text-align: left; }
 .results-table th { position: sticky; top: 0; background: #141c28; }
+.camera-settings { display: grid; gap: 14px; }
+.camera-settings label { display: flex; justify-content: space-between; gap: 24px; font-weight: 600; }
+.camera-settings output { color: var(--accent-blue); font-variant-numeric: tabular-nums; }
+.camera-settings input[type="range"] { width: 100%; min-height: 26px; accent-color: #38bdf8; }
+.camera-settings p { margin: 0; line-height: 1.5; }

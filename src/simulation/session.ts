@@ -1,4 +1,5 @@
 import { buildK1TorontoCircuit } from './circuit';
+import { evaluateLiveRacingLine } from './racing-line';
 import {
   CameraMode,
   CameraState,
@@ -24,6 +25,7 @@ const KART_HALF_WIDTH_METERS = 0.66;
 export interface SimulationSession {
   step(dtSeconds?: number, input?: DriverInput): SessionSnapshot;
   toggleCamera(): SessionSnapshot;
+  toggleRacingLine(): SessionSnapshot;
   getSnapshot(): SessionSnapshot;
 }
 
@@ -101,6 +103,7 @@ export function createSimulationSession(): SimulationSession {
   let tick = 0;
   let elapsedSeconds = 0;
   let cameraMode: CameraMode = 'Chase Cam';
+  let racingLineVisible = true;
 
   // Progressive keyboard input shaper state
   let keyboardBrakeHoldSeconds = 0;
@@ -360,6 +363,11 @@ export function createSimulationSession(): SimulationSession {
     return getSnapshot();
   }
 
+  function toggleRacingLine(): SessionSnapshot {
+    racingLineVisible = !racingLineVisible;
+    return getSnapshot();
+  }
+
   function getSnapshot(): SessionSnapshot {
     return {
       tick,
@@ -371,12 +379,19 @@ export function createSimulationSession(): SimulationSession {
       },
       camera: computeCameraState(kart, cameraMode),
       lap: { ...lap },
+      racingLine: evaluateLiveRacingLine(
+        circuit,
+        kart.lapDistanceMeters,
+        kart.speedMps,
+        racingLineVisible,
+      ),
     };
   }
 
   return {
     step,
     toggleCamera,
+    toggleRacingLine,
     getSnapshot,
   };
 }

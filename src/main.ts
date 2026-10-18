@@ -68,12 +68,17 @@ function bootstrap(): void {
     onToggleCamera: () => {
       session.toggleCamera();
     },
+    onToggleRacingLine: () => {
+      session.toggleRacingLine();
+    },
   });
 
   window.addEventListener('keydown', (e) => {
     if (e.repeat) return;
     if (e.code === 'KeyC' || e.code === 'KeyV') {
       session.toggleCamera();
+    } else if (e.code === 'KeyL') {
+      session.toggleRacingLine();
     }
   });
 

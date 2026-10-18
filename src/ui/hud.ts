@@ -5,6 +5,7 @@ export interface HudCallbacks {
   onToggleRacingLine?: () => void;
   onCycleGhostMode?: () => void;
   onToggleMode?: () => void;
+  onSelectTimeTrialLapLimit?: (lapLimit: number | null) => void;
   onSelectDrillTarget?: (targetId: DrillTargetId) => void;
   onReset?: () => void;
   onExportData?: () => string;
@@ -54,6 +55,17 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
               </optgroup>
             </select>
           </label>
+          <label class="hud-select-wrap" id="hud-lap-limit-wrap" title="Changing session length restarts Time Trial from the Flying Start">
+            <span>TIMED LAPS:</span>
+            <select id="hud-lap-limit" class="hud-select" aria-label="Time Trial length">
+              <option value="1">1 lap</option>
+              <option value="6">6 laps</option>
+              <option value="12" selected>12 laps</option>
+              <option value="24">24 laps</option>
+              <option value="unlimited">Unlimited practice</option>
+            </select>
+          </label>
+          <button type="button" class="hud-btn" id="hud-btn-results" disabled>RESULTS</button>
           <button type="button" class="hud-btn" id="hud-btn-reset" title="Instant Reset to Flying Entry / Flying Start (R)">
             RESET [R]
           </button>
@@ -177,6 +189,22 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
       </div>
     </div>
 
+    <dialog id="hud-results-dialog" class="hud-dialog time-trial-results" aria-labelledby="hud-results-title">
+      <h2 id="hud-results-title">Time Trial complete</h2>
+      <p id="hud-results-summary"></p>
+      <p id="hud-results-best"></p>
+      <div class="results-table-wrap" tabindex="0" aria-label="Lap and Sector results">
+        <table class="results-table">
+          <thead><tr><th scope="col">Lap</th><th scope="col">Time</th><th scope="col">Status</th><th scope="col">S1</th><th scope="col">S2</th><th scope="col">S3</th></tr></thead>
+          <tbody id="hud-results-laps"></tbody>
+        </table>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="hud-btn" id="hud-results-restart">Restart Time Trial [R]</button>
+        <button type="button" class="hud-btn" id="hud-results-close">View Circuit</button>
+      </div>
+    </dialog>
+
     <dialog id="hud-data-dialog" class="hud-dialog" closedby="any" aria-labelledby="hud-dialog-title">
       <form method="dialog" class="dialog-content">
         <h2 id="hud-dialog-title">Portable Training Data (JSON)</h2>
@@ -189,6 +217,25 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
       </form>
     </dialog>
   `;
+
+  const lapLimitWrap = root.querySelector<HTMLElement>('#hud-lap-limit-wrap')!;
+  const lapLimitSelect = root.querySelector<HTMLSelectElement>('#hud-lap-limit')!;
+  const resultsBtn = root.querySelector<HTMLButtonElement>('#hud-btn-results')!;
+  const resultsDialog = root.querySelector<HTMLDialogElement>('#hud-results-dialog')!;
+  const resultsSummary = root.querySelector<HTMLElement>('#hud-results-summary')!;
+  const resultsBest = root.querySelector<HTMLElement>('#hud-results-best')!;
+  const resultsLaps = root.querySelector<HTMLElement>('#hud-results-laps')!;
+  let showedFinishedResults = false;
+  lapLimitSelect.addEventListener('change', () => {
+    callbacks.onSelectTimeTrialLapLimit?.(lapLimitSelect.value === 'unlimited' ? null : Number(lapLimitSelect.value));
+    lapLimitSelect.blur();
+  });
+  resultsBtn.addEventListener('click', () => resultsDialog.showModal());
+  root.querySelector('#hud-results-close')!.addEventListener('click', () => resultsDialog.close());
+  root.querySelector('#hud-results-restart')!.addEventListener('click', () => {
+    callbacks.onReset?.();
+    resultsDialog.close();
+  });
 
   const speedEl = root.querySelector<HTMLElement>('#hud-speed-kph')!;
   const throttleBar = root.querySelector<HTMLElement>('#hud-throttle-bar')!;
@@ -397,7 +444,31 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
   }
 
   function update(snapshot: SessionSnapshot): void {
-    const { kart, camera, lap, ghost, drill, mode } = snapshot;
+    const { kart, camera, lap, ghost, drill, mode, timeTrial } = snapshot;
+    lapLimitWrap.hidden = mode !== 'Time Trial';
+    lapLimitSelect.value = timeTrial.lapLimit === null ? 'unlimited' : String(timeTrial.lapLimit);
+    const finished = mode === 'Time Trial' && timeTrial.status === 'Finished';
+    resultsBtn.hidden = mode !== 'Time Trial';
+    resultsBtn.disabled = !finished;
+    if (finished && !showedFinishedResults) {
+      showedFinishedResults = true;
+      resultsSummary.textContent = `${timeTrial.completedLaps.length} timed laps · Total ${formatSeconds(timeTrial.totalSeconds)}`;
+      resultsBest.textContent = `Best Clean Lap: ${formatSeconds(timeTrial.bestCleanLapSeconds)}`;
+      resultsLaps.replaceChildren(...timeTrial.completedLaps.map((completed) => {
+        const row = document.createElement('tr');
+        const values = [String(completed.lapNumber), formatSeconds(completed.seconds), completed.isClean ? 'Clean' : 'Barrier contact', ...completed.sectorSplits.map(formatSeconds)];
+        for (const value of values) {
+          const cell = document.createElement('td');
+          cell.textContent = value;
+          row.append(cell);
+        }
+        return row;
+      }));
+      resultsDialog.showModal();
+    } else if (!finished) {
+      showedFinishedResults = false;
+      if (resultsDialog.open) resultsDialog.close();
+    }
     speedEl.textContent = kart.speedKph.toFixed(1);
     throttleBar.style.width = `${Math.round(kart.throttleInput * 100)}%`;
     brakeBar.style.width = `${Math.round(kart.brakeInput * 100)}%`;
@@ -464,7 +535,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
     } else {
       execCardEl.classList.add('hidden');
       lapBadge.textContent =
-        lap.lapNumber === 0 ? 'FLYING START' : `LAP ${lap.lapNumber}`;
+        finished ? 'TIME TRIAL COMPLETE' : lap.lapNumber === 0 ? 'FLYING START · APPROACH UNCOUNTED' : `LAP ${lap.lapNumber}${timeTrial.lapLimit === null ? ' · UNLIMITED' : ` / ${timeTrial.lapLimit}`}`;
       cleanBadge.textContent = lap.isClean ? 'CLEAN LAP' : 'DIRTY (WALL CONTACT)';
       cleanBadge.className = `clean-badge ${lap.isClean ? 'clean-ok' : 'clean-dirty'}`;
       lapTimer.textContent = `${lap.currentLapSeconds.toFixed(3)}s`;

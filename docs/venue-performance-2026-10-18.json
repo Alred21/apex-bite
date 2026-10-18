@@ -1,0 +1,161 @@
+{
+  "date": "2026-10-18",
+  "hardware": {
+    "machine": "MacBook Pro (Mac17,9)",
+    "chip": "Apple M5 Pro",
+    "memory": "48 GB",
+    "os": "macOS 27.0.1"
+  },
+  "source": "Ticket #18 venue with integration b9552af (records and detailed Kart)",
+  "limitations": [
+    "Single high-end laptop; not evidence for all everyday laptops.",
+    "Ten-second public-input driving samples, not the later full twelve-lap integration run.",
+    "Near-120 FPS results are display-refresh-limited; settings cost differences are verified by drawing buffer and shadow configuration, not noisy FPS ordering."
+  ],
+  "samples": [
+    {
+      "quality": "Performance",
+      "camera": "Chase Cam",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+      "viewport": [
+        1920,
+        936
+      ],
+      "devicePixelRatio": 2,
+      "drawingBuffer": [
+        1920,
+        936
+      ],
+      "effectivePixelRatio": 1,
+      "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Pro, Unspecified Version)",
+      "frames": 1191,
+      "averageFps": 119,
+      "medianMs": 8.3,
+      "p95Ms": 8.5,
+      "p99Ms": 9.7,
+      "frameIntervalsOver25ms": 2,
+      "barrierContacts": 0,
+      "scenario": "2 s warmup + 10 s public-input driving, actual renderer and HUD, Ghost Kart and Racing Line enabled"
+    },
+    {
+      "quality": "Performance",
+      "camera": "Helmet Cam",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+      "viewport": [
+        1920,
+        936
+      ],
+      "devicePixelRatio": 2,
+      "drawingBuffer": [
+        1920,
+        936
+      ],
+      "effectivePixelRatio": 1,
+      "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Pro, Unspecified Version)",
+      "frames": 1201,
+      "averageFps": 120,
+      "medianMs": 8.3,
+      "p95Ms": 8.4,
+      "p99Ms": 8.6,
+      "frameIntervalsOver25ms": 0,
+      "barrierContacts": 0,
+      "scenario": "2 s warmup + 10 s public-input driving, actual renderer and HUD, Ghost Kart and Racing Line enabled"
+    },
+    {
+      "quality": "Balanced",
+      "camera": "Chase Cam",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+      "viewport": [
+        1920,
+        936
+      ],
+      "devicePixelRatio": 2,
+      "drawingBuffer": [
+        2400,
+        1170
+      ],
+      "effectivePixelRatio": 1.25,
+      "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Pro, Unspecified Version)",
+      "frames": 1175,
+      "averageFps": 117.4,
+      "medianMs": 8.3,
+      "p95Ms": 8.5,
+      "p99Ms": 16.6,
+      "frameIntervalsOver25ms": 2,
+      "barrierContacts": 0,
+      "scenario": "2 s warmup + 10 s public-input driving, actual renderer and HUD, Ghost Kart and Racing Line enabled"
+    },
+    {
+      "quality": "Balanced",
+      "camera": "Helmet Cam",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+      "viewport": [
+        1920,
+        936
+      ],
+      "devicePixelRatio": 2,
+      "drawingBuffer": [
+        2400,
+        1170
+      ],
+      "effectivePixelRatio": 1.25,
+      "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Pro, Unspecified Version)",
+      "frames": 1202,
+      "averageFps": 120.1,
+      "medianMs": 8.3,
+      "p95Ms": 8.6,
+      "p99Ms": 9.8,
+      "frameIntervalsOver25ms": 0,
+      "barrierContacts": 0,
+      "scenario": "2 s warmup + 10 s public-input driving, actual renderer and HUD, Ghost Kart and Racing Line enabled"
+    },
+    {
+      "quality": "High",
+      "camera": "Chase Cam",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+      "viewport": [
+        1920,
+        936
+      ],
+      "devicePixelRatio": 2,
+      "drawingBuffer": [
+        3840,
+        1872
+      ],
+      "effectivePixelRatio": 2,
+      "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Pro, Unspecified Version)",
+      "frames": 1201,
+      "averageFps": 120,
+      "medianMs": 8.3,
+      "p95Ms": 9.3,
+      "p99Ms": 10,
+      "frameIntervalsOver25ms": 0,
+      "barrierContacts": 0,
+      "scenario": "2 s warmup + 10 s public-input driving, actual renderer and HUD, Ghost Kart and Racing Line enabled"
+    },
+    {
+      "quality": "High",
+      "camera": "Helmet Cam",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+      "viewport": [
+        1920,
+        936
+      ],
+      "devicePixelRatio": 2,
+      "drawingBuffer": [
+        3840,
+        1872
+      ],
+      "effectivePixelRatio": 2,
+      "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Pro, Unspecified Version)",
+      "frames": 1186,
+      "averageFps": 118.5,
+      "medianMs": 8.3,
+      "p95Ms": 8.9,
+      "p99Ms": 10.3,
+      "frameIntervalsOver25ms": 2,
+      "barrierContacts": 0,
+      "scenario": "2 s warmup + 10 s public-input driving, actual renderer and HUD, Ghost Kart and Racing Line enabled"
+    }
+  ]
+}

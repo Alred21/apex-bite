@@ -64,7 +64,18 @@ function bootstrap(): void {
   bindKeyboardListeners();
   const session = createSimulationSession();
   const renderer = createCircuitRenderer(canvas, session.getSnapshot());
-  const hud = createHudView(hudRoot);
+  const hud = createHudView(hudRoot, {
+    onToggleCamera: () => {
+      session.toggleCamera();
+    },
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.repeat) return;
+    if (e.code === 'KeyC' || e.code === 'KeyV') {
+      session.toggleCamera();
+    }
+  });
 
   let lastTimeMs = performance.now();
   let accumulatorSeconds = 0;

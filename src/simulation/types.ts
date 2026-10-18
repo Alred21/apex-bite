@@ -82,6 +82,7 @@ export interface KartState {
   forwardAccelMps2: number;
   lateralAccelMps2: number;
   steerAngleRad: number;
+  steeringWheelAngleRad: number;
   throttleInput: number;
   brakeInput: number;
   isTrailBraking: boolean;

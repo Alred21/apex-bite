@@ -186,6 +186,7 @@ function buildKartMesh(): {
   root: THREE.Group;
   frontLeftPivot: THREE.Group;
   frontRightPivot: THREE.Group;
+  steeringWheelPivot: THREE.Group;
 } {
   const root = new THREE.Group();
 
@@ -229,6 +230,33 @@ function buildKartMesh(): {
   numberPanel.rotation.z = 0.35;
   root.add(numberPanel);
 
+  // Steering column + rotating Steering Wheel + Mini Digital Dash (visible in Helmet Cam)
+  const steeringMount = new THREE.Group();
+  steeringMount.position.set(0.24, 0.52, 0);
+  steeringMount.rotation.z = 0.52;
+
+  const wheelPivot = new THREE.Group();
+  const wheelRim = new THREE.Mesh(
+    new THREE.TorusGeometry(0.145, 0.022, 12, 28),
+    darkMat,
+  );
+  wheelRim.rotation.y = Math.PI / 2;
+  const spokeBar = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.035, 0.26), darkMat);
+  const topTape = new THREE.Mesh(
+    new THREE.BoxGeometry(0.03, 0.045, 0.03),
+    accentMat,
+  );
+  topTape.position.set(0, 0.145, 0);
+  const miniDash = new THREE.Mesh(
+    new THREE.BoxGeometry(0.025, 0.075, 0.12),
+    accentMat,
+  );
+  miniDash.position.set(0.01, 0.03, 0);
+
+  wheelPivot.add(wheelRim, spokeBar, topTape, miniDash);
+  steeringMount.add(wheelPivot);
+  root.add(steeringMount);
+
   // Bucket seat & rear electric motor housing
   const seat = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.46, 0.44), darkMat);
   seat.position.set(-0.18, 0.38, 0);
@@ -268,7 +296,7 @@ function buildKartMesh(): {
 
   root.add(frontLeftPivot, frontRightPivot);
 
-  return { root, frontLeftPivot, frontRightPivot };
+  return { root, frontLeftPivot, frontRightPivot, steeringWheelPivot: wheelPivot };
 }
 
 export interface CircuitRenderer {
@@ -366,6 +394,7 @@ export function createCircuitRenderer(
 
     kartRig.frontLeftPivot.rotation.y = -kart.steerAngleRad;
     kartRig.frontRightPivot.rotation.y = -kart.steerAngleRad;
+    kartRig.steeringWheelPivot.rotation.x = -kart.steeringWheelAngleRad;
 
     // Emit rear-tire scrub/skid marks when sliding or experiencing heavy Axle Scrub
     if (

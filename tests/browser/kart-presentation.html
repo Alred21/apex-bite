@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Kart presentation review</title>
+<style>body{margin:0;background:#15181d;color:#e7ebf0;font:14px system-ui}canvas{display:block;width:100vw;height:100vh}nav{position:fixed;left:20px;top:20px;max-width:1100px;padding:16px;background:#10151de8;border:1px solid #475569;border-radius:12px}button{margin:6px;padding:9px;background:#273140;color:white;border:1px solid #64748b;border-radius:6px}output{display:block;padding:6px}h1{font-size:18px;margin:0}</style>
+<canvas aria-label="Kart review viewport"></canvas>
+<nav><h1>Electric rental Kart — presentation review</h1>
+<p>Real SimulationSession inputs and snapshots. Detail view isolates the model; driving views use the session camera.</p>
+<button id="detail">Detail view</button><button id="chase">Chase Cam</button><button id="helmet">Helmet Cam</button>
+<button id="drive">Accelerate</button><button id="left">Steer left</button><button id="center">Centre</button><button id="right">Steer right</button><button id="pause">Pause</button><button id="reset">Reset</button>
+<output id="state"></output><output id="budget"></output></nav>
+<script type="module">
+import * as THREE from 'three';
+import {createKartRig} from '../../src/render/kart.ts';
+import {createSimulationSession,FIXED_TIMESTEP_SECONDS} from '../../src/simulation/session.ts';
+const renderer=new THREE.WebGLRenderer({canvas:document.querySelector('canvas'),antialias:true});
+renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;
+const scene=new THREE.Scene();scene.background=new THREE.Color('#202730');
+scene.add(new THREE.HemisphereLight(0xdce9ff,0x242019,2));
+for(const [x,z,intensity] of [[2,3,3],[-2,-2,2]]){const l=new THREE.DirectionalLight(0xfff2dc,intensity);l.position.set(x,5,z);l.castShadow=true;scene.add(l)}
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(500,500),new THREE.MeshStandardMaterial({color:0x3c4248,roughness:.76}));floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;floor.position.y=-.002;scene.add(floor);
+const rig=createKartRig();scene.add(rig.root);const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.02,1000);
+const session=createSimulationSession();let view='detail',playing=false,steer=0,throttle=0,acc=0,last=performance.now();
+const click=(id,fn)=>document.getElementById(id).addEventListener('click',fn);
+click('detail',()=>view='detail');click('chase',()=>{view='session';if(session.getSnapshot().camera.mode!=='Chase Cam')session.toggleCamera()});
+click('helmet',()=>{view='session';if(session.getSnapshot().camera.mode!=='Helmet Cam')session.toggleCamera()});
+click('drive',()=>{playing=true;throttle=1});click('left',()=>{steer=-.6;playing=true});click('right',()=>{steer=.6;playing=true});click('center',()=>steer=0);
+click('pause',()=>playing=!playing);click('reset',()=>{session.reset();playing=false;steer=throttle=0});
+const state=document.getElementById('state'),budget=document.getElementById('budget');
+function frame(now){const dt=Math.min(.1,(now-last)/1000);last=now;if(playing){acc+=dt;while(acc>=FIXED_TIMESTEP_SECONDS){session.step(FIXED_TIMESTEP_SECONDS,{steer,throttle});acc-=FIXED_TIMESTEP_SECONDS}}
+ const snapshot=session.getSnapshot();rig.update(snapshot);const k=snapshot.kart;
+ if(view==='detail'){const h=k.headingRad,dx=-2.15,dz=2.25;camera.fov=42;camera.position.set(k.position.x+Math.cos(h)*dx-Math.sin(h)*dz,1.65,k.position.z+Math.sin(h)*dx+Math.cos(h)*dz);camera.lookAt(k.position.x,.27,k.position.z)}
+ else{camera.fov=64;camera.position.set(snapshot.camera.position.x,snapshot.camera.position.y,snapshot.camera.position.z);camera.lookAt(snapshot.camera.lookAt.x,snapshot.camera.lookAt.y,snapshot.camera.lookAt.z)}camera.updateProjectionMatrix();renderer.render(scene,camera);
+ state.textContent=`${view==='detail'?'Detail':snapshot.camera.mode} · ${playing?'running':'paused'} · tick ${snapshot.tick} · ${k.speedKph.toFixed(1)} km/h · front steer ${(k.steerAngleRad*180/Math.PI).toFixed(1)}° · wheel ${(k.steeringWheelAngleRad*180/Math.PI).toFixed(1)}°`;
+ budget.textContent=`Kart + floor: ${renderer.info.render.calls} draw calls · ${renderer.info.render.triangles.toLocaleString()} triangles · ${renderer.info.memory.textures} textures · ${innerWidth}×${innerHeight} @ ${renderer.getPixelRatio()} DPR`;
+ requestAnimationFrame(frame)}requestAnimationFrame(frame);
+</script></html>

@@ -198,7 +198,6 @@ export function createKartRig(): KartRig {
     add(tube([[-0.48, 0.17, side * 0.375], [-0.1, 0.16, side * 0.38], [0.3, 0.16, side * 0.365]], 0.009), black);
     const label = add(new THREE.PlaneGeometry(0.37, 0.085), decal, -0.08, 0.273, side * 0.302);
     label.rotation.x = -Math.PI / 2;
-    label.rotation.z = -Math.PI / 2;
     for (const x of [-0.42, 0.23]) add(boltGeometry, alloy, x, 0.277, side * 0.32);
   }
 

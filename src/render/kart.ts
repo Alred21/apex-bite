@@ -294,14 +294,14 @@ export function createKartRig(): KartRig {
   add(tube([[0.24, 0.6, 0], [0.38, 0.22, 0]], 0.013), steel);
   const grip = add(new THREE.TorusGeometry(0.127, 0.017, 8, 40), rubber, 0, 0, 0, steeringWheel);
   grip.rotation.y = Math.PI / 2;
-  for (const angle of [0, Math.PI * 2 / 3, Math.PI * 4 / 3]) {
+  for (const angle of [Math.PI / 2, Math.PI, Math.PI * 3 / 2]) {
     add(tube([[0, 0, 0], [0, Math.cos(angle) * 0.11, Math.sin(angle) * 0.11]], 0.008), alloy, 0, 0, 0, steeringWheel);
   }
   const center = add(new THREE.CylinderGeometry(0.032, 0.032, 0.018, 16), black, 0, 0, 0, steeringWheel);
   center.rotation.z = Math.PI / 2;
   const tape = add(new THREE.TorusGeometry(0.127, 0.018, 6, 6, 0.18), accent, 0, 0, 0, steeringWheel);
+  tape.geometry.rotateZ(Math.PI / 2 - 0.09);
   tape.rotation.set(0, Math.PI / 2, 0);
-  tape.rotation.x = -0.09;
 
   // A fixed digital instrument binnacle stays upright as the rim turns.
   const dashCanvas = document.createElement('canvas');
@@ -313,7 +313,7 @@ export function createKartRig(): KartRig {
   const dashMaterial = new THREE.MeshBasicMaterial({ map: dashTexture });
   const dashHousing = add(moulding([[-0.025, -0.073], [0.025, -0.073], [0.025, 0.073], [-0.025, 0.073]], 0.075, 0.007), black, 0.3, 0.625);
   dashHousing.rotation.z = 0.3;
-  const dashScreen = add(new THREE.PlaneGeometry(0.126, 0.06), dashMaterial, 0.261, 0.653);
+  const dashScreen = add(new THREE.PlaneGeometry(0.126, 0.06), dashMaterial, 0.249, 0.653);
   dashScreen.rotation.set(0, -Math.PI / 2, 0.3, 'ZYX');
 
   consolidate(stationary);

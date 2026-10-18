@@ -101,8 +101,15 @@ export interface KartState {
   currentSector: SectorNumber;
 }
 
+export interface CameraSettings {
+  fieldOfViewDegrees: number;
+  motionStrength: number; // 0 fully disables acceleration, cornering and impact feedback
+}
+
 export interface CameraState {
   mode: CameraMode;
+  settings: CameraSettings;
+  rollRad: number;
   position: Vector3D;
   lookAt: Vector3D;
 }

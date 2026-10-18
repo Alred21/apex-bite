@@ -450,8 +450,14 @@ export function createCircuitRenderer(
       }
     }
 
+    if (camera.fov !== camState.settings.fieldOfViewDegrees) {
+      camera.fov = camState.settings.fieldOfViewDegrees;
+      camera.updateProjectionMatrix();
+    }
+    camera.up.set(0, 1, 0);
     camera.position.set(camState.position.x, camState.position.y, camState.position.z);
     camera.lookAt(camState.lookAt.x, camState.lookAt.y, camState.lookAt.z);
+    camera.rotateZ(camState.rollRad);
 
     renderer.render(scene, camera);
   }

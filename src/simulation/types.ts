@@ -67,6 +67,7 @@ export interface GamepadInputState {
   throttle?: number; // 0..1
   brake?: number; // 0..1
   steer?: number; // -1..1
+  deadzone?: number; // configurable analog deadzone (default 0.06)
 }
 
 export interface DriverInput {

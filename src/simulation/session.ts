@@ -1,4 +1,4 @@
-import { buildK1TorontoCircuit } from './circuit';
+import { buildK1TorontoCircuit, wrapAngleRad } from './circuit';
 import { evaluateLiveRacingLine } from './racing-line';
 import {
   CameraMode,
@@ -22,6 +22,7 @@ import {
   SectorSplitsTuple,
   SessionSnapshot,
   TurnNumber,
+  Vector2D,
 } from './types';
 
 export const FIXED_TIMESTEP_SECONDS = 1 / 120;
@@ -135,6 +136,26 @@ function computeCameraState(kart: KartState, mode: CameraMode): CameraState {
   };
 }
 
+function interpolateGhostPose(
+  aPos: Vector2D,
+  bPos: Vector2D,
+  aHeading: number,
+  bHeading: number,
+  aSpeedKph: number,
+  bSpeedKph: number,
+  ratio: number,
+): GhostPose {
+  const clamped = Math.max(0, Math.min(1, ratio));
+  return {
+    position: {
+      x: aPos.x + (bPos.x - aPos.x) * clamped,
+      z: aPos.z + (bPos.z - aPos.z) * clamped,
+    },
+    headingRad: aHeading + wrapAngleRad(bHeading - aHeading) * clamped,
+    speedKph: aSpeedKph + (bSpeedKph - aSpeedKph) * clamped,
+  };
+}
+
 function sampleTrackRecordGhostPose(
   points: RacingLinePoint[],
   benchmarkLapSeconds: number,
@@ -150,20 +171,15 @@ function sampleTrackRecordGhostPose(
   const b = points[(idx + 1) % n];
   const bTime = idx + 1 < n ? b.benchmarkTimeSeconds : benchmarkLapSeconds;
   const span = Math.max(1e-6, bTime - a.benchmarkTimeSeconds);
-  const ratio = Math.max(0, Math.min(1, (t - a.benchmarkTimeSeconds) / span));
-
-  let dH = b.headingRad - a.headingRad;
-  while (dH > Math.PI) dH -= 2 * Math.PI;
-  while (dH < -Math.PI) dH += 2 * Math.PI;
-
-  return {
-    position: {
-      x: a.position.x + (b.position.x - a.position.x) * ratio,
-      z: a.position.z + (b.position.z - a.position.z) * ratio,
-    },
-    headingRad: a.headingRad + dH * ratio,
-    speedKph: a.targetSpeedKph + (b.targetSpeedKph - a.targetSpeedKph) * ratio,
-  };
+  return interpolateGhostPose(
+    a.position,
+    b.position,
+    a.headingRad,
+    b.headingRad,
+    a.targetSpeedKph,
+    b.targetSpeedKph,
+    (t - a.benchmarkTimeSeconds) / span,
+  );
 }
 
 function samplePersonalBestGhostPose(
@@ -182,20 +198,31 @@ function samplePersonalBestGhostPose(
   const a = frames[idx];
   const b = frames[Math.min(frames.length - 1, idx + 1)];
   const span = Math.max(1e-6, b.lapSeconds - a.lapSeconds);
-  const ratio = Math.max(0, Math.min(1, (t - a.lapSeconds) / span));
+  return interpolateGhostPose(
+    a.position,
+    b.position,
+    a.headingRad,
+    b.headingRad,
+    a.speedKph,
+    b.speedKph,
+    (t - a.lapSeconds) / span,
+  );
+}
 
-  let dH = b.headingRad - a.headingRad;
-  while (dH > Math.PI) dH -= 2 * Math.PI;
-  while (dH < -Math.PI) dH += 2 * Math.PI;
-
-  return {
-    position: {
-      x: a.position.x + (b.position.x - a.position.x) * ratio,
-      z: a.position.z + (b.position.z - a.position.z) * ratio,
-    },
-    headingRad: a.headingRad + dH * ratio,
-    speedKph: a.speedKph + (b.speedKph - a.speedKph) * ratio,
-  };
+function samplePersonalBestSecondsAtDistance(
+  frames: GhostSampleFrame[],
+  distanceMeters: number,
+): number | null {
+  if (frames.length < 2) return null;
+  let idx = 0;
+  while (idx < frames.length - 2 && frames[idx + 1].distanceMeters <= distanceMeters) {
+    idx++;
+  }
+  const a = frames[idx];
+  const b = frames[Math.min(frames.length - 1, idx + 1)];
+  const span = Math.max(1e-6, b.distanceMeters - a.distanceMeters);
+  const ratio = Math.max(0, Math.min(1, (distanceMeters - a.distanceMeters) / span));
+  return a.lapSeconds + (b.lapSeconds - a.lapSeconds) * ratio;
 }
 
 function buildDrillTargetCatalog(
@@ -326,6 +353,7 @@ export function createSimulationSession(
 
   // Progressive keyboard input shaper state
   let keyboardBrakeHoldSeconds = 0;
+  let keyboardSteerHoldSeconds = 0;
   let smoothedSteer = 0;
 
   let personalBestGhostFrames: GhostSampleFrame[] = [];
@@ -384,6 +412,7 @@ export function createSimulationSession(
 
   function spawnAtTimeTrialFlyingStart(): void {
     keyboardBrakeHoldSeconds = 0;
+    keyboardSteerHoldSeconds = 0;
     smoothedSteer = 0;
     sectorEntryLapSeconds = 0;
     activeLapGhostFrames = [];
@@ -417,6 +446,7 @@ export function createSimulationSession(
 
   function spawnAtDrillFlyingEntry(): void {
     keyboardBrakeHoldSeconds = 0;
+    keyboardSteerHoldSeconds = 0;
     smoothedSteer = 0;
     drillCurrentSegmentSeconds = 0;
     drillIsClean = true;
@@ -500,6 +530,13 @@ export function createSimulationSession(
     const apexProximityCm = Math.max(0, Math.round(avgApexDistMeters * 100 * 10) / 10);
 
     const prevBest = drillPersonalBests[activeDrillTarget.id] ?? null;
+    const deltaToPersonalBestSeconds =
+      prevBest !== null
+        ? segmentTimeSeconds - prevBest
+        : drillIsClean
+          ? 0
+          : null;
+
     let personalBestSeconds = prevBest;
     if (drillIsClean && (prevBest === null || segmentTimeSeconds < prevBest)) {
       personalBestSeconds = segmentTimeSeconds;
@@ -509,8 +546,6 @@ export function createSimulationSession(
 
     const deltaToBenchmarkSeconds =
       segmentTimeSeconds - activeDrillTarget.benchmarkTimeSeconds;
-    const deltaToPersonalBestSeconds =
-      personalBestSeconds !== null ? segmentTimeSeconds - personalBestSeconds : null;
 
     let coachingCategory: CoachingInsightCategory;
     let coachingInsight: string;
@@ -598,18 +633,26 @@ export function createSimulationSession(
       ? 1.0
       : Math.max(0, Math.min(1, Math.max(input.brake ?? 0, shapedKeyBrake, gpBrake)));
 
-    // Slip-aware progressive steering for keyboard vs direct analog input
+    // Slip-aware progressive steering for keyboard (with tight-hairpin hold release) vs direct analog input
     const speedRatio = Math.min(1, kart.speedMps / MAX_KART_SPEED_MPS);
     const keySteerTarget = (input.keys?.right ? 1 : 0) - (input.keys?.left ? 1 : 0);
-    const hasDirectSteer =
-      input.steer !== undefined || Math.abs(input.gamepad?.steer ?? 0) > 0.01;
+    const gpDeadzone = input.gamepad?.deadzone ?? 0.06;
+    const rawGpSteer = input.gamepad?.steer ?? 0;
+    const gpSteer = Math.abs(rawGpSteer) > gpDeadzone ? rawGpSteer : 0;
+    const hasDirectSteer = input.steer !== undefined || Math.abs(gpSteer) > 0;
 
     if (hasDirectSteer) {
-      const direct =
-        input.steer !== undefined ? input.steer : (input.gamepad?.steer ?? 0);
+      keyboardSteerHoldSeconds = 0;
+      const direct = input.steer !== undefined ? input.steer : gpSteer;
       smoothedSteer = Math.max(-1, Math.min(1, direct));
     } else if (keySteerTarget !== 0) {
-      const slipAwareLimit = 1.0 - 0.34 * speedRatio;
+      keyboardSteerHoldSeconds += dtSeconds;
+      const hairpinRelease =
+        keyboardSteerHoldSeconds > 0.32
+          ? Math.min(1, (keyboardSteerHoldSeconds - 0.32) / 0.25)
+          : 0;
+      const baseSlipLimit = 1.0 - 0.34 * speedRatio;
+      const slipAwareLimit = baseSlipLimit + (1.0 - baseSlipLimit) * hairpinRelease;
       const target = keySteerTarget * slipAwareLimit;
       const rate = 3.8 * dtSeconds;
       if (smoothedSteer < target) {
@@ -618,6 +661,7 @@ export function createSimulationSession(
         smoothedSteer = Math.max(target, smoothedSteer - rate);
       }
     } else {
+      keyboardSteerHoldSeconds = 0;
       const returnRate = 6.5 * dtSeconds;
       if (Math.abs(smoothedSteer) <= returnRate) {
         smoothedSteer = 0;
@@ -635,19 +679,25 @@ export function createSimulationSession(
       brake >= 0.2 &&
       brake <= 0.72;
 
-    const forwardPitchUnload = isTrailBraking
-      ? 0.58
+    // Continuous planar four-tire longitudinal & lateral load transfer
+    const longWeightTransfer = isTrailBraking
+      ? 0.42 + brake * 0.22
       : brake > 0.72
         ? 0.32
-        : throttle > 0.5
-          ? -0.12
-          : 0.0;
+        : brake > 0.01
+          ? brake * 0.35
+          : -throttle * 0.12;
+    const latWeightTransfer = Math.min(0.28, (kart.speedMps / MAX_KART_SPEED_MPS) * absSteerNorm * 0.24);
+    const insideRearUnload = Math.max(
+      -0.15,
+      Math.min(0.74, longWeightTransfer + (isTrailBraking ? latWeightTransfer * 0.35 : 0)),
+    );
 
     const rawAxleScrub =
       speedRatio *
       absSteerNorm *
       1.15 *
-      Math.max(0.18, 0.92 - forwardPitchUnload);
+      Math.max(0.18, 0.92 - insideRearUnload);
     const axleScrub = Math.max(0, Math.min(1, rawAxleScrub));
 
     // Direct-drive electric motor torque curve tapering into hard 45.0 km/h electronic governor
@@ -729,9 +779,7 @@ export function createSimulationSession(
         nearest.normal.z * clampedLat;
 
       const trackHeading = Math.atan2(nearest.tangent.z, nearest.tangent.x);
-      let angleDiff = nextHeading - trackHeading;
-      while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-      while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+      const angleDiff = wrapAngleRad(nextHeading - trackHeading);
       const sinImpact = Math.abs(Math.sin(angleDiff));
 
       if (isInitialImpact) {
@@ -809,12 +857,22 @@ export function createSimulationSession(
         }
       }
 
+      const fwdX = Math.cos(nextHeading);
+      const fwdZ = Math.sin(nextHeading);
+      const rightX = -fwdZ;
+      const rightZ = fwdX;
       for (const tn of activeDrillTarget.turns) {
         const turnMeta = circuit.turns[tn - 1];
         const insideSign = turnMeta.direction === 'Right' ? 1 : -1;
         const insideFrontTire = {
-          x: nextPosition.x + nearest.normal.x * insideSign * 0.13,
-          z: nextPosition.z + nearest.normal.z * insideSign * 0.13,
+          x:
+            nextPosition.x +
+            fwdX * (WHEELBASE_METERS * 0.5) +
+            rightX * insideSign * 0.42,
+          z:
+            nextPosition.z +
+            fwdZ * (WHEELBASE_METERS * 0.5) +
+            rightZ * insideSign * 0.42,
         };
         const distToApex = Math.hypot(
           insideFrontTire.x - turnMeta.apexPoint.x,
@@ -1022,7 +1080,15 @@ export function createSimulationSession(
     const ptIdx =
       Math.floor(kart.lapProgress * racingLine.points.length) %
       racingLine.points.length;
-    const refBenchmarkSeconds = racingLine.points[ptIdx].benchmarkTimeSeconds;
+    const pbAtDist =
+      ghostMode === 'Personal Best'
+        ? samplePersonalBestSecondsAtDistance(
+            personalBestGhostFrames,
+            kart.lapDistanceMeters,
+          )
+        : null;
+    const refBenchmarkSeconds =
+      pbAtDist ?? racingLine.points[ptIdx].benchmarkTimeSeconds;
     const liveDelta =
       lap.lapNumber >= 1 ? lap.currentLapSeconds - refBenchmarkSeconds : 0;
     lap.timeDeltaSeconds = liveDelta;

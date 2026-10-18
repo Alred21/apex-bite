@@ -44,13 +44,13 @@ const RAW_WAYPOINTS: ControlWaypoint[] = [
   // Turn 4: 90° Right-hander at top-left of upper loop
   { x: -6.5, z: -32.0, width: 5.3, turnAnchor: 4 },
   { x: 0.0, z: -37.5, width: 5.5 },
-  // Turn 5: North Right-hand bend at the top of the circuit
+  // Turn 5: North Right-hand corner at the top of the circuit
   { x: 10.0, z: -38.5, width: 5.5, turnAnchor: 5 },
   // Approach to Turn 6
   { x: 18.0, z: -32.0, width: 5.2 },
-  // Turn 6: Right-hand kink/bend in upper-right esses
+  // Turn 6: Right-hand kink in upper-right esses
   { x: 22.5, z: -25.0, width: 4.95, turnAnchor: 6 },
-  // Turn 7: Left-hand bend exiting the upper-right esses
+  // Turn 7: Left-hand exit of the upper-right esses
   { x: 25.0, z: -16.5, width: 5.0, turnAnchor: 7 },
   { x: 35.0, z: -12.5, width: 5.6 },
   // Turn 8: Wide 180° Far-Right Sweeper
@@ -59,7 +59,7 @@ const RAW_WAYPOINTS: ControlWaypoint[] = [
   // Back straight 8 -> 9 heading down-left
   { x: 29.0, z: 8.5, width: 5.7 },
   { x: 15.0, z: 15.0, width: 5.5 },
-  // Turn 9: Right-hand bend at bottom-center heading up-left into lower infield
+  // Turn 9: Right-hand corner at bottom-center heading up-left into lower infield
   { x: 4.5, z: 16.5, width: 5.3, turnAnchor: 9 },
   { x: -5.0, z: 8.5, width: 5.1 },
   { x: -14.5, z: 0.5, width: 4.95 },
@@ -77,6 +77,13 @@ const RAW_WAYPOINTS: ControlWaypoint[] = [
 const TARGET_CIRCUIT_LENGTH_METERS = 245.0;
 const TRACK_RECORD_SECONDS = 24.499;
 const SAMPLE_COUNT = 490; // ~0.5m per sample
+
+export function wrapAngleRad(rad: number): number {
+  let a = rad;
+  while (a > Math.PI) a -= 2 * Math.PI;
+  while (a < -Math.PI) a += 2 * Math.PI;
+  return a;
+}
 
 function catmullRom(p0: number, p1: number, p2: number, p3: number, t: number): number {
   const t2 = t * t;
@@ -130,7 +137,7 @@ const TURN_DEFINITIONS: Array<{
   { number: 6, name: 'Turn 6 (Esses Entry Right)', direction: 'Right', sector: 2 },
   { number: 7, name: 'Turn 7 (Esses Exit Left)', direction: 'Left', sector: 2 },
   { number: 8, name: 'Turn 8 (East Sweeper Right)', direction: 'Right', sector: 2 },
-  { number: 9, name: 'Turn 9 (South Infield Bend Right)', direction: 'Right', sector: 3 },
+  { number: 9, name: 'Turn 9 (South Infield Right)', direction: 'Right', sector: 3 },
   { number: 10, name: 'Turn 10 (West Hairpin Left)', direction: 'Left', sector: 3 },
   { number: 11, name: 'Turn 11 (Carousel Right)', direction: 'Right', sector: 3 },
 ];
@@ -206,9 +213,7 @@ export function buildK1TorontoCircuit(): CircuitData {
     const next2 = rawSamples[(idx + 2) % SAMPLE_COUNT];
     const h1 = Math.atan2(s.center.z - prev2.center.z, s.center.x - prev2.center.x);
     const h2 = Math.atan2(next2.center.z - s.center.z, next2.center.x - s.center.x);
-    let dHeading = h2 - h1;
-    while (dHeading > Math.PI) dHeading -= 2 * Math.PI;
-    while (dHeading < -Math.PI) dHeading += 2 * Math.PI;
+    const dHeading = wrapAngleRad(h2 - h1);
     const ds = (4 * TARGET_CIRCUIT_LENGTH_METERS) / SAMPLE_COUNT;
     const curvature = dHeading / ds; // positive = clockwise right turn, negative = left turn
 
@@ -249,7 +254,7 @@ export function buildK1TorontoCircuit(): CircuitData {
       Math.round((apexDist / TARGET_CIRCUIT_LENGTH_METERS) * SAMPLE_COUNT) % SAMPLE_COUNT;
     const apexSample = samples[sampleIdx];
     const insideSign = def.direction === 'Right' ? 1 : -1;
-    const insideOffset = apexSample.widthMeters * 0.5 - 0.55; // 55cm off inside barrier
+    const insideOffset = apexSample.widthMeters * 0.5 - 0.26; // Inside front tire clipping point (26cm off inside barrier)
     const apexPoint: Vector2D = {
       x: apexSample.center.x + apexSample.normal.x * insideSign * insideOffset,
       z: apexSample.center.z + apexSample.normal.z * insideSign * insideOffset,

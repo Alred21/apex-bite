@@ -437,7 +437,11 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
         }`;
         execTimeEl.textContent = `${card.segmentTimeSeconds.toFixed(3)}s`;
         const dSign = card.deltaToBenchmarkSeconds >= 0 ? '+' : '';
-        execDeltaEl.textContent = `${dSign}${card.deltaToBenchmarkSeconds.toFixed(3)}s vs ${card.benchmarkTimeSeconds.toFixed(3)}s Target`;
+        const pbDeltaStr =
+          card.deltaToPersonalBestSeconds !== null
+            ? ` · ${card.deltaToPersonalBestSeconds >= 0 ? '+' : ''}${card.deltaToPersonalBestSeconds.toFixed(3)}s vs PB`
+            : '';
+        execDeltaEl.textContent = `${dSign}${card.deltaToBenchmarkSeconds.toFixed(3)}s vs REC${pbDeltaStr}`;
         execApexEl.textContent = `${card.apexProximityCm.toFixed(0)} cm`;
         execApexEl.style.color =
           card.apexProximityCm <= 50 ? 'var(--accent-green)' : 'var(--accent-amber)';
@@ -472,7 +476,11 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
     // Time-Delta Bar: negative = ahead (green), positive = behind (red)
     const delta = lap.timeDeltaSeconds;
     const signStr = delta >= 0 ? '+' : '';
-    deltaText.textContent = `${signStr}${delta.toFixed(3)}s vs 24.499s REC`;
+    const refLabel =
+      ghost.mode === 'Personal Best' && lap.personalBestSeconds !== null
+        ? `vs ${lap.personalBestSeconds.toFixed(3)}s PB`
+        : 'vs 24.499s REC';
+    deltaText.textContent = `${signStr}${delta.toFixed(3)}s ${refLabel}`;
     deltaText.style.color = delta <= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
 
     const clampedDelta = Math.max(-2.5, Math.min(2.5, delta));

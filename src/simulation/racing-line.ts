@@ -1,3 +1,4 @@
+import { wrapAngleRad } from './circuit';
 import {
   CircuitData,
   RacingLineCue,
@@ -114,9 +115,7 @@ function buildRacingLineBaseline(circuit: CircuitData): CachedBaseline {
 
     const h1 = Math.atan2(cur.z - prev3.z, cur.x - prev3.x);
     const h2 = Math.atan2(next3.z - cur.z, next3.x - cur.x);
-    let dH = h2 - h1;
-    while (dH > Math.PI) dH -= 2 * Math.PI;
-    while (dH < -Math.PI) dH += 2 * Math.PI;
+    const dH = wrapAngleRad(h2 - h1);
     const span = Math.max(0.5, Math.hypot(next3.x - prev3.x, next3.z - prev3.z));
     curvatures[i] = dH / span;
   }

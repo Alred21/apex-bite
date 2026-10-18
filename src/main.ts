@@ -43,17 +43,17 @@ function bindKeyboardListeners(): void {
   window.addEventListener('keyup', (e) => handleKey(e, false));
 }
 
-function pollGamepad(): GamepadInputState | undefined {
+function pollGamepad(deadzone = 0.06): GamepadInputState | undefined {
   if (typeof navigator.getGamepads !== 'function') return undefined;
   const pads = navigator.getGamepads();
   const pad = pads.find((p): p is Gamepad => p !== null && p.connected);
   if (!pad) return undefined;
 
   const rawSteer = pad.axes[0] ?? 0;
-  const steer = Math.abs(rawSteer) > 0.06 ? rawSteer : 0;
+  const steer = Math.abs(rawSteer) > deadzone ? rawSteer : 0;
   const throttle = pad.buttons[7]?.value ?? 0;
   const brake = pad.buttons[6]?.value ?? 0;
-  return { throttle, brake, steer };
+  return { throttle, brake, steer, deadzone };
 }
 
 function bootstrap(): void {
@@ -65,6 +65,11 @@ function bootstrap(): void {
   const session = createSimulationSession({
     storage: typeof window !== 'undefined' ? window.localStorage : undefined,
   });
+  const togglePracticeMode = (): void => {
+    const next =
+      session.getSnapshot().mode === 'Time Trial' ? 'Corner Drill' : 'Time Trial';
+    session.setPracticeMode(next);
+  };
   const renderer = createCircuitRenderer(canvas, session.getSnapshot());
   const hud = createHudView(hudRoot, {
     onToggleCamera: () => {
@@ -76,11 +81,7 @@ function bootstrap(): void {
     onCycleGhostMode: () => {
       session.cycleGhostMode();
     },
-    onToggleMode: () => {
-      const next =
-        session.getSnapshot().mode === 'Time Trial' ? 'Corner Drill' : 'Time Trial';
-      session.setPracticeMode(next);
-    },
+    onToggleMode: togglePracticeMode,
     onSelectDrillTarget: (targetId) => {
       session.selectDrillTarget(targetId);
     },
@@ -102,9 +103,7 @@ function bootstrap(): void {
     } else if (e.code === 'KeyG') {
       session.cycleGhostMode();
     } else if (e.code === 'KeyM') {
-      const next =
-        session.getSnapshot().mode === 'Time Trial' ? 'Corner Drill' : 'Time Trial';
-      session.setPracticeMode(next);
+      togglePracticeMode();
     } else if (e.code === 'KeyR') {
       session.reset();
     }

@@ -15,14 +15,14 @@ describe('Ticket #2: Walking Skeleton — K1 Speed Toronto Circuit & Electric Ka
     expect(turns.map((t) => t.number)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
     expect(turns.map((t) => t.direction)).toEqual([
       'Right', // T1: 90° right after start/finish
-      'Right', // T2: right bend into first infield chute
+      'Right', // T2: right turn into first infield chute
       'Left',  // T3: tight 180° left hairpin
       'Right', // T4: 90° right at top-left
-      'Right', // T5: north right bend
+      'Right', // T5: north right turn
       'Right', // T6: upper-right kink (right)
       'Left',  // T7: upper-right kink (left)
       'Right', // T8: wide 180° far-right sweeper
-      'Right', // T9: right bend off back straight
+      'Right', // T9: right turn off back straight
       'Left',  // T10: tight 180° lower infield hairpin
       'Right', // T11: final 180° right carousel onto main straight
     ]);

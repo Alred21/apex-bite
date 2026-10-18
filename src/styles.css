@@ -561,3 +561,8 @@ body,
 .hud-volume-label { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-muted); }
 #hud-audio-volume { width: 64px; accent-color: #56b9d8; }
 #hud-audio-meter { width: 25px; height: 7px; }
+.camera-settings { display: grid; gap: 14px; }
+.camera-settings label { display: flex; justify-content: space-between; gap: 24px; font-weight: 600; }
+.camera-settings output { color: var(--accent-blue); font-variant-numeric: tabular-nums; }
+.camera-settings input[type="range"] { width: 100%; min-height: 26px; accent-color: #38bdf8; }
+.camera-settings p { margin: 0; line-height: 1.5; }

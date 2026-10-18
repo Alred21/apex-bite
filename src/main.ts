@@ -97,6 +97,9 @@ function bootstrap(): void {
     onToggleCamera: () => {
       session.toggleCamera();
     },
+    onSetCameraSettings: (settings) => {
+      session.setCameraSettings(settings);
+    },
     onToggleRacingLine: () => {
       session.toggleRacingLine();
     },
@@ -106,6 +109,7 @@ function bootstrap(): void {
     onToggleMode: togglePracticeMode,
     onSelectTimeTrialLapLimit: (lapLimit) => {
       session.setTimeTrialLapLimit(lapLimit);
+      audio.reset();
     },
     onSelectDrillTarget: (targetId) => {
       session.selectDrillTarget(targetId);

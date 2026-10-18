@@ -80,6 +80,8 @@ export interface DriverInput {
 }
 
 export interface KartState {
+  velocity: Vector2D;
+  yawRateRadPerSecond: number;
   position: Vector2D;
   headingRad: number; // 0 = +x, PI/2 = +z, clockwise in top-down (x, z)
   speedMps: number;
@@ -96,13 +98,21 @@ export interface KartState {
   barrierContact: boolean;
   barrierContactCount: number;
   lapDistanceMeters: number;
+  unwrappedDistanceMeters: number;
   lapProgress: number;
   currentTurn: TurnNumber | null;
   currentSector: SectorNumber;
 }
 
+export interface CameraSettings {
+  fieldOfViewDegrees: number;
+  motionStrength: number; // 0 fully disables acceleration, cornering and impact feedback
+}
+
 export interface CameraState {
   mode: CameraMode;
+  settings: CameraSettings;
+  rollRad: number;
   position: Vector3D;
   lookAt: Vector3D;
 }

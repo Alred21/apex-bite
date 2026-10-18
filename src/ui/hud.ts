@@ -1,9 +1,12 @@
-import { SessionSnapshot } from '../simulation/types';
+import { DrillTargetId, PracticeMode, SessionSnapshot } from '../simulation/types';
 
 export interface HudCallbacks {
   onToggleCamera?: () => void;
   onToggleRacingLine?: () => void;
   onCycleGhostMode?: () => void;
+  onToggleMode?: () => void;
+  onSelectDrillTarget?: (targetId: DrillTargetId) => void;
+  onReset?: () => void;
   onExportData?: () => string;
   onImportData?: (json: string) => void;
 }
@@ -23,6 +26,37 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
       <div class="hud-panel hud-quick-bar" aria-label="Controls Bar">
         <div class="brand-title">APEX BITE <span class="brand-sub">K1 TORONTO</span></div>
         <div class="quick-actions">
+          <button type="button" class="hud-btn" id="hud-btn-mode" title="Switch Practice Mode: Time Trial / Corner Drill (M)">
+            MODE [M]: <strong id="hud-mode-label">Time Trial</strong>
+          </button>
+          <label class="hud-select-wrap" id="hud-drill-select-wrap" title="Select Turn or Corner Complex for Corner Drill">
+            <span>DRILL:</span>
+            <select id="hud-drill-select" class="hud-select" aria-label="Corner Drill Target">
+              <optgroup label="Corner Complexes (5)">
+                <option value="T1-T3">T1–T3 Opening Complex</option>
+                <option value="T2-T3">T2–T3 Infield into Hairpin</option>
+                <option value="T4-T5">T4–T5 North Double-Right</option>
+                <option value="T6-T7-T8">T6–T7–T8 Esses & Sweeper</option>
+                <option value="T9-T10-T11">T9–T10–T11 Hairpin & Carousel</option>
+              </optgroup>
+              <optgroup label="Individual Turns (11)">
+                <option value="T1">T1 Grid 90 Right</option>
+                <option value="T2">T2 Infield Entry Right</option>
+                <option value="T3" selected>T3 Center Hairpin Left</option>
+                <option value="T4">T4 North-West Right</option>
+                <option value="T5">T5 North Crown Right</option>
+                <option value="T6">T6 Esses Entry Right</option>
+                <option value="T7">T7 Esses Exit Left</option>
+                <option value="T8">T8 East Sweeper Right</option>
+                <option value="T9">T9 South Infield Right</option>
+                <option value="T10">T10 West Hairpin Left</option>
+                <option value="T11">T11 Carousel Right</option>
+              </optgroup>
+            </select>
+          </label>
+          <button type="button" class="hud-btn" id="hud-btn-reset" title="Instant Reset to Flying Entry / Flying Start (R)">
+            RESET [R]
+          </button>
           <button type="button" class="hud-btn" id="hud-btn-camera" title="Switch Camera View (C or V)">
             CAM [C]: <strong id="hud-camera-label">Chase Cam</strong>
           </button>
@@ -63,7 +97,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
         <div class="records-row">
           <span>LAST: <strong id="hud-last-lap">--.---</strong></span>
           <span>PB: <strong id="hud-pb-lap">--.---</strong></span>
-          <span>REC: <strong>24.499s</strong></span>
+          <span>REC: <strong id="hud-rec-lap">24.499s</strong></span>
         </div>
       </div>
 
@@ -76,7 +110,39 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
       </div>
     </div>
 
-    <div></div>
+    <div class="hud-middle-row">
+      <aside class="hud-panel hud-execution-card hidden" id="hud-execution-card" aria-label="Corner Execution Card">
+        <div class="exec-card-header">
+          <div>
+            <div class="exec-card-eyebrow">CORNER EXECUTION CARD</div>
+            <div class="exec-card-title" id="hud-exec-title">Turn 3 (Center Hairpin Left)</div>
+          </div>
+          <span class="exec-category-badge" id="hud-exec-category">Optimal Pass</span>
+        </div>
+
+        <div class="exec-metrics-grid">
+          <div class="exec-metric">
+            <span class="exec-metric-label">SEGMENT TIME</span>
+            <strong class="exec-metric-val" id="hud-exec-time">--.---</strong>
+            <span class="exec-metric-sub" id="hud-exec-delta">vs Target</span>
+          </div>
+          <div class="exec-metric">
+            <span class="exec-metric-label">APEX PROXIMITY</span>
+            <strong class="exec-metric-val" id="hud-exec-apex">-- cm</strong>
+            <span class="exec-metric-sub">Inside Front Tire</span>
+          </div>
+          <div class="exec-metric">
+            <span class="exec-metric-label">ENTRY / MIN / EXIT</span>
+            <strong class="exec-metric-val exec-speeds" id="hud-exec-speeds">-- / -- / --</strong>
+            <span class="exec-metric-sub" id="hud-exec-target-speeds">Target km/h</span>
+          </div>
+        </div>
+
+        <div class="exec-coaching-box" id="hud-exec-insight">
+          Complete a pass through the selected Turn or Corner Complex to generate a Coaching Insight.
+        </div>
+      </aside>
+    </div>
 
     <div class="hud-panel hud-bottom-cluster" aria-label="Driver Cluster">
       <div class="pedal-Cluster">
@@ -130,6 +196,10 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
   const scrubBar = root.querySelector<HTMLElement>('#hud-scrub-bar')!;
   const trailPill = root.querySelector<HTMLElement>('#hud-trail-pill')!;
 
+  const modeBtn = root.querySelector<HTMLButtonElement>('#hud-btn-mode')!;
+  const modeLabel = root.querySelector<HTMLElement>('#hud-mode-label')!;
+  const drillSelect = root.querySelector<HTMLSelectElement>('#hud-drill-select')!;
+  const resetBtn = root.querySelector<HTMLButtonElement>('#hud-btn-reset')!;
   const cameraBtn = root.querySelector<HTMLButtonElement>('#hud-btn-camera')!;
   const cameraLabel = root.querySelector<HTMLElement>('#hud-camera-label')!;
   const lineBtn = root.querySelector<HTMLButtonElement>('#hud-btn-line')!;
@@ -148,6 +218,17 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
   const s3El = root.querySelector<HTMLElement>('#hud-s3')!;
   const lastLapEl = root.querySelector<HTMLElement>('#hud-last-lap')!;
   const pbLapEl = root.querySelector<HTMLElement>('#hud-pb-lap')!;
+  const recLapEl = root.querySelector<HTMLElement>('#hud-rec-lap')!;
+
+  const execCardEl = root.querySelector<HTMLElement>('#hud-execution-card')!;
+  const execTitleEl = root.querySelector<HTMLElement>('#hud-exec-title')!;
+  const execCategoryEl = root.querySelector<HTMLElement>('#hud-exec-category')!;
+  const execTimeEl = root.querySelector<HTMLElement>('#hud-exec-time')!;
+  const execDeltaEl = root.querySelector<HTMLElement>('#hud-exec-delta')!;
+  const execApexEl = root.querySelector<HTMLElement>('#hud-exec-apex')!;
+  const execSpeedsEl = root.querySelector<HTMLElement>('#hud-exec-speeds')!;
+  const execTargetSpeedsEl = root.querySelector<HTMLElement>('#hud-exec-target-speeds')!;
+  const execInsightEl = root.querySelector<HTMLElement>('#hud-exec-insight')!;
 
   const turnBadge = root.querySelector<HTMLElement>('#hud-turn-badge')!;
   const minimapCanvas = root.querySelector<HTMLCanvasElement>('#hud-minimap-canvas')!;
@@ -171,6 +252,21 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
       dataDialog.close();
     });
   }
+
+  modeBtn.addEventListener('click', () => {
+    callbacks.onToggleMode?.();
+    modeBtn.blur();
+  });
+
+  drillSelect.addEventListener('change', () => {
+    callbacks.onSelectDrillTarget?.(drillSelect.value as DrillTargetId);
+    drillSelect.blur();
+  });
+
+  resetBtn.addEventListener('click', () => {
+    callbacks.onReset?.();
+    resetBtn.blur();
+  });
 
   cameraBtn.addEventListener('click', () => {
     callbacks.onToggleCamera?.();
@@ -242,8 +338,15 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
     for (const t of circuit.turns) {
       const tx = toX(t.apexPoint.x);
       const ty = toY(t.apexPoint.z);
+      const isDrillHighlighted =
+        snapshot.mode === 'Corner Drill' &&
+        snapshot.drill.target.turns.includes(t.number);
       minimapCtx.fillStyle =
-        kart.currentTurn === t.number ? '#ef4444' : 'rgba(15, 23, 42, 0.9)';
+        kart.currentTurn === t.number
+          ? '#ef4444'
+          : isDrillHighlighted
+            ? '#38bdf8'
+            : 'rgba(15, 23, 42, 0.9)';
       minimapCtx.beginPath();
       minimapCtx.arc(tx, ty, 6.5, 0, Math.PI * 2);
       minimapCtx.fill();
@@ -294,7 +397,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
   }
 
   function update(snapshot: SessionSnapshot): void {
-    const { kart, camera, lap, ghost } = snapshot;
+    const { kart, camera, lap, ghost, drill, mode } = snapshot;
     speedEl.textContent = kart.speedKph.toFixed(1);
     throttleBar.style.width = `${Math.round(kart.throttleInput * 100)}%`;
     brakeBar.style.width = `${Math.round(kart.brakeInput * 100)}%`;
@@ -303,18 +406,70 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
     trailPill.classList.toggle('active-trail', kart.isTrailBraking);
     scrubBar.classList.toggle('high-scrub', kart.axleScrub > 0.25);
 
+    modeLabel.textContent = mode;
+    if (drillSelect.value !== drill.target.id) {
+      drillSelect.value = drill.target.id;
+    }
     cameraLabel.textContent = camera.mode;
     lineLabel.textContent = snapshot.racingLine.visible ? 'ON' : 'OFF';
     ghostLabel.textContent = ghost.mode;
 
-    lapBadge.textContent =
-      lap.lapNumber === 0 ? 'FLYING START' : `LAP ${lap.lapNumber}`;
-    cleanBadge.textContent = lap.isClean ? 'CLEAN LAP' : 'DIRTY (WALL CONTACT)';
-    cleanBadge.className = `clean-badge ${lap.isClean ? 'clean-ok' : 'clean-dirty'}`;
+    if (mode === 'Corner Drill') {
+      lapBadge.textContent = `DRILL ${drill.target.id} · RUN #${drill.runNumber}`;
+      cleanBadge.textContent = drill.isClean ? 'CLEAN PASS' : 'DIRTY (WALL CONTACT)';
+      cleanBadge.className = `clean-badge ${drill.isClean ? 'clean-ok' : 'clean-dirty'}`;
+      lapTimer.textContent = `${drill.currentSegmentSeconds.toFixed(3)}s`;
 
-    lapTimer.textContent = `${lap.currentLapSeconds.toFixed(3)}s`;
+      const drillPb = drill.personalBests[drill.target.id] ?? null;
+      pbLapEl.textContent = formatSeconds(drillPb);
+      recLapEl.textContent = formatSeconds(drill.target.benchmarkTimeSeconds);
+      lastLapEl.textContent = formatSeconds(
+        drill.lastExecutionCard?.segmentTimeSeconds ?? null,
+      );
 
-    // Time-Delta Bar: negative = ahead (green, left/right fill), positive = behind (red)
+      execCardEl.classList.remove('hidden');
+      const card = drill.lastExecutionCard;
+      if (card) {
+        execTitleEl.textContent = `${card.targetLabel} · Run #${card.runNumber}`;
+        execCategoryEl.textContent = card.coachingCategory;
+        execCategoryEl.className = `exec-category-badge ${
+          card.coachingCategory === 'Optimal Pass' ? 'cat-optimal' : 'cat-warn'
+        }`;
+        execTimeEl.textContent = `${card.segmentTimeSeconds.toFixed(3)}s`;
+        const dSign = card.deltaToBenchmarkSeconds >= 0 ? '+' : '';
+        execDeltaEl.textContent = `${dSign}${card.deltaToBenchmarkSeconds.toFixed(3)}s vs ${card.benchmarkTimeSeconds.toFixed(3)}s Target`;
+        execApexEl.textContent = `${card.apexProximityCm.toFixed(0)} cm`;
+        execApexEl.style.color =
+          card.apexProximityCm <= 50 ? 'var(--accent-green)' : 'var(--accent-amber)';
+        execSpeedsEl.textContent = `${card.entrySpeedKph.toFixed(1)} / ${card.minApexSpeedKph.toFixed(1)} / ${card.exitSpeedKph.toFixed(1)}`;
+        execTargetSpeedsEl.textContent = `Target: ${card.targetEntrySpeedKph.toFixed(1)} / ${card.targetMinApexSpeedKph.toFixed(1)} / ${card.targetExitSpeedKph.toFixed(1)} km/h`;
+        execInsightEl.textContent = card.coachingInsight;
+      } else {
+        execTitleEl.textContent = `${drill.target.label} (Flying Entry Ready)`;
+        execCategoryEl.textContent = 'Awaiting Pass';
+        execCategoryEl.className = 'exec-category-badge';
+        execTimeEl.textContent = '--.---';
+        execDeltaEl.textContent = `Target: ${drill.target.benchmarkTimeSeconds.toFixed(3)}s`;
+        execApexEl.textContent = '-- cm';
+        execApexEl.style.color = 'var(--text-main)';
+        execSpeedsEl.textContent = '-- / -- / --';
+        execTargetSpeedsEl.textContent = `Target: ${drill.target.targetEntrySpeedKph.toFixed(1)} / ${drill.target.targetMinApexSpeedKph.toFixed(1)} / ${drill.target.targetExitSpeedKph.toFixed(1)} km/h`;
+        execInsightEl.textContent =
+          'Drive through the corner exit gate to receive your Corner Execution Card & Coaching Insight. Press [R] anytime for Instant Reset.';
+      }
+    } else {
+      execCardEl.classList.add('hidden');
+      lapBadge.textContent =
+        lap.lapNumber === 0 ? 'FLYING START' : `LAP ${lap.lapNumber}`;
+      cleanBadge.textContent = lap.isClean ? 'CLEAN LAP' : 'DIRTY (WALL CONTACT)';
+      cleanBadge.className = `clean-badge ${lap.isClean ? 'clean-ok' : 'clean-dirty'}`;
+      lapTimer.textContent = `${lap.currentLapSeconds.toFixed(3)}s`;
+      lastLapEl.textContent = formatSeconds(lap.lastLapSeconds);
+      pbLapEl.textContent = formatSeconds(lap.personalBestSeconds);
+      recLapEl.textContent = '24.499s';
+    }
+
+    // Time-Delta Bar: negative = ahead (green), positive = behind (red)
     const delta = lap.timeDeltaSeconds;
     const signStr = delta >= 0 ? '+' : '';
     deltaText.textContent = `${signStr}${delta.toFixed(3)}s vs 24.499s REC`;
@@ -335,9 +490,6 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
     s2El.textContent = formatSeconds(activeSplits[1]);
     s3El.textContent = formatSeconds(activeSplits[2]);
 
-    lastLapEl.textContent = formatSeconds(lap.lastLapSeconds);
-    pbLapEl.textContent = formatSeconds(lap.personalBestSeconds);
-
     turnBadge.textContent = kart.currentTurn
       ? `TURN ${kart.currentTurn} (S${kart.currentSector})`
       : `SECTOR ${kart.currentSector}`;
@@ -347,3 +499,5 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
 
   return { update };
 }
+export type { PracticeMode };
+

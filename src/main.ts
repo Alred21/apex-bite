@@ -76,6 +76,17 @@ function bootstrap(): void {
     onCycleGhostMode: () => {
       session.cycleGhostMode();
     },
+    onToggleMode: () => {
+      const next =
+        session.getSnapshot().mode === 'Time Trial' ? 'Corner Drill' : 'Time Trial';
+      session.setPracticeMode(next);
+    },
+    onSelectDrillTarget: (targetId) => {
+      session.selectDrillTarget(targetId);
+    },
+    onReset: () => {
+      session.reset();
+    },
     onExportData: () => session.exportTrainingDataJson(),
     onImportData: (json) => {
       session.importTrainingDataJson(json);
@@ -90,6 +101,12 @@ function bootstrap(): void {
       session.toggleRacingLine();
     } else if (e.code === 'KeyG') {
       session.cycleGhostMode();
+    } else if (e.code === 'KeyM') {
+      const next =
+        session.getSnapshot().mode === 'Time Trial' ? 'Corner Drill' : 'Time Trial';
+      session.setPracticeMode(next);
+    } else if (e.code === 'KeyR') {
+      session.reset();
     }
   });
 

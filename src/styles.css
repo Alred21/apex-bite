@@ -389,3 +389,142 @@ body,
   gap: 10px;
 }
 
+.hud-select-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 7px;
+  padding: 4px 8px;
+}
+
+.hud-select {
+  background: transparent;
+  color: var(--text-main);
+  border: none;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  outline: none;
+}
+
+.hud-select option,
+.hud-select optgroup {
+  background: #0f172a;
+  color: var(--text-main);
+}
+
+.hud-middle-row {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  pointer-events: none;
+}
+
+.hud-execution-card {
+  width: min(440px, 90vw);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+.hud-execution-card.hidden {
+  display: none;
+}
+
+.exec-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.exec-card-eyebrow {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--accent-blue);
+}
+
+.exec-card-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.exec-category-badge {
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--text-main);
+  white-space: nowrap;
+}
+
+.exec-category-badge.cat-optimal {
+  background: rgba(34, 197, 94, 0.22);
+  color: var(--accent-green);
+  border: 1px solid rgba(34, 197, 94, 0.55);
+}
+
+.exec-category-badge.cat-warn {
+  background: rgba(245, 158, 11, 0.22);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.55);
+}
+
+.exec-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.exec-metric {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.exec-metric-label {
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+}
+
+.exec-metric-val {
+  font-size: 1.02rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.exec-metric-val.exec-speeds {
+  font-size: 0.84rem;
+}
+
+.exec-metric-sub {
+  font-size: 0.64rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.exec-coaching-box {
+  background: rgba(56, 189, 248, 0.1);
+  border-left: 3px solid var(--accent-blue);
+  border-radius: 6px;
+  padding: 9px 11px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--text-main);
+}
+
+

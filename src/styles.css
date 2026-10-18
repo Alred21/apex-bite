@@ -528,3 +528,13 @@ body,
 }
 
 
+
+[hidden] { display: none !important; }
+.hud-btn:disabled { opacity: 0.4; cursor: default; }
+.time-trial-results { width: min(800px, calc(100vw - 48px)); max-height: calc(100vh - 48px); }
+.time-trial-results h2 { margin-top: 0; }
+.results-table-wrap { max-height: 48vh; overflow: auto; margin: 20px 0; }
+.results-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.results-table th, .results-table td { padding: 10px 12px; border-bottom: 1px solid var(--panel-border); text-align: right; }
+.results-table th:first-child, .results-table td:first-child { text-align: left; }
+.results-table th { position: sticky; top: 0; background: #141c28; }

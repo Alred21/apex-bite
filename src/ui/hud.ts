@@ -262,6 +262,8 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
   audioControls.hidden = !callbacks.getAudioState;
   audioButton.addEventListener('click', () => { callbacks.onToggleAudio?.(); audioButton.blur(); });
   audioVolume.addEventListener('input', () => callbacks.onAudioVolume?.(Number(audioVolume.value) / 100));
+  audioVolume.addEventListener('keydown', (event) => event.stopPropagation());
+  audioVolume.addEventListener('keyup', (event) => event.stopPropagation());
 
   const cameraDialog = root.querySelector<HTMLDialogElement>('#hud-camera-dialog')!;
   const cameraFov = root.querySelector<HTMLInputElement>('#hud-camera-fov')!;

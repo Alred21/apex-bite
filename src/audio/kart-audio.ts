@@ -114,7 +114,11 @@ export function createKartAudio(): KartAudio {
       // One bounded timer permits the master fade to finish before suspension.
       suspensionTimer = setTimeout(() => {
         suspensionTimer = null;
-        if (context?.state === 'running') void context.suspend().catch(() => {});
+        if (context?.state === 'running') {
+          void context.suspend().then(() => {
+            if (context && active && !muted && volume > 0 && !disposed) return context.resume();
+          }).catch(() => {});
+        }
       }, 65);
     } else if (context.state === 'suspended' && !transitionPending) {
       transitionPending = true;
@@ -231,6 +235,7 @@ export function createKartAudio(): KartAudio {
       graph.nodes.forEach((node) => node.disconnect());
     }
     if (context) void context.close().catch(() => {});
+    graph = null; context = null;
   }
 
   return { toggle, setVolume, setActive, update, getState, reset, dispose };

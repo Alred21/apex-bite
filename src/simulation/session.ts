@@ -1,3 +1,12 @@
+import {
+  CURRENT_TRAINING_REVISION,
+  parseTrainingData,
+  sameRevision,
+  summarizeTrainingRecords,
+  TrainingRecords,
+  TrainingRevision,
+  PersistedTrainingData,
+} from './training-data';
 import { buildK1TorontoCircuit, wrapAngleRad } from './circuit';
 import { evaluateLiveRacingLine } from './racing-line';
 import {
@@ -39,23 +48,19 @@ const MAX_REAR_BRAKE_DECEL_MPS2 = 8.8;
 const WHEELBASE_METERS = 1.06;
 const MAX_STEER_ANGLE_RAD = 0.46;
 const KART_HALF_WIDTH_METERS = 0.45;
-const STORAGE_KEY = 'apex-bite:training-data:v1';
+const STORAGE_KEY = 'apex-bite:training-data:v2';
+const LEGACY_STORAGE_KEY = 'apex-bite:training-data:v1';
 
 export interface StorageLike {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
 }
 
-export interface PersistedTrainingData {
-  version: 1;
-  personalBestSeconds: number | null;
-  bestSectorSplits: SectorSplitsTuple;
-  personalBestGhostFrames: GhostSampleFrame[];
-  drillPersonalBests?: Partial<Record<DrillTargetId, number>>;
-}
+export type { PersistedTrainingData } from './training-data';
 
 export interface SimulationSessionOptions {
   storage?: StorageLike;
+  trainingRevision?: TrainingRevision;
 }
 
 export interface SimulationSession {
@@ -345,6 +350,10 @@ export function createSimulationSession(
   const initialHeading = Math.atan2(startSample.tangent.z, startSample.tangent.x);
 
   const storage: StorageLike | undefined = options.storage;
+  const trainingRevision = { ...(options.trainingRevision ?? CURRENT_TRAINING_REVISION) };
+  let legacyRecords: TrainingRecords[] = [];
+  let persistence: 'memory' | 'saved' | 'error' = storage ? 'saved' : 'memory';
+  let persistenceMessage: string | null = null;
 
   let tick = 0;
   let elapsedSeconds = 0;
@@ -506,11 +515,12 @@ export function createSimulationSession(
   function loadFromStorage(): void {
     if (!storage) return;
     try {
-      const raw = storage.getItem(STORAGE_KEY);
+      const raw = storage.getItem(STORAGE_KEY) ?? storage.getItem(LEGACY_STORAGE_KEY);
       if (!raw) return;
       applyImportedData(raw);
     } catch {
-      // Ignore malformed storage data
+      persistence = 'error';
+      persistenceMessage = 'Saved training data could not be loaded. The original storage has been retained.';
     }
   }
 
@@ -518,8 +528,11 @@ export function createSimulationSession(
     if (!storage) return;
     try {
       storage.setItem(STORAGE_KEY, exportTrainingDataJson());
+      persistence = 'saved';
+      persistenceMessage = null;
     } catch {
-      // Ignore quota errors
+      persistence = 'error';
+      persistenceMessage = 'Storage could not save your records. Export JSON to keep this session’s new records.';
     }
   }
 
@@ -1072,40 +1085,62 @@ export function createSimulationSession(
     return getSnapshot();
   }
 
-  function exportTrainingDataJson(): string {
-    const payload: PersistedTrainingData = {
-      version: 1,
+  function currentTrainingRecords(): TrainingRecords {
+    return {
+      revision: { ...trainingRevision },
       personalBestSeconds: lap.personalBestSeconds,
       bestSectorSplits: [...lap.bestSectorSplits] as SectorSplitsTuple,
       personalBestGhostFrames,
       drillPersonalBests: { ...drillPersonalBests },
     };
+  }
+
+  function exportTrainingDataJson(): string {
+    const payload: PersistedTrainingData = {
+      version: 2,
+      records: [currentTrainingRecords(), ...legacyRecords],
+    };
     return JSON.stringify(payload, null, 2);
   }
 
-  function applyImportedData(json: string): void {
-    const parsed = JSON.parse(json) as Partial<PersistedTrainingData>;
-    if (typeof parsed.personalBestSeconds === 'number' || parsed.personalBestSeconds === null) {
-      lap.personalBestSeconds = parsed.personalBestSeconds ?? null;
-    }
-    if (Array.isArray(parsed.bestSectorSplits) && parsed.bestSectorSplits.length === 3) {
-      lap.bestSectorSplits = [
-        parsed.bestSectorSplits[0] ?? null,
-        parsed.bestSectorSplits[1] ?? null,
-        parsed.bestSectorSplits[2] ?? null,
-      ];
-    }
-    if (Array.isArray(parsed.personalBestGhostFrames)) {
-      personalBestGhostFrames = parsed.personalBestGhostFrames;
-    }
-    if (parsed.drillPersonalBests && typeof parsed.drillPersonalBests === 'object') {
-      drillPersonalBests = { ...parsed.drillPersonalBests };
+  function mergedTrainingRecords(incoming: TrainingRecords[]): TrainingRecords[] {
+    const existing = [currentTrainingRecords(), ...legacyRecords];
+    return [
+      ...incoming,
+      ...existing.filter((record) => !incoming.some((item) => sameRevision(item.revision, record.revision))),
+    ];
+  }
+
+  function applyTrainingRecords(records: TrainingRecords[]): void {
+    const current = records.find((record) => sameRevision(record.revision, trainingRevision));
+    legacyRecords = records.filter((record) => !sameRevision(record.revision, trainingRevision));
+    if (current) {
+      lap.personalBestSeconds = current.personalBestSeconds;
+      lap.bestSectorSplits = current.bestSectorSplits;
+      personalBestGhostFrames = current.personalBestGhostFrames;
+      drillPersonalBests = current.drillPersonalBests;
     }
   }
 
+  function applyImportedData(json: string): void {
+    applyTrainingRecords(mergedTrainingRecords(parseTrainingData(json)));
+  }
+
   function importTrainingDataJson(json: string): SessionSnapshot {
-    applyImportedData(json);
-    saveToStorage();
+    // Parse and validate every record before committing anything to storage or live comparisons.
+    const candidate = mergedTrainingRecords(parseTrainingData(json));
+    if (storage) {
+      try {
+        storage.setItem(STORAGE_KEY, JSON.stringify({ version: 2, records: candidate }));
+      } catch {
+        persistence = 'error';
+        persistenceMessage = 'Storage rejected the import. No records were changed.';
+        throw new Error(persistenceMessage);
+      }
+    }
+    applyTrainingRecords(candidate);
+    persistence = storage ? 'saved' : 'memory';
+    persistenceMessage = null;
     return getSnapshot();
   }
 
@@ -1191,6 +1226,13 @@ export function createSimulationSession(
       racingLine,
       ghost,
       drill,
+      trainingData: {
+        revision: { ...trainingRevision },
+        current: summarizeTrainingRecords(currentTrainingRecords()),
+        legacy: legacyRecords.map(summarizeTrainingRecords),
+        persistence,
+        message: persistenceMessage,
+      },
     };
   }
 

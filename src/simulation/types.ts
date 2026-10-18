@@ -257,4 +257,5 @@ export interface SessionSnapshot {
   racingLine: RacingLineState;
   ghost: GhostState;
   drill: DrillState;
+  trainingData: import('./training-data').TrainingDataState;
 }

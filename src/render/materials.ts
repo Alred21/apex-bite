@@ -64,3 +64,18 @@ export function createVenueMaterials(): {
     rubber: new THREE.MeshStandardMaterial({ color: 0x181a1b, roughness: 0.94 }),
   };
 }
+
+export function createTireMarkMaterial(): THREE.MeshBasicMaterial {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128; canvas.height = 64;
+  const context = canvas.getContext('2d')!;
+  context.scale(1, 0.5);
+  const fade = context.createRadialGradient(64, 64, 6, 64, 64, 64);
+  fade.addColorStop(0, 'rgba(255,255,255,0.85)');
+  fade.addColorStop(1, 'rgba(255,255,255,0)');
+  context.fillStyle = fade; context.fillRect(0, 0, 128, 128);
+  return new THREE.MeshBasicMaterial({
+    color: 0x151718, map: new THREE.CanvasTexture(canvas),
+    transparent: true, opacity: 0.2, depthWrite: false,
+  });
+}

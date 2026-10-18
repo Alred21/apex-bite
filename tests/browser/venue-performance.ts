@@ -82,7 +82,7 @@ function frame(now: number): void {
           barrierContacts: snapshot.kart.barrierContactCount,
           scenario: '2 s warmup + 10 s public-input driving, actual renderer and HUD, Ghost Kart and Racing Line enabled',
         }, null, 2);
-        samplingStarted = null; button.disabled = false;
+        samplingStarted = null; driving = false; button.disabled = false;
       }
     }
   }

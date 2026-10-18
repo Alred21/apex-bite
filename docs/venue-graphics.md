@@ -28,4 +28,22 @@ npm exec vite preview -- --config tests/browser/venue-vite.config.ts
 
 Open `http://127.0.0.1:5181/tests/browser/venue-performance.html`. Choose graphics quality and camera, then press **Sample 10 seconds of driving**. The visible test-only driver sends ordinary controls through SimulationSession while rendering the production scene and HUD, including the Racing Line and Ghost Kart. It warms up for two seconds and reports ten seconds of animation-frame intervals, browser/GPU identity, viewport, device/effective pixel ratios, and Barrier contacts. It cancels if the tab is hidden. Repeat for both views and compare Performance/Balanced/High at a fixed viewport. This extra build entry point is a QA tool, separate from the normal application.
 
-Local measurements and visual review are recorded below after production sampling. They demonstrate this machine's observed behavior, not a guarantee for everyday laptops or the later full-session acceptance run.
+## Local production evidence — 2026-10-18
+
+Hardware: MacBook Pro (Mac17,9), Apple M5 Pro CPU/GPU, 48 GB RAM, macOS 27.0.1. Browser: Chrome 155, ANGLE Metal renderer. Viewport: 1920 × 936 CSS pixels; device pixel ratio: 2. Production renderer includes the detailed Kart from ticket #17. Each sample uses the same public-input driving scenario, enabled Racing Line and Ghost Kart, two seconds of warmup, and ten measured seconds. All samples recorded zero Barrier contacts.
+
+These measurements demonstrate this machine's observed behavior, not a guarantee for everyday laptops or the later full-session acceptance run. Near-120 FPS results are largely limited by this display's refresh rate. Small differences between settings are noise, not evidence that a higher setting is cheaper. The independently observed drawing-buffer sizes and shadow configuration establish that Performance reduces rendering work.
+
+Both views were inspected while driving at all three qualities. The indoor shell stays above Chase Cam, road and blue infield remain distinct, Turn markers and start/grid markings remain present, and floor/plastic/metal detail remains legible. Dynamic shadows provide local contact/depth in Balanced and High. Soft tire scuffs replace the original opaque rectangular stamps and follow the detailed Kart's rear-tire spacing. The existing 25 public-session tests, including complete Time Trial timing/records, pass with unchanged simulation code in this ticket.
+
+
+| Quality | View | Effective ratio / buffer | Average FPS | p95 / p99 frame interval (ms) | Frames over 25 ms |
+| --- | --- | --- | ---: | --- | ---: |
+| Performance | Chase Cam | 1 / 1920 × 936 | 119 | 8.5 / 9.7 | 2 |
+| Performance | Helmet Cam | 1 / 1920 × 936 | 120 | 8.4 / 8.6 | 0 |
+| Balanced | Chase Cam | 1.25 / 2400 × 1170 | 117.4 | 8.5 / 16.6 | 2 |
+| Balanced | Helmet Cam | 1.25 / 2400 × 1170 | 120.1 | 8.6 / 9.8 | 0 |
+| High | Chase Cam | 2 / 3840 × 1872 | 120 | 9.3 / 10 | 0 |
+| High | Helmet Cam | 2 / 3840 × 1872 | 118.5 | 8.9 / 10.3 | 2 |
+
+The complete machine-readable results are retained in [venue-performance-2026-10-18.json](venue-performance-2026-10-18.json). Browser console inspection reported no errors during the sample.

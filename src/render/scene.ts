@@ -3,6 +3,7 @@ import { CircuitData, SessionSnapshot } from '../simulation/types';
 import { createIndoorVenue, buildVenueBarriers } from './venue';
 import { applyGraphicsQuality, GraphicsQuality, loadGraphicsQuality } from './graphics';
 import { createKartRig } from './kart';
+import { createTireMarkMaterial } from './materials';
 
 function createTextSprite(label: string, bgColor = '#e11d48'): THREE.Sprite {
   const canvas = document.createElement('canvas');
@@ -315,13 +316,9 @@ export function createCircuitRenderer(
   // Dynamic rear-tire scrub / skid marks pool on the indoor floor
   const maxSkidMarks = 320;
   const skidPool: THREE.Mesh[] = [];
-  const skidGeo = new THREE.PlaneGeometry(0.28, 0.16);
+  const skidGeo = new THREE.PlaneGeometry(0.30, 0.12);
   skidGeo.rotateX(-Math.PI / 2);
-  const skidMat = new THREE.MeshBasicMaterial({
-    color: 0x090b10,
-    transparent: true,
-    opacity: 0.48,
-  });
+  const skidMat = createTireMarkMaterial();
   for (let i = 0; i < maxSkidMarks; i++) {
     const m = new THREE.Mesh(skidGeo, skidMat);
     m.visible = false;

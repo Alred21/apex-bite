@@ -160,6 +160,75 @@ export interface GhostState {
   personalBestPose: GhostPose | null;
 }
 
+export type DrillTargetId =
+  | 'T1'
+  | 'T2'
+  | 'T3'
+  | 'T4'
+  | 'T5'
+  | 'T6'
+  | 'T7'
+  | 'T8'
+  | 'T9'
+  | 'T10'
+  | 'T11'
+  | 'T1-T3'
+  | 'T2-T3'
+  | 'T4-T5'
+  | 'T6-T7-T8'
+  | 'T9-T10-T11';
+
+export interface DrillTargetDefinition {
+  id: DrillTargetId;
+  label: string;
+  kind: 'Turn' | 'Corner Complex';
+  turns: TurnNumber[];
+  flyingEntryDistanceMeters: number;
+  exitDistanceMeters: number;
+  benchmarkTimeSeconds: number;
+  targetEntrySpeedKph: number;
+  targetMinApexSpeedKph: number;
+  targetExitSpeedKph: number;
+}
+
+export type CoachingInsightCategory =
+  | 'Optimal Pass'
+  | 'Barrier Contact'
+  | 'Late Braking Overshoot'
+  | 'Over-Slowed Entry'
+  | 'Excessive Axle Scrub';
+
+export interface CornerExecutionCard {
+  targetId: DrillTargetId;
+  targetLabel: string;
+  runNumber: number;
+  isClean: boolean;
+  segmentTimeSeconds: number;
+  benchmarkTimeSeconds: number;
+  deltaToBenchmarkSeconds: number;
+  personalBestSeconds: number | null;
+  deltaToPersonalBestSeconds: number | null;
+  entrySpeedKph: number;
+  minApexSpeedKph: number;
+  exitSpeedKph: number;
+  targetEntrySpeedKph: number;
+  targetMinApexSpeedKph: number;
+  targetExitSpeedKph: number;
+  apexProximityCm: number;
+  coachingCategory: CoachingInsightCategory;
+  coachingInsight: string;
+}
+
+export interface DrillState {
+  target: DrillTargetDefinition;
+  availableTargets: DrillTargetDefinition[];
+  runNumber: number;
+  currentSegmentSeconds: number;
+  isClean: boolean;
+  personalBests: Partial<Record<DrillTargetId, number>>;
+  lastExecutionCard: CornerExecutionCard | null;
+}
+
 export interface SessionSnapshot {
   tick: number;
   elapsedSeconds: number;
@@ -170,4 +239,5 @@ export interface SessionSnapshot {
   lap: LapSummaryState;
   racingLine: RacingLineState;
   ghost: GhostState;
+  drill: DrillState;
 }

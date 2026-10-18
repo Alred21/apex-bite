@@ -3,7 +3,13 @@ import { evaluateLiveRacingLine } from './racing-line';
 import {
   CameraMode,
   CameraState,
+  CircuitData,
   CircuitSample,
+  CoachingInsightCategory,
+  CornerExecutionCard,
+  DrillState,
+  DrillTargetDefinition,
+  DrillTargetId,
   DriverInput,
   GhostMode,
   GhostPose,
@@ -43,7 +49,7 @@ export interface PersistedTrainingData {
   personalBestSeconds: number | null;
   bestSectorSplits: SectorSplitsTuple;
   personalBestGhostFrames: GhostSampleFrame[];
-  drillPersonalBests?: Record<string, number>;
+  drillPersonalBests?: Partial<Record<DrillTargetId, number>>;
 }
 
 export interface SimulationSessionOptions {
@@ -55,6 +61,9 @@ export interface SimulationSession {
   toggleCamera(): SessionSnapshot;
   toggleRacingLine(): SessionSnapshot;
   cycleGhostMode(): SessionSnapshot;
+  setPracticeMode(mode: PracticeMode): SessionSnapshot;
+  selectDrillTarget(targetId: DrillTargetId): SessionSnapshot;
+  reset(): SessionSnapshot;
   exportTrainingDataJson(): string;
   importTrainingDataJson(json: string): SessionSnapshot;
   getSnapshot(): SessionSnapshot;
@@ -139,8 +148,7 @@ function sampleTrackRecordGhostPose(
   }
   const a = points[idx];
   const b = points[(idx + 1) % n];
-  const bTime =
-    idx + 1 < n ? b.benchmarkTimeSeconds : benchmarkLapSeconds;
+  const bTime = idx + 1 < n ? b.benchmarkTimeSeconds : benchmarkLapSeconds;
   const span = Math.max(1e-6, bTime - a.benchmarkTimeSeconds);
   const ratio = Math.max(0, Math.min(1, (t - a.benchmarkTimeSeconds) / span));
 
@@ -190,10 +198,116 @@ function samplePersonalBestGhostPose(
   };
 }
 
+function buildDrillTargetCatalog(
+  circuit: CircuitData,
+  racingLinePoints: RacingLinePoint[],
+): DrillTargetDefinition[] {
+  const n = racingLinePoints.length;
+  const pointAtDistance = (dist: number): RacingLinePoint => {
+    const clamped = Math.max(0, Math.min(circuit.totalLengthMeters - 0.01, dist));
+    const idx = Math.min(n - 1, Math.max(0, Math.round((clamped / circuit.totalLengthMeters) * n)));
+    return racingLinePoints[idx];
+  };
+
+  const specs: Array<{
+    id: DrillTargetId;
+    label: string;
+    kind: 'Turn' | 'Corner Complex';
+    turns: TurnNumber[];
+  }> = [
+    ...circuit.turns.map((t) => ({
+      id: `T${t.number}` as DrillTargetId,
+      label: t.name,
+      kind: 'Turn' as const,
+      turns: [t.number],
+    })),
+    {
+      id: 'T1-T3',
+      label: 'Complex T1–T3 (Opening Chute & Center Hairpin)',
+      kind: 'Corner Complex',
+      turns: [1, 2, 3],
+    },
+    {
+      id: 'T2-T3',
+      label: 'Complex T2–T3 (Infield Entry into Hairpin)',
+      kind: 'Corner Complex',
+      turns: [2, 3],
+    },
+    {
+      id: 'T4-T5',
+      label: 'Complex T4–T5 (North Loop Double-Right)',
+      kind: 'Corner Complex',
+      turns: [4, 5],
+    },
+    {
+      id: 'T6-T7-T8',
+      label: 'Complex T6–T7–T8 (Esses into East Sweeper)',
+      kind: 'Corner Complex',
+      turns: [6, 7, 8],
+    },
+    {
+      id: 'T9-T10-T11',
+      label: 'Complex T9–T10–T11 (West Hairpin & Final Carousel)',
+      kind: 'Corner Complex',
+      turns: [9, 10, 11],
+    },
+  ];
+
+  return specs.map((spec) => {
+    const firstTurn = circuit.turns[spec.turns[0] - 1];
+    const lastTurn = circuit.turns[spec.turns[spec.turns.length - 1] - 1];
+    const flyingEntryDistanceMeters = Math.max(2.0, firstTurn.entryDistanceMeters - 7.0);
+    const exitDistanceMeters = Math.min(
+      circuit.totalLengthMeters - 2.0,
+      lastTurn.exitDistanceMeters + 4.0,
+    );
+
+    const entryPt = pointAtDistance(flyingEntryDistanceMeters);
+    const firstTurnEntryPt = pointAtDistance(firstTurn.entryDistanceMeters);
+    const exitPt = pointAtDistance(exitDistanceMeters);
+
+    let minApexSpeedKph = Infinity;
+    for (const pt of racingLinePoints) {
+      if (
+        pt.distanceMeters >= firstTurn.entryDistanceMeters &&
+        pt.distanceMeters <= lastTurn.exitDistanceMeters
+      ) {
+        if (pt.targetSpeedKph < minApexSpeedKph) {
+          minApexSpeedKph = pt.targetSpeedKph;
+        }
+      }
+    }
+    if (!Number.isFinite(minApexSpeedKph)) {
+      minApexSpeedKph = firstTurnEntryPt.targetSpeedKph;
+    }
+
+    const benchmarkTimeSeconds = Math.max(
+      0.5,
+      exitPt.benchmarkTimeSeconds - entryPt.benchmarkTimeSeconds,
+    );
+
+    return {
+      id: spec.id,
+      label: spec.label,
+      kind: spec.kind,
+      turns: spec.turns,
+      flyingEntryDistanceMeters,
+      exitDistanceMeters,
+      benchmarkTimeSeconds,
+      targetEntrySpeedKph: firstTurnEntryPt.targetSpeedKph,
+      targetMinApexSpeedKph: minApexSpeedKph,
+      targetExitSpeedKph: exitPt.targetSpeedKph,
+    };
+  });
+}
+
 export function createSimulationSession(
   options: SimulationSessionOptions = {},
 ): SimulationSession {
   const circuit = buildK1TorontoCircuit();
+  const baseProfile = evaluateLiveRacingLine(circuit, 0, FLYING_START_SPEED_MPS, true);
+  const drillCatalog = buildDrillTargetCatalog(circuit, baseProfile.points);
+
   const nSamples = circuit.samples.length;
   const flyingStartIdx =
     Math.round((FLYING_START_DISTANCE_METERS / circuit.totalLengthMeters) * nSamples) %
@@ -205,7 +319,7 @@ export function createSimulationSession(
 
   let tick = 0;
   let elapsedSeconds = 0;
-  const mode: PracticeMode = 'Time Trial';
+  let mode: PracticeMode = 'Time Trial';
   let cameraMode: CameraMode = 'Chase Cam';
   let racingLineVisible = true;
   let ghostMode: GhostMode = 'Track Record';
@@ -218,6 +332,22 @@ export function createSimulationSession(
   let activeLapGhostFrames: GhostSampleFrame[] = [];
   let sectorEntryLapSeconds = 0;
 
+  // Corner Drill state
+  let activeDrillTarget: DrillTargetDefinition =
+    drillCatalog.find((d) => d.id === 'T3') ?? drillCatalog[0];
+  let drillRunNumber = 1;
+  let drillCurrentSegmentSeconds = 0;
+  let drillIsClean = true;
+  let drillPersonalBests: Partial<Record<DrillTargetId, number>> = {};
+  let lastExecutionCard: CornerExecutionCard | null = null;
+
+  // Per-pass telemetry accumulators for Corner Drill
+  let drillEntrySpeedKph: number | null = null;
+  let drillMinApexSpeedKph = Infinity;
+  let drillPeakAxleScrub = 0;
+  let drillSawTrailBraking = false;
+  let drillApexMinDistMeters = new Map<TurnNumber, number>();
+
   let lap: LapSummaryState = {
     isClean: true,
     currentLapSeconds: 0,
@@ -229,26 +359,6 @@ export function createSimulationSession(
     lastSectorSplits: [null, null, null],
     bestSectorSplits: [null, null, null],
   };
-
-  function loadFromStorage(): void {
-    if (!storage) return;
-    try {
-      const raw = storage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      applyImportedData(raw);
-    } catch {
-      // Ignore malformed storage data
-    }
-  }
-
-  function saveToStorage(): void {
-    if (!storage) return;
-    try {
-      storage.setItem(STORAGE_KEY, exportTrainingDataJson());
-    } catch {
-      // Ignore quota errors
-    }
-  }
 
   let kart: KartState = {
     position: { ...startSample.center },
@@ -272,7 +382,193 @@ export function createSimulationSession(
     currentSector: startSample.sector,
   };
 
+  function spawnAtTimeTrialFlyingStart(): void {
+    keyboardBrakeHoldSeconds = 0;
+    smoothedSteer = 0;
+    sectorEntryLapSeconds = 0;
+    activeLapGhostFrames = [];
+    lap.isClean = true;
+    lap.currentLapSeconds = 0;
+    lap.lapNumber = 0;
+    lap.currentSectorSplits = [null, null, null];
+
+    kart = {
+      position: { ...startSample.center },
+      headingRad: initialHeading,
+      speedMps: FLYING_START_SPEED_MPS,
+      speedKph: FLYING_START_SPEED_KPH,
+      forwardAccelMps2: 0,
+      lateralAccelMps2: 0,
+      steerAngleRad: 0,
+      steeringWheelAngleRad: 0,
+      throttleInput: 1,
+      brakeInput: 0,
+      isTrailBraking: false,
+      axleScrub: 0,
+      slipRatio: 0,
+      barrierContact: false,
+      barrierContactCount: kart.barrierContactCount,
+      lapDistanceMeters: startSample.distanceMeters,
+      lapProgress: startSample.progress,
+      currentTurn: resolveTurnAtDistance(startSample.distanceMeters, circuit.turns),
+      currentSector: startSample.sector,
+    };
+  }
+
+  function spawnAtDrillFlyingEntry(): void {
+    keyboardBrakeHoldSeconds = 0;
+    smoothedSteer = 0;
+    drillCurrentSegmentSeconds = 0;
+    drillIsClean = true;
+    drillEntrySpeedKph = null;
+    drillMinApexSpeedKph = Infinity;
+    drillPeakAxleScrub = 0;
+    drillSawTrailBraking = false;
+    drillApexMinDistMeters = new Map<TurnNumber, number>();
+    for (const tn of activeDrillTarget.turns) {
+      drillApexMinDistMeters.set(tn, Infinity);
+    }
+
+    const ptIdx =
+      Math.round(
+        (activeDrillTarget.flyingEntryDistanceMeters / circuit.totalLengthMeters) *
+          baseProfile.points.length,
+      ) % baseProfile.points.length;
+    const entryLinePt = baseProfile.points[ptIdx];
+    const sample = circuit.samples[ptIdx];
+
+    kart = {
+      position: { ...entryLinePt.position },
+      headingRad: entryLinePt.headingRad,
+      speedMps: entryLinePt.targetSpeedMps,
+      speedKph: entryLinePt.targetSpeedKph,
+      forwardAccelMps2: 0,
+      lateralAccelMps2: 0,
+      steerAngleRad: 0,
+      steeringWheelAngleRad: 0,
+      throttleInput: 1,
+      brakeInput: 0,
+      isTrailBraking: false,
+      axleScrub: 0,
+      slipRatio: 0,
+      barrierContact: false,
+      barrierContactCount: kart.barrierContactCount,
+      lapDistanceMeters: sample.distanceMeters,
+      lapProgress: sample.progress,
+      currentTurn: resolveTurnAtDistance(sample.distanceMeters, circuit.turns),
+      currentSector: sample.sector,
+    };
+  }
+
+  function loadFromStorage(): void {
+    if (!storage) return;
+    try {
+      const raw = storage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      applyImportedData(raw);
+    } catch {
+      // Ignore malformed storage data
+    }
+  }
+
+  function saveToStorage(): void {
+    if (!storage) return;
+    try {
+      storage.setItem(STORAGE_KEY, exportTrainingDataJson());
+    } catch {
+      // Ignore quota errors
+    }
+  }
+
   loadFromStorage();
+
+  function finalizeCornerDrillPass(exitSpeedKph: number): void {
+    const segmentTimeSeconds = Math.max(0.05, drillCurrentSegmentSeconds);
+    const firstTurn = circuit.turns[activeDrillTarget.turns[0] - 1];
+    const entrySpeedKph =
+      drillEntrySpeedKph ?? activeDrillTarget.targetEntrySpeedKph;
+    const minApexSpeedKph = Number.isFinite(drillMinApexSpeedKph)
+      ? drillMinApexSpeedKph
+      : Math.min(entrySpeedKph, exitSpeedKph);
+
+    let totalApexDistMeters = 0;
+    for (const tn of activeDrillTarget.turns) {
+      const d = drillApexMinDistMeters.get(tn) ?? 1.2;
+      totalApexDistMeters += Number.isFinite(d) ? d : 1.2;
+    }
+    const avgApexDistMeters = totalApexDistMeters / activeDrillTarget.turns.length;
+    const apexProximityCm = Math.max(0, Math.round(avgApexDistMeters * 100 * 10) / 10);
+
+    const prevBest = drillPersonalBests[activeDrillTarget.id] ?? null;
+    let personalBestSeconds = prevBest;
+    if (drillIsClean && (prevBest === null || segmentTimeSeconds < prevBest)) {
+      personalBestSeconds = segmentTimeSeconds;
+      drillPersonalBests[activeDrillTarget.id] = segmentTimeSeconds;
+      saveToStorage();
+    }
+
+    const deltaToBenchmarkSeconds =
+      segmentTimeSeconds - activeDrillTarget.benchmarkTimeSeconds;
+    const deltaToPersonalBestSeconds =
+      personalBestSeconds !== null ? segmentTimeSeconds - personalBestSeconds : null;
+
+    let coachingCategory: CoachingInsightCategory;
+    let coachingInsight: string;
+
+    if (!drillIsClean) {
+      coachingCategory = 'Barrier Contact';
+      coachingInsight = `Barrier Contact: Scrubbed against the indoor Barrier in ${firstTurn.name} — widen your turn-in arc to keep the pass Clean.`;
+    } else if (minApexSpeedKph < activeDrillTarget.targetMinApexSpeedKph - 2.8) {
+      coachingCategory = 'Over-Slowed Entry';
+      coachingInsight = `Over-Slowed Entry: Minimum apex speed (${minApexSpeedKph.toFixed(1)} km/h) dropped ${(activeDrillTarget.targetMinApexSpeedKph - minApexSpeedKph).toFixed(1)} km/h below target (${activeDrillTarget.targetMinApexSpeedKph.toFixed(1)} km/h) — release the rear brake earlier to carry rolling momentum.`;
+    } else if (apexProximityCm > 50) {
+      if (
+        !drillSawTrailBraking &&
+        drillPeakAxleScrub > 0.38 &&
+        entrySpeedKph <= activeDrillTarget.targetEntrySpeedKph + 0.5
+      ) {
+        coachingCategory = 'Excessive Axle Scrub';
+        coachingInsight = `Excessive Axle Scrub: Solid rear axle bound up (${Math.round(drillPeakAxleScrub * 100)}% scrub) without Trail Braking, pushing the Kart ${Math.round(apexProximityCm)} cm wide of the apex.`;
+      } else {
+        coachingCategory = 'Late Braking Overshoot';
+        coachingInsight = `Late Braking Overshoot: Carried ${entrySpeedKph.toFixed(1)} km/h into entry and missed the inside apex by ${Math.round(apexProximityCm)} cm — initiate Trail Braking earlier before turn-in.`;
+      }
+    } else if (
+      drillPeakAxleScrub > 0.44 &&
+      !drillSawTrailBraking &&
+      exitSpeedKph < activeDrillTarget.targetExitSpeedKph - 2.0
+    ) {
+      coachingCategory = 'Excessive Axle Scrub';
+      coachingInsight = `Excessive Axle Scrub: High solid-axle binding bogged exit speed down to ${exitSpeedKph.toFixed(1)} km/h — blend light Trail Braking (20–70%) on turn-in to unload the inside rear tire.`;
+    } else {
+      coachingCategory = 'Optimal Pass';
+      coachingInsight = `Optimal Pass: Clipped the inside apex within ${Math.round(apexProximityCm)} cm with balanced rotation and a ${exitSpeedKph.toFixed(1)} km/h exit.`;
+    }
+
+    lastExecutionCard = {
+      targetId: activeDrillTarget.id,
+      targetLabel: activeDrillTarget.label,
+      runNumber: drillRunNumber,
+      isClean: drillIsClean,
+      segmentTimeSeconds,
+      benchmarkTimeSeconds: activeDrillTarget.benchmarkTimeSeconds,
+      deltaToBenchmarkSeconds,
+      personalBestSeconds,
+      deltaToPersonalBestSeconds,
+      entrySpeedKph,
+      minApexSpeedKph,
+      exitSpeedKph,
+      targetEntrySpeedKph: activeDrillTarget.targetEntrySpeedKph,
+      targetMinApexSpeedKph: activeDrillTarget.targetMinApexSpeedKph,
+      targetExitSpeedKph: activeDrillTarget.targetExitSpeedKph,
+      apexProximityCm,
+      coachingCategory,
+      coachingInsight,
+    };
+
+    drillRunNumber += 1;
+    spawnAtDrillFlyingEntry();
+  }
 
   function step(dtSeconds = FIXED_TIMESTEP_SECONDS, input: DriverInput = {}): SessionSnapshot {
     const keyThrottle = input.keys?.up ? 1 : 0;
@@ -419,6 +715,7 @@ export function createSimulationSession(
         barrierContactCount += 1;
       }
       lap.isClean = false;
+      drillIsClean = false;
 
       const clampedLat = Math.sign(lateralOffset) * (maxLateral - 0.015);
       const alongTang = relX * nearest.tangent.x + relZ * nearest.tangent.z;
@@ -459,6 +756,83 @@ export function createSimulationSession(
 
     tick += 1;
     elapsedSeconds += dtSeconds;
+    const nextSpeedKph = nextSpeedMps * 3.6;
+    const nextSector = nearest.sector;
+
+    kart = {
+      position: nextPosition,
+      headingRad: nextHeading,
+      speedMps: nextSpeedMps,
+      speedKph: nextSpeedKph,
+      forwardAccelMps2: actualForwardAccel,
+      lateralAccelMps2,
+      steerAngleRad,
+      steeringWheelAngleRad: steerAngleRad * 2.2,
+      throttleInput: throttle,
+      brakeInput: brake,
+      isTrailBraking,
+      axleScrub,
+      slipRatio,
+      barrierContact,
+      barrierContactCount,
+      lapDistanceMeters: nearest.distanceMeters,
+      lapProgress: nearest.progress,
+      currentTurn: resolveTurnAtDistance(nearest.distanceMeters, circuit.turns),
+      currentSector: nextSector,
+    };
+
+    if (mode === 'Corner Drill') {
+      drillCurrentSegmentSeconds += dtSeconds;
+      const firstTurn = circuit.turns[activeDrillTarget.turns[0] - 1];
+      const lastTurn =
+        circuit.turns[activeDrillTarget.turns[activeDrillTarget.turns.length - 1] - 1];
+
+      if (
+        drillEntrySpeedKph === null &&
+        nearest.distanceMeters >= firstTurn.entryDistanceMeters
+      ) {
+        drillEntrySpeedKph = nextSpeedKph;
+      }
+
+      if (
+        nearest.distanceMeters >= firstTurn.entryDistanceMeters &&
+        nearest.distanceMeters <= lastTurn.exitDistanceMeters
+      ) {
+        if (nextSpeedKph < drillMinApexSpeedKph) {
+          drillMinApexSpeedKph = nextSpeedKph;
+        }
+        if (axleScrub > drillPeakAxleScrub) {
+          drillPeakAxleScrub = axleScrub;
+        }
+        if (isTrailBraking) {
+          drillSawTrailBraking = true;
+        }
+      }
+
+      for (const tn of activeDrillTarget.turns) {
+        const turnMeta = circuit.turns[tn - 1];
+        const insideSign = turnMeta.direction === 'Right' ? 1 : -1;
+        const insideFrontTire = {
+          x: nextPosition.x + nearest.normal.x * insideSign * 0.13,
+          z: nextPosition.z + nearest.normal.z * insideSign * 0.13,
+        };
+        const distToApex = Math.hypot(
+          insideFrontTire.x - turnMeta.apexPoint.x,
+          insideFrontTire.z - turnMeta.apexPoint.z,
+        );
+        const prevMin = drillApexMinDistMeters.get(tn) ?? Infinity;
+        if (distToApex < prevMin) {
+          drillApexMinDistMeters.set(tn, distToApex);
+        }
+      }
+
+      if (nearest.distanceMeters >= activeDrillTarget.exitDistanceMeters) {
+        finalizeCornerDrillPass(nextSpeedKph);
+      }
+
+      return getSnapshot();
+    }
+
     lap.currentLapSeconds += dtSeconds;
 
     // Record Ghost sample every 3 ticks (~40 Hz) during timed laps
@@ -468,12 +842,11 @@ export function createSimulationSession(
         distanceMeters: nearest.distanceMeters,
         position: { ...nextPosition },
         headingRad: nextHeading,
-        speedKph: nextSpeedMps * 3.6,
+        speedKph: nextSpeedKph,
       });
     }
 
     // Sector boundary transitions during timed laps
-    const nextSector = nearest.sector;
     if (lap.lapNumber >= 1 && nextSector !== prevSector) {
       if (prevSector === 1 && nextSector === 2) {
         const s1Time = lap.currentLapSeconds - sectorEntryLapSeconds;
@@ -525,7 +898,7 @@ export function createSimulationSession(
                 distanceMeters: circuit.totalLengthMeters,
                 position: { ...nextPosition },
                 headingRad: nextHeading,
-                speedKph: nextSpeedMps * 3.6,
+                speedKph: nextSpeedKph,
               },
             ];
           }
@@ -544,32 +917,10 @@ export function createSimulationSession(
           distanceMeters: nearest.distanceMeters,
           position: { ...nextPosition },
           headingRad: nextHeading,
-          speedKph: nextSpeedMps * 3.6,
+          speedKph: nextSpeedKph,
         },
       ];
     }
-
-    kart = {
-      position: nextPosition,
-      headingRad: nextHeading,
-      speedMps: nextSpeedMps,
-      speedKph: nextSpeedMps * 3.6,
-      forwardAccelMps2: actualForwardAccel,
-      lateralAccelMps2,
-      steerAngleRad,
-      steeringWheelAngleRad: steerAngleRad * 2.2,
-      throttleInput: throttle,
-      brakeInput: brake,
-      isTrailBraking,
-      axleScrub,
-      slipRatio,
-      barrierContact,
-      barrierContactCount,
-      lapDistanceMeters: nearest.distanceMeters,
-      lapProgress: nearest.progress,
-      currentTurn: resolveTurnAtDistance(nearest.distanceMeters, circuit.turns),
-      currentSector: nextSector,
-    };
 
     return getSnapshot();
   }
@@ -591,12 +942,45 @@ export function createSimulationSession(
     return getSnapshot();
   }
 
+  function setPracticeMode(nextMode: PracticeMode): SessionSnapshot {
+    if (mode === nextMode) {
+      return getSnapshot();
+    }
+    mode = nextMode;
+    if (mode === 'Corner Drill') {
+      spawnAtDrillFlyingEntry();
+    } else {
+      spawnAtTimeTrialFlyingStart();
+    }
+    return getSnapshot();
+  }
+
+  function selectDrillTarget(targetId: DrillTargetId): SessionSnapshot {
+    const found = drillCatalog.find((d) => d.id === targetId);
+    if (found) {
+      activeDrillTarget = found;
+    }
+    mode = 'Corner Drill';
+    spawnAtDrillFlyingEntry();
+    return getSnapshot();
+  }
+
+  function reset(): SessionSnapshot {
+    if (mode === 'Corner Drill') {
+      spawnAtDrillFlyingEntry();
+    } else {
+      spawnAtTimeTrialFlyingStart();
+    }
+    return getSnapshot();
+  }
+
   function exportTrainingDataJson(): string {
     const payload: PersistedTrainingData = {
       version: 1,
       personalBestSeconds: lap.personalBestSeconds,
       bestSectorSplits: [...lap.bestSectorSplits] as SectorSplitsTuple,
       personalBestGhostFrames,
+      drillPersonalBests: { ...drillPersonalBests },
     };
     return JSON.stringify(payload, null, 2);
   }
@@ -615,6 +999,9 @@ export function createSimulationSession(
     }
     if (Array.isArray(parsed.personalBestGhostFrames)) {
       personalBestGhostFrames = parsed.personalBestGhostFrames;
+    }
+    if (parsed.drillPersonalBests && typeof parsed.drillPersonalBests === 'object') {
+      drillPersonalBests = { ...parsed.drillPersonalBests };
     }
   }
 
@@ -662,6 +1049,16 @@ export function createSimulationSession(
         : null,
     };
 
+    const drill: DrillState = {
+      target: activeDrillTarget,
+      availableTargets: drillCatalog,
+      runNumber: drillRunNumber,
+      currentSegmentSeconds: drillCurrentSegmentSeconds,
+      isClean: drillIsClean,
+      personalBests: { ...drillPersonalBests },
+      lastExecutionCard: lastExecutionCard ? { ...lastExecutionCard } : null,
+    };
+
     return {
       tick,
       elapsedSeconds,
@@ -680,6 +1077,7 @@ export function createSimulationSession(
       },
       racingLine,
       ghost,
+      drill,
     };
   }
 
@@ -688,8 +1086,12 @@ export function createSimulationSession(
     toggleCamera,
     toggleRacingLine,
     cycleGhostMode,
+    setPracticeMode,
+    selectDrillTarget,
+    reset,
     exportTrainingDataJson,
     importTrainingDataJson,
     getSnapshot,
   };
 }
+

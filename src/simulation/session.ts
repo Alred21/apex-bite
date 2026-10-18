@@ -5,8 +5,15 @@ import {
   CameraState,
   CircuitSample,
   DriverInput,
+  GhostMode,
+  GhostPose,
+  GhostSampleFrame,
+  GhostState,
   KartState,
   LapSummaryState,
+  PracticeMode,
+  RacingLinePoint,
+  SectorSplitsTuple,
   SessionSnapshot,
   TurnNumber,
 } from './types';
@@ -14,18 +21,42 @@ import {
 export const FIXED_TIMESTEP_SECONDS = 1 / 120;
 export const MAX_KART_SPEED_KPH = 45.0;
 export const MAX_KART_SPEED_MPS = MAX_KART_SPEED_KPH / 3.6; // 12.5 m/s
+export const FLYING_START_SPEED_KPH = 36.0;
+export const FLYING_START_SPEED_MPS = FLYING_START_SPEED_KPH / 3.6; // 10.0 m/s
+export const FLYING_START_DISTANCE_METERS = 236.0; // Exiting Turn 11 onto the main straight
 
-const PEAK_LAUNCH_ACCEL_MPS2 = 6.8;
+const PEAK_LAUNCH_ACCEL_MPS2 = 5.2;
 const MOTOR_DRAG_DECEL_MPS2 = 1.45;
 const MAX_REAR_BRAKE_DECEL_MPS2 = 8.8;
 const WHEELBASE_METERS = 1.06;
 const MAX_STEER_ANGLE_RAD = 0.46;
-const KART_HALF_WIDTH_METERS = 0.66;
+const KART_HALF_WIDTH_METERS = 0.45;
+const STORAGE_KEY = 'apex-bite:training-data:v1';
+
+export interface StorageLike {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+}
+
+export interface PersistedTrainingData {
+  version: 1;
+  personalBestSeconds: number | null;
+  bestSectorSplits: SectorSplitsTuple;
+  personalBestGhostFrames: GhostSampleFrame[];
+  drillPersonalBests?: Record<string, number>;
+}
+
+export interface SimulationSessionOptions {
+  storage?: StorageLike;
+}
 
 export interface SimulationSession {
   step(dtSeconds?: number, input?: DriverInput): SessionSnapshot;
   toggleCamera(): SessionSnapshot;
   toggleRacingLine(): SessionSnapshot;
+  cycleGhostMode(): SessionSnapshot;
+  exportTrainingDataJson(): string;
+  importTrainingDataJson(json: string): SessionSnapshot;
   getSnapshot(): SessionSnapshot;
 }
 
@@ -95,47 +126,153 @@ function computeCameraState(kart: KartState, mode: CameraMode): CameraState {
   };
 }
 
-export function createSimulationSession(): SimulationSession {
+function sampleTrackRecordGhostPose(
+  points: RacingLinePoint[],
+  benchmarkLapSeconds: number,
+  lapSeconds: number,
+): GhostPose {
+  const t = ((lapSeconds % benchmarkLapSeconds) + benchmarkLapSeconds) % benchmarkLapSeconds;
+  const n = points.length;
+  let idx = 0;
+  while (idx < n - 1 && points[idx + 1].benchmarkTimeSeconds <= t) {
+    idx++;
+  }
+  const a = points[idx];
+  const b = points[(idx + 1) % n];
+  const bTime =
+    idx + 1 < n ? b.benchmarkTimeSeconds : benchmarkLapSeconds;
+  const span = Math.max(1e-6, bTime - a.benchmarkTimeSeconds);
+  const ratio = Math.max(0, Math.min(1, (t - a.benchmarkTimeSeconds) / span));
+
+  let dH = b.headingRad - a.headingRad;
+  while (dH > Math.PI) dH -= 2 * Math.PI;
+  while (dH < -Math.PI) dH += 2 * Math.PI;
+
+  return {
+    position: {
+      x: a.position.x + (b.position.x - a.position.x) * ratio,
+      z: a.position.z + (b.position.z - a.position.z) * ratio,
+    },
+    headingRad: a.headingRad + dH * ratio,
+    speedKph: a.targetSpeedKph + (b.targetSpeedKph - a.targetSpeedKph) * ratio,
+  };
+}
+
+function samplePersonalBestGhostPose(
+  frames: GhostSampleFrame[],
+  lapSeconds: number,
+): GhostPose | null {
+  if (frames.length === 0) return null;
+  const total = frames[frames.length - 1].lapSeconds;
+  if (total <= 0.1) return null;
+  const t = ((lapSeconds % total) + total) % total;
+
+  let idx = 0;
+  while (idx < frames.length - 2 && frames[idx + 1].lapSeconds <= t) {
+    idx++;
+  }
+  const a = frames[idx];
+  const b = frames[Math.min(frames.length - 1, idx + 1)];
+  const span = Math.max(1e-6, b.lapSeconds - a.lapSeconds);
+  const ratio = Math.max(0, Math.min(1, (t - a.lapSeconds) / span));
+
+  let dH = b.headingRad - a.headingRad;
+  while (dH > Math.PI) dH -= 2 * Math.PI;
+  while (dH < -Math.PI) dH += 2 * Math.PI;
+
+  return {
+    position: {
+      x: a.position.x + (b.position.x - a.position.x) * ratio,
+      z: a.position.z + (b.position.z - a.position.z) * ratio,
+    },
+    headingRad: a.headingRad + dH * ratio,
+    speedKph: a.speedKph + (b.speedKph - a.speedKph) * ratio,
+  };
+}
+
+export function createSimulationSession(
+  options: SimulationSessionOptions = {},
+): SimulationSession {
   const circuit = buildK1TorontoCircuit();
-  const startSample = circuit.samples[0];
+  const nSamples = circuit.samples.length;
+  const flyingStartIdx =
+    Math.round((FLYING_START_DISTANCE_METERS / circuit.totalLengthMeters) * nSamples) %
+    nSamples;
+  const startSample = circuit.samples[flyingStartIdx];
   const initialHeading = Math.atan2(startSample.tangent.z, startSample.tangent.x);
+
+  const storage: StorageLike | undefined = options.storage;
 
   let tick = 0;
   let elapsedSeconds = 0;
+  const mode: PracticeMode = 'Time Trial';
   let cameraMode: CameraMode = 'Chase Cam';
   let racingLineVisible = true;
+  let ghostMode: GhostMode = 'Track Record';
 
   // Progressive keyboard input shaper state
   let keyboardBrakeHoldSeconds = 0;
   let smoothedSteer = 0;
 
+  let personalBestGhostFrames: GhostSampleFrame[] = [];
+  let activeLapGhostFrames: GhostSampleFrame[] = [];
+  let sectorEntryLapSeconds = 0;
+
   let lap: LapSummaryState = {
     isClean: true,
     currentLapSeconds: 0,
-    lapNumber: 1,
+    lapNumber: 0, // 0 = rolling Flying Start approach exiting Turn 11; 1+ = timed hot laps
+    lastLapSeconds: null,
+    personalBestSeconds: null,
+    timeDeltaSeconds: 0,
+    currentSectorSplits: [null, null, null],
+    lastSectorSplits: [null, null, null],
+    bestSectorSplits: [null, null, null],
   };
+
+  function loadFromStorage(): void {
+    if (!storage) return;
+    try {
+      const raw = storage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      applyImportedData(raw);
+    } catch {
+      // Ignore malformed storage data
+    }
+  }
+
+  function saveToStorage(): void {
+    if (!storage) return;
+    try {
+      storage.setItem(STORAGE_KEY, exportTrainingDataJson());
+    } catch {
+      // Ignore quota errors
+    }
+  }
 
   let kart: KartState = {
     position: { ...startSample.center },
     headingRad: initialHeading,
-    speedMps: 0,
-    speedKph: 0,
+    speedMps: FLYING_START_SPEED_MPS,
+    speedKph: FLYING_START_SPEED_KPH,
     forwardAccelMps2: 0,
     lateralAccelMps2: 0,
     steerAngleRad: 0,
     steeringWheelAngleRad: 0,
-    throttleInput: 0,
+    throttleInput: 1,
     brakeInput: 0,
     isTrailBraking: false,
     axleScrub: 0,
     slipRatio: 0,
     barrierContact: false,
     barrierContactCount: 0,
-    lapDistanceMeters: 0,
-    lapProgress: 0,
-    currentTurn: null,
-    currentSector: 1,
+    lapDistanceMeters: startSample.distanceMeters,
+    lapProgress: startSample.progress,
+    currentTurn: resolveTurnAtDistance(startSample.distanceMeters, circuit.turns),
+    currentSector: startSample.sector,
   };
+
+  loadFromStorage();
 
   function step(dtSeconds = FIXED_TIMESTEP_SECONDS, input: DriverInput = {}): SessionSnapshot {
     const keyThrottle = input.keys?.up ? 1 : 0;
@@ -151,10 +288,8 @@ export function createSimulationSession(): SimulationSession {
     if (input.keys?.down) {
       keyboardBrakeHoldSeconds += dtSeconds;
       if (keyboardBrakeHoldSeconds <= 0.25) {
-        // Stage 1 (first 250ms): controlled Trail Braking pressure window (0.38 -> 0.54)
         shapedKeyBrake = 0.38 + (keyboardBrakeHoldSeconds / 0.25) * 0.16;
       } else {
-        // Stage 2 (>250ms): ramp smoothly toward full rear braking
         const extra = Math.min(1, (keyboardBrakeHoldSeconds - 0.25) / 0.3);
         shapedKeyBrake = 0.54 + extra * 0.46;
       }
@@ -178,7 +313,6 @@ export function createSimulationSession(): SimulationSession {
         input.steer !== undefined ? input.steer : (input.gamepad?.steer ?? 0);
       smoothedSteer = Math.max(-1, Math.min(1, direct));
     } else if (keySteerTarget !== 0) {
-      // Limit peak steering angle at high speed to avoid instant front tire scrub
       const slipAwareLimit = 1.0 - 0.34 * speedRatio;
       const target = keySteerTarget * slipAwareLimit;
       const rate = 3.8 * dtSeconds;
@@ -199,22 +333,18 @@ export function createSimulationSession(): SimulationSession {
     const steerAngleRad = smoothedSteer * MAX_STEER_ANGLE_RAD;
     const absSteerNorm = Math.abs(steerAngleRad) / MAX_STEER_ANGLE_RAD;
 
-    // Trail Braking detection: controlled rear braking (0.20..0.72) while turning at speed
     const isTrailBraking =
       kart.speedMps > 2.0 &&
       absSteerNorm > 0.08 &&
       brake >= 0.2 &&
       brake <= 0.72;
 
-    // Solid rear live axle scrub model:
-    // Without forward weight transfer (braking) unloading the inside rear tire,
-    // turning tightly forces both rear wheels to rotate at the same speed, scrubbing speed & resisting yaw.
     const forwardPitchUnload = isTrailBraking
       ? 0.58
       : brake > 0.72
         ? 0.32
         : throttle > 0.5
-          ? -0.12 // on-power squats the rear, loading both rear tires further
+          ? -0.12
           : 0.0;
 
     const rawAxleScrub =
@@ -225,17 +355,15 @@ export function createSimulationSession(): SimulationSession {
     const axleScrub = Math.max(0, Math.min(1, rawAxleScrub));
 
     // Direct-drive electric motor torque curve tapering into hard 45.0 km/h electronic governor
-    const torqueFactor = Math.max(0.32, 1 - 0.62 * Math.pow(speedRatio, 1.8));
+    const torqueFactor = Math.max(0.88, 1 - 0.12 * Math.pow(speedRatio, 1.8));
     const driveAccel = throttle * PEAK_LAUNCH_ACCEL_MPS2 * torqueFactor;
 
-    // Off-throttle regenerative/motor drag + aerodynamic rolling resistance + solid-axle scrub drag
     const coastDrag =
       kart.speedMps > 0.001
-        ? (1 - throttle) * MOTOR_DRAG_DECEL_MPS2 + 0.25 * speedRatio * speedRatio
+        ? (1 - throttle) * MOTOR_DRAG_DECEL_MPS2 + 0.22 * speedRatio * speedRatio
         : 0;
     const scrubDrag = kart.speedMps > 0.5 ? axleScrub * 2.2 : 0;
 
-    // During light Trail Braking into a corner, part of the rear brake effort goes into rotating the chassis rather than pure straight-line stopping
     const effectiveBrakeDecelFactor = isTrailBraking ? 0.55 : 1.0;
     const brakeDecel =
       kart.speedMps > 0.001
@@ -249,9 +377,9 @@ export function createSimulationSession(): SimulationSession {
       Math.min(MAX_KART_SPEED_MPS, prevSpeed + rawAccel * dtSeconds),
     );
 
-    // Yaw rotation: solid-axle scrub resists turn-in (understeer), whereas Trail Braking unloads the rear and rotates toward the apex
     const understeerPenalty = 1 - 0.36 * axleScrub;
-    const trailRotationBoost = isTrailBraking ? 1.28 : brake > 0.85 && absSteerNorm > 0.2 ? 1.35 : 1.0;
+    const trailRotationBoost =
+      isTrailBraking ? 1.28 : brake > 0.85 && absSteerNorm > 0.2 ? 1.35 : 1.0;
     const yawRate =
       nextSpeedMps > 0.05
         ? (nextSpeedMps / WHEELBASE_METERS) *
@@ -267,6 +395,8 @@ export function createSimulationSession(): SimulationSession {
       z: kart.position.z + Math.sin(nextHeading) * nextSpeedMps * dtSeconds,
     };
 
+    const prevDistance = kart.lapDistanceMeters;
+    const prevSector = kart.currentSector;
     const nearest = findNearestCircuitSample(
       circuit.samples,
       nextPosition.x,
@@ -290,7 +420,6 @@ export function createSimulationSession(): SimulationSession {
       }
       lap.isClean = false;
 
-      // Place Kart just inside the barrier surface so it can slide tangentially
       const clampedLat = Math.sign(lateralOffset) * (maxLateral - 0.015);
       const alongTang = relX * nearest.tangent.x + relZ * nearest.tangent.z;
       nextPosition.x =
@@ -302,7 +431,6 @@ export function createSimulationSession(): SimulationSession {
         nearest.tangent.z * alongTang +
         nearest.normal.z * clampedLat;
 
-      // Measure impact angle relative to barrier tangent
       const trackHeading = Math.atan2(nearest.tangent.z, nearest.tangent.x);
       let angleDiff = nextHeading - trackHeading;
       while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
@@ -310,28 +438,116 @@ export function createSimulationSession(): SimulationSession {
       const sinImpact = Math.abs(Math.sin(angleDiff));
 
       if (isInitialImpact) {
-        // Initial impact scrubs momentum proportionally to impact angle (min 6% graze scrub)
         const impactLoss = Math.min(0.55, Math.max(0.06, sinImpact * 0.65));
         nextSpeedMps *= 1 - impactLoss;
       }
 
-      // Continuous tangential wall friction while rubbing against the barrier
       const wallFrictionDecel = (2.6 + sinImpact * 6.0) * dtSeconds;
       nextSpeedMps = Math.max(0, nextSpeedMps - wallFrictionDecel);
-
-      // Deflect heading to align with the barrier tangent
       nextHeading = trackHeading + angleDiff * 0.2;
     }
 
     const actualForwardAccel = (nextSpeedMps - prevSpeed) / Math.max(1e-6, dtSeconds);
     const slipRatio = Math.min(
       1,
-      Math.max(axleScrub, Math.abs(lateralAccelMps2) / 14.0 + (brake > 0.8 && absSteerNorm > 0.2 ? 0.35 : 0)),
+      Math.max(
+        axleScrub,
+        Math.abs(lateralAccelMps2) / 14.0 +
+          (brake > 0.8 && absSteerNorm > 0.2 ? 0.35 : 0),
+      ),
     );
 
     tick += 1;
     elapsedSeconds += dtSeconds;
     lap.currentLapSeconds += dtSeconds;
+
+    // Record Ghost sample every 3 ticks (~40 Hz) during timed laps
+    if (lap.lapNumber >= 1 && tick % 3 === 0) {
+      activeLapGhostFrames.push({
+        lapSeconds: lap.currentLapSeconds,
+        distanceMeters: nearest.distanceMeters,
+        position: { ...nextPosition },
+        headingRad: nextHeading,
+        speedKph: nextSpeedMps * 3.6,
+      });
+    }
+
+    // Sector boundary transitions during timed laps
+    const nextSector = nearest.sector;
+    if (lap.lapNumber >= 1 && nextSector !== prevSector) {
+      if (prevSector === 1 && nextSector === 2) {
+        const s1Time = lap.currentLapSeconds - sectorEntryLapSeconds;
+        lap.currentSectorSplits[0] = s1Time;
+        if (
+          lap.isClean &&
+          (lap.bestSectorSplits[0] === null || s1Time < lap.bestSectorSplits[0])
+        ) {
+          lap.bestSectorSplits[0] = s1Time;
+        }
+        sectorEntryLapSeconds = lap.currentLapSeconds;
+      } else if (prevSector === 2 && nextSector === 3) {
+        const s2Time = lap.currentLapSeconds - sectorEntryLapSeconds;
+        lap.currentSectorSplits[1] = s2Time;
+        if (
+          lap.isClean &&
+          (lap.bestSectorSplits[1] === null || s2Time < lap.bestSectorSplits[1])
+        ) {
+          lap.bestSectorSplits[1] = s2Time;
+        }
+        sectorEntryLapSeconds = lap.currentLapSeconds;
+      }
+    }
+
+    // Start / Finish line crossing (wrapping from end of circuit > 200m to start < 40m)
+    if (prevDistance > 200 && nearest.distanceMeters < 40) {
+      if (lap.lapNumber >= 1) {
+        const finishedLapSeconds = lap.currentLapSeconds;
+        const s1 = lap.currentSectorSplits[0] ?? finishedLapSeconds * 0.32;
+        const s2 = lap.currentSectorSplits[1] ?? finishedLapSeconds * 0.38;
+        const s3 = Math.max(0.1, finishedLapSeconds - s1 - s2);
+        lap.currentSectorSplits[2] = s3;
+        lap.lastSectorSplits = [s1, s2, s3];
+        lap.lastLapSeconds = finishedLapSeconds;
+
+        if (lap.isClean) {
+          if (lap.bestSectorSplits[2] === null || s3 < lap.bestSectorSplits[2]) {
+            lap.bestSectorSplits[2] = s3;
+          }
+          if (
+            lap.personalBestSeconds === null ||
+            finishedLapSeconds < lap.personalBestSeconds
+          ) {
+            lap.personalBestSeconds = finishedLapSeconds;
+            personalBestGhostFrames = [
+              ...activeLapGhostFrames,
+              {
+                lapSeconds: finishedLapSeconds,
+                distanceMeters: circuit.totalLengthMeters,
+                position: { ...nextPosition },
+                headingRad: nextHeading,
+                speedKph: nextSpeedMps * 3.6,
+              },
+            ];
+          }
+          saveToStorage();
+        }
+      }
+
+      lap.lapNumber += 1;
+      lap.currentLapSeconds = 0;
+      lap.isClean = !barrierContact;
+      lap.currentSectorSplits = [null, null, null];
+      sectorEntryLapSeconds = 0;
+      activeLapGhostFrames = [
+        {
+          lapSeconds: 0,
+          distanceMeters: nearest.distanceMeters,
+          position: { ...nextPosition },
+          headingRad: nextHeading,
+          speedKph: nextSpeedMps * 3.6,
+        },
+      ];
+    }
 
     kart = {
       position: nextPosition,
@@ -352,7 +568,7 @@ export function createSimulationSession(): SimulationSession {
       lapDistanceMeters: nearest.distanceMeters,
       lapProgress: nearest.progress,
       currentTurn: resolveTurnAtDistance(nearest.distanceMeters, circuit.turns),
-      currentSector: nearest.sector,
+      currentSector: nextSector,
     };
 
     return getSnapshot();
@@ -368,23 +584,102 @@ export function createSimulationSession(): SimulationSession {
     return getSnapshot();
   }
 
+  function cycleGhostMode(): SessionSnapshot {
+    const order: GhostMode[] = ['Track Record', 'Personal Best', 'Both', 'Off'];
+    const nextIdx = (order.indexOf(ghostMode) + 1) % order.length;
+    ghostMode = order[nextIdx];
+    return getSnapshot();
+  }
+
+  function exportTrainingDataJson(): string {
+    const payload: PersistedTrainingData = {
+      version: 1,
+      personalBestSeconds: lap.personalBestSeconds,
+      bestSectorSplits: [...lap.bestSectorSplits] as SectorSplitsTuple,
+      personalBestGhostFrames,
+    };
+    return JSON.stringify(payload, null, 2);
+  }
+
+  function applyImportedData(json: string): void {
+    const parsed = JSON.parse(json) as Partial<PersistedTrainingData>;
+    if (typeof parsed.personalBestSeconds === 'number' || parsed.personalBestSeconds === null) {
+      lap.personalBestSeconds = parsed.personalBestSeconds ?? null;
+    }
+    if (Array.isArray(parsed.bestSectorSplits) && parsed.bestSectorSplits.length === 3) {
+      lap.bestSectorSplits = [
+        parsed.bestSectorSplits[0] ?? null,
+        parsed.bestSectorSplits[1] ?? null,
+        parsed.bestSectorSplits[2] ?? null,
+      ];
+    }
+    if (Array.isArray(parsed.personalBestGhostFrames)) {
+      personalBestGhostFrames = parsed.personalBestGhostFrames;
+    }
+  }
+
+  function importTrainingDataJson(json: string): SessionSnapshot {
+    applyImportedData(json);
+    saveToStorage();
+    return getSnapshot();
+  }
+
   function getSnapshot(): SessionSnapshot {
+    const racingLine = evaluateLiveRacingLine(
+      circuit,
+      kart.lapDistanceMeters,
+      kart.speedMps,
+      racingLineVisible,
+    );
+
+    const ptIdx =
+      Math.floor(kart.lapProgress * racingLine.points.length) %
+      racingLine.points.length;
+    const refBenchmarkSeconds = racingLine.points[ptIdx].benchmarkTimeSeconds;
+    const liveDelta =
+      lap.lapNumber >= 1 ? lap.currentLapSeconds - refBenchmarkSeconds : 0;
+    lap.timeDeltaSeconds = liveDelta;
+
+    const showTrackRecord =
+      ghostMode === 'Track Record' || ghostMode === 'Both';
+    const showPersonalBest =
+      ghostMode === 'Personal Best' || ghostMode === 'Both';
+
+    const ghost: GhostState = {
+      mode: ghostMode,
+      trackRecordPose: showTrackRecord
+        ? sampleTrackRecordGhostPose(
+            racingLine.points,
+            racingLine.benchmarkLapSeconds,
+            lap.lapNumber >= 1 ? lap.currentLapSeconds : elapsedSeconds,
+          )
+        : null,
+      personalBestPose: showPersonalBest
+        ? samplePersonalBestGhostPose(
+            personalBestGhostFrames,
+            lap.lapNumber >= 1 ? lap.currentLapSeconds : elapsedSeconds,
+          )
+        : null,
+    };
+
     return {
       tick,
       elapsedSeconds,
+      mode,
       circuit,
       kart: {
         ...kart,
         position: { ...kart.position },
       },
       camera: computeCameraState(kart, cameraMode),
-      lap: { ...lap },
-      racingLine: evaluateLiveRacingLine(
-        circuit,
-        kart.lapDistanceMeters,
-        kart.speedMps,
-        racingLineVisible,
-      ),
+      lap: {
+        ...lap,
+        currentSectorSplits: [...lap.currentSectorSplits] as SectorSplitsTuple,
+        lastSectorSplits: [...lap.lastSectorSplits] as SectorSplitsTuple,
+        bestSectorSplits: [...lap.bestSectorSplits] as SectorSplitsTuple,
+      },
+      racingLine,
+      ghost,
     };
   }
 
@@ -392,6 +687,9 @@ export function createSimulationSession(): SimulationSession {
     step,
     toggleCamera,
     toggleRacingLine,
+    cycleGhostMode,
+    exportTrainingDataJson,
+    importTrainingDataJson,
     getSnapshot,
   };
 }

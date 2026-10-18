@@ -6,6 +6,10 @@ export type SectorNumber = 1 | 2 | 3;
 
 export type CameraMode = 'Chase Cam' | 'Helmet Cam';
 
+export type PracticeMode = 'Time Trial' | 'Corner Drill';
+
+export type GhostMode = 'Track Record' | 'Personal Best' | 'Both' | 'Off';
+
 export interface Vector2D {
   x: number;
   z: number;
@@ -122,19 +126,48 @@ export interface RacingLineState {
   points: RacingLinePoint[];
 }
 
+export type SectorSplitsTuple = [number | null, number | null, number | null];
+
 export interface LapSummaryState {
   isClean: boolean;
   currentLapSeconds: number;
   lapNumber: number;
+  lastLapSeconds: number | null;
+  personalBestSeconds: number | null;
+  timeDeltaSeconds: number;
+  currentSectorSplits: SectorSplitsTuple;
+  lastSectorSplits: SectorSplitsTuple;
+  bestSectorSplits: SectorSplitsTuple;
+}
+
+export interface GhostPose {
+  position: Vector2D;
+  headingRad: number;
+  speedKph: number;
+}
+
+export interface GhostSampleFrame {
+  lapSeconds: number;
+  distanceMeters: number;
+  position: Vector2D;
+  headingRad: number;
+  speedKph: number;
+}
+
+export interface GhostState {
+  mode: GhostMode;
+  trackRecordPose: GhostPose | null;
+  personalBestPose: GhostPose | null;
 }
 
 export interface SessionSnapshot {
   tick: number;
   elapsedSeconds: number;
+  mode: PracticeMode;
   circuit: CircuitData;
   kart: KartState;
   camera: CameraState;
   lap: LapSummaryState;
   racingLine: RacingLineState;
+  ghost: GhostState;
 }
-

@@ -1,0 +1,11 @@
+# View comfort
+
+Helmet Cam and Chase Cam share vertical field of view (50–90°, default 64°) and camera motion (0–100%, default 35%) controls in **View comfort**. Changes apply immediately and survive session restarts, practice-mode changes, and camera switches. These are session preferences; they are not added to portable performance records.
+
+At 0%, motion feedback is fully disabled: no acceleration lag/pitch, cornering displacement/roll, or contact impulse is applied. The camera continues to follow the Kart's position and heading. At higher settings, acceleration and lateral feedback use a short exponential response; contact produces a single decaying displacement rather than repeated screen shake. Even 100% is bounded: Helmet Cam lateral/longitudinal displacement is at most 18 mm per axis, roll about 1.03°, and impact displacement 9 mm. Chase Cam allows up to 100 mm of longitudinal and 75 mm of lateral displacement with about 0.52° roll. Default feedback uses 35% of these amounts. Neither view uses speed-dependent FOV zoom or random camera shake.
+
+Helmet Cam's neutral sightline now looks toward the floor four metres ahead, about 11° down from the eye, to reveal front fairing and tires while preserving the driver eye position. The steering rim and fixed digital dash are visible. View switching and Flying Start/Flying Entry reset clear residual feedback to prevent inheriting a bump from the previous view or location.
+
+The camera presentation controller consumes Kart state after a simulation step. Camera settings and output never feed back into dynamics, Racing Line computation, timing, Ghost Kart recording, or portable training records. Reading snapshots does not advance the camera filters. Field-of-view projection and roll are applied only by the renderer.
+
+Tests exercise settings, disabled motion, feedback bounds, reset/switch behavior, contact settling, repeated reads, and matching Kart/Ghost/lap/portable-record outcomes through SimulationSession. Browser verification covers the settings dialog and both actual driving views. Full-session frame-time and broad laptop performance remain part of the integration review.

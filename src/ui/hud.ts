@@ -1,7 +1,11 @@
-import { DrillTargetId, PracticeMode, SessionSnapshot } from '../simulation/types';
+import { CameraSettings, DrillTargetId, PracticeMode, SessionSnapshot } from '../simulation/types';
+import { GraphicsQuality } from '../render/graphics';
 
 export interface HudCallbacks {
+  initialGraphicsQuality?: GraphicsQuality;
+  onSelectGraphicsQuality?: (quality: GraphicsQuality) => void;
   onToggleCamera?: () => void;
+  onSetCameraSettings?: (settings: Partial<CameraSettings>) => void;
   onToggleRacingLine?: () => void;
   onCycleGhostMode?: () => void;
   onToggleMode?: () => void;
@@ -72,12 +76,19 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
           <button type="button" class="hud-btn" id="hud-btn-camera" title="Switch Camera View (C or V)">
             CAM [C]: <strong id="hud-camera-label">Chase Cam</strong>
           </button>
+          <button type="button" class="hud-btn" id="hud-btn-camera-settings">VIEW COMFORT</button>
           <button type="button" class="hud-btn" id="hud-btn-line" title="Toggle Dynamic Racing Line (L)">
             LINE [L]: <strong id="hud-line-label">ON</strong>
           </button>
           <button type="button" class="hud-btn" id="hud-btn-ghost" title="Cycle Ghost Kart Mode (G)">
             GHOST [G]: <strong id="hud-ghost-label">Track Record</strong>
           </button>
+          <label class="hud-select-wrap" id="hud-graphics-wrap" title="Performance reduces resolution and disables shadows. Balanced uses compact shadows. High increases resolution and shadow detail.">
+            <span>GRAPHICS:</span>
+            <select id="hud-graphics-quality" class="hud-select" aria-label="Graphics quality">
+              <option>Performance</option><option selected>Balanced</option><option>High</option>
+            </select>
+          </label>
           <button type="button" class="hud-btn" id="hud-btn-data" title="Export or Import Training Data JSON">
             DATA JSON
           </button>
@@ -189,6 +200,19 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
       </div>
     </div>
 
+    <dialog id="hud-camera-dialog" class="hud-dialog" aria-labelledby="hud-camera-settings-title">
+      <form method="dialog" class="camera-settings">
+        <h2 id="hud-camera-settings-title">View comfort</h2>
+        <p>Adjust both Helmet Cam and Chase Cam. Camera motion adds gentle acceleration, cornering and contact feedback.</p>
+        <label for="hud-camera-fov">Vertical field of view <output id="hud-camera-fov-value" for="hud-camera-fov">64°</output></label>
+        <input id="hud-camera-fov" type="range" min="50" max="90" step="1" value="64" />
+        <label for="hud-camera-motion">Camera motion <output id="hud-camera-motion-value" for="hud-camera-motion">35%</output></label>
+        <input id="hud-camera-motion" type="range" min="0" max="100" step="5" value="35" />
+        <p class="dialog-desc">Set motion to 0% to fully disable feedback. Your view still follows the Kart. Changes apply immediately and remain when you restart.</p>
+        <div class="dialog-actions"><button type="submit" class="hud-btn">Close view settings</button></div>
+      </form>
+    </dialog>
+
     <dialog id="hud-results-dialog" class="hud-dialog time-trial-results" aria-labelledby="hud-results-title">
       <h2 id="hud-results-title">Time Trial complete</h2>
       <p id="hud-results-summary"></p>
@@ -221,6 +245,24 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
       </form>
     </dialog>
   `;
+
+  const cameraDialog = root.querySelector<HTMLDialogElement>('#hud-camera-dialog')!;
+  const cameraFov = root.querySelector<HTMLInputElement>('#hud-camera-fov')!;
+  const cameraMotion = root.querySelector<HTMLInputElement>('#hud-camera-motion')!;
+  const cameraFovValue = root.querySelector<HTMLOutputElement>('#hud-camera-fov-value')!;
+  const cameraMotionValue = root.querySelector<HTMLOutputElement>('#hud-camera-motion-value')!;
+  root.querySelector('#hud-btn-camera-settings')!.addEventListener('click', () => cameraDialog.showModal());
+  cameraDialog.addEventListener('keydown', (event) => event.stopPropagation());
+  cameraFov.addEventListener('input', () => callbacks.onSetCameraSettings?.({ fieldOfViewDegrees: Number(cameraFov.value) }));
+  cameraMotion.addEventListener('input', () => callbacks.onSetCameraSettings?.({ motionStrength: Number(cameraMotion.value) / 100 }));
+  const graphicsWrap = root.querySelector<HTMLElement>('#hud-graphics-wrap')!;
+  const graphicsSelect = root.querySelector<HTMLSelectElement>('#hud-graphics-quality')!;
+  graphicsWrap.hidden = !callbacks.onSelectGraphicsQuality;
+  graphicsSelect.value = callbacks.initialGraphicsQuality ?? 'Balanced';
+  graphicsSelect.addEventListener('change', () => {
+    callbacks.onSelectGraphicsQuality?.(graphicsSelect.value as GraphicsQuality);
+    graphicsSelect.blur();
+  });
 
   const lapLimitWrap = root.querySelector<HTMLElement>('#hud-lap-limit-wrap')!;
   const lapLimitSelect = root.querySelector<HTMLSelectElement>('#hud-lap-limit')!;
@@ -501,6 +543,10 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
     latestTrainingData = snapshot.trainingData;
     if (dataDialog.open && needsRecordRefresh) refreshRecordInspection();
     const { kart, camera, lap, ghost, drill, mode, timeTrial } = snapshot;
+    cameraFov.value = String(camera.settings.fieldOfViewDegrees);
+    cameraFovValue.value = `${camera.settings.fieldOfViewDegrees}°`;
+    cameraMotion.value = String(Math.round(camera.settings.motionStrength * 100));
+    cameraMotionValue.value = camera.settings.motionStrength === 0 ? 'Off' : `${Math.round(camera.settings.motionStrength * 100)}%`;
     lapLimitWrap.hidden = mode !== 'Time Trial';
     lapLimitSelect.value = timeTrial.lapLimit === null ? 'unlimited' : String(timeTrial.lapLimit);
     const finished = mode === 'Time Trial' && timeTrial.status === 'Finished';

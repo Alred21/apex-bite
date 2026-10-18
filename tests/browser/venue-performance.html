@@ -1,0 +1,6 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Venue performance sample</title><link rel="stylesheet" href="/src/styles.css"></head><body>
+<canvas id="viewport"></canvas><div id="hud-root"></div>
+<aside style="position:fixed;bottom:16px;right:16px;z-index:3;width:min(520px,40vw);background:#121820ee;color:white;border:1px solid #666;padding:12px;font:12px monospace;max-height:42vh;overflow:auto">
+<button id="sample" type="button">Sample 10 seconds of driving</button><pre id="report" style="white-space:pre-wrap">Select graphics quality and camera, then sample. A test-only controller sends ordinary driving inputs through SimulationSession. No internal state changes.</pre></aside>
+<script type="module" src="./venue-performance.ts"></script></body></html>

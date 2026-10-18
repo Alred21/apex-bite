@@ -84,6 +84,11 @@ export interface KartState {
   steerAngleRad: number;
   throttleInput: number;
   brakeInput: number;
+  isTrailBraking: boolean;
+  axleScrub: number; // 0..1 solid rear axle scrub intensity
+  slipRatio: number; // 0..1 overall tire lateral slip / scrub intensity
+  barrierContact: boolean;
+  barrierContactCount: number;
   lapDistanceMeters: number;
   lapProgress: number;
   currentTurn: TurnNumber | null;
@@ -96,10 +101,17 @@ export interface CameraState {
   lookAt: Vector3D;
 }
 
+export interface LapSummaryState {
+  isClean: boolean;
+  currentLapSeconds: number;
+  lapNumber: number;
+}
+
 export interface SessionSnapshot {
   tick: number;
   elapsedSeconds: number;
   circuit: CircuitData;
   kart: KartState;
   camera: CameraState;
+  lap: LapSummaryState;
 }

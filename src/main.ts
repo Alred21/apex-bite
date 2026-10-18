@@ -63,7 +63,12 @@ function bootstrap(): void {
 
   bindKeyboardListeners();
   const session = createSimulationSession({
-    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    // Access localStorage inside the session's guarded adapter calls: some browsers
+    // throw even when obtaining the property (for example, blocked storage).
+    storage: typeof window !== 'undefined' ? {
+      getItem: (key) => window.localStorage.getItem(key),
+      setItem: (key, value) => window.localStorage.setItem(key, value),
+    } : undefined,
   });
   const togglePracticeMode = (): void => {
     const next =
@@ -121,8 +126,12 @@ function bootstrap(): void {
     accumulatorSeconds += frameSeconds;
 
     const gamepad = pollGamepad();
+    const dataDialogOpen = document.querySelector<HTMLDialogElement>('#hud-data-dialog')?.open;
+    if (dataDialogOpen) {
+      for (const key of Object.keys(keys) as (keyof KeyboardInputState)[]) keys[key] = false;
+    }
     while (accumulatorSeconds >= FIXED_TIMESTEP_SECONDS) {
-      session.step(FIXED_TIMESTEP_SECONDS, { keys, gamepad });
+      if (!dataDialogOpen) session.step(FIXED_TIMESTEP_SECONDS, { keys, gamepad });
       accumulatorSeconds -= FIXED_TIMESTEP_SECONDS;
     }
 

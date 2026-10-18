@@ -1,5 +1,5 @@
 import { stepKartDynamics, type KartCommand, type PlanarKartState } from './kart-dynamics';
-import { BARRIER_HALF_THICKNESS_METERS, FIXED_TIMESTEP_SECONDS, KART_DIMENSIONS } from './kart-parameters';
+import { BARRIER_HALF_THICKNESS_METERS, FIXED_TIMESTEP_SECONDS, KART_DIMENSIONS, MAX_KART_SPEED_MPS } from './kart-parameters';
 import type { CircuitData, KartState, SectorNumber, Vector2D } from './types';
 
 interface BarrierSegment { a: Vector2D; b: Vector2D; }
@@ -88,7 +88,7 @@ function wallNormal(segment: BarrierSegment, position: Vector2D): Vector2D {
   const t = Math.max(0, Math.min(1, ((position.x - segment.a.x) * dx + (position.z - segment.a.z) * dz) / Math.max(1e-12, dx * dx + dz * dz)));
   const nx = position.x - segment.a.x - dx * t, nz = position.z - segment.a.z - dz * t;
   const length = Math.hypot(nx, nz);
-  return length > 1e-9 ? { x: nx / length, z: nz / length } : { x: -dz / Math.hypot(dx, dz), z: dx / Math.hypot(dx, dz) };
+  return length > 1e-9 ? { x: nx / length, z: nz / length } : Math.hypot(dx, dz) > 1e-9 ? { x: -dz / Math.hypot(dx, dz), z: dx / Math.hypot(dx, dz) } : { x: 1, z: 0 };
 }
 
 export function hasKartBarrierContact(circuit: CircuitData, pose: Pose): boolean {
@@ -186,7 +186,7 @@ export function stepKartOnCircuit(circuit: CircuitData, previous: KartState, com
     resolvedPose = sweepBarriers(circuit, collision.pose, slideTarget).pose;
     yawRateRadPerSecond *= 0.7;
   }
-  const speedMps = Math.hypot(velocity.x, velocity.z);
+  const speedMps = Math.min(MAX_KART_SPEED_MPS, Math.hypot(velocity.x, velocity.z));
   const projection = projectKartProgress(circuit, resolvedPose.position, previous.lapDistanceMeters);
   return {
     ...dynamics,

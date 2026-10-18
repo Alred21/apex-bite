@@ -609,8 +609,8 @@ export function createSimulationSession(
     return getSnapshot();
   }
 
-  function fixedStep(dtSeconds: number, input: DriverInput): SessionSnapshot {
-    if (mode === 'Time Trial' && timeTrial.status === 'Finished') return getSnapshot();
+  function fixedStep(dtSeconds: number, input: DriverInput): void {
+    if (mode === 'Time Trial' && timeTrial.status === 'Finished') return;
     const finiteInput = (value: number | undefined): number => Number.isFinite(value) ? value! : 0;
     const keyThrottle = input.keys?.up ? 1 : 0;
     const gpThrottle = finiteInput(input.gamepad?.throttle);
@@ -753,7 +753,7 @@ export function createSimulationSession(
         finalizeCornerDrillPass(nextSpeedKph);
       }
 
-      return getSnapshot();
+      return;
     }
 
     if (lap.lapNumber >= 1) lap.currentLapSeconds += dtSeconds;
@@ -841,7 +841,7 @@ export function createSimulationSession(
 
       if (timeTrial.lapLimit !== null && timeTrial.completedLaps.length >= timeTrial.lapLimit) {
         timeTrial.status = 'Finished';
-        return getSnapshot();
+        return;
       }
       timeTrial.status = 'Driving';
       lap.lapNumber += 1;
@@ -860,7 +860,7 @@ export function createSimulationSession(
       ];
     }
 
-    return getSnapshot();
+    return;
   }
 
   function setCameraSettings(settings: Partial<CameraSettings>): SessionSnapshot {

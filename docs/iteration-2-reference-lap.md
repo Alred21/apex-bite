@@ -30,3 +30,7 @@ The shared reference module exports the proposal execution protocol, curvature e
 - The CLI prototype measured approximately 46 ms for initial construction on this machine before final cache freezing. This is a local sample, not a cross-device performance claim.
 
 Old tests that mandated 24.499 s, clipping every old apex, sub-32-second completed laps or a 245 m geometry are replaced with executable traversal/physical corridor checks. Time Trial checks now allow the achieved lap duration and use a normal snapshot-observing analog test driver. Corner Drill checks replay actual retained commands; a deliberately wide pass that physically hits the Barrier is correctly expected to be a contact pass rather than a clean causal “late braking” diagnosis. Further evidence-based coaching changes remain ticket #16.
+
+## Browser smoke check
+
+The visible `tests/browser/reference-lap.html` button replays 1,600 ordinary Session ticks and renders the player, Racing Line and Reference Ghost Kart. Chrome reported **PASS**, maximum Ghost Kart error **1.99e-12 m**, zero Barrier contacts and live time delta **−0.002111 s**. The screenshot at `/private/tmp/apex-bite-reference-ghost.png` shows the stable line under the player with the gold Ghost Kart overlapping. This was one short visual agreement check, following CLI validation; no generic frame-rate claim is inferred from it.

@@ -8,7 +8,7 @@ export type CameraMode = 'Chase Cam' | 'Helmet Cam';
 
 export type PracticeMode = 'Time Trial' | 'Corner Drill';
 
-export type GhostMode = 'Track Record' | 'Personal Best' | 'Both' | 'Off';
+export type GhostMode = 'Reference Lap' | 'Personal Best' | 'Both' | 'Off';
 
 export interface Vector2D {
   x: number;
@@ -138,6 +138,11 @@ export interface RacingLinePoint {
 export interface RacingLineState {
   visible: boolean;
   benchmarkLapSeconds: number;
+  reference: {
+    name: string; validated: boolean; realWorldBenchmarkSeconds: number;
+    closure: { positionMeters: number; headingRad: number; speedMps: number; yawRateRadPerSecond: number };
+    candidates: { name: string; feasible: boolean; lapSeconds: number | null; reason: string | null }[];
+  };
   points: RacingLinePoint[];
 }
 

@@ -1,4 +1,5 @@
 import { createKeyboardAssistance } from './keyboard-assistance';
+import { buildReferenceLap, cloneKartState, referenceStateAtDistance, referenceApexTarget, referenceTimeAtDistance, referencePoseAtTime, type ReferenceReplay } from './reference-lap';
 import { createCameraPresentation } from './camera';
 import {
   CURRENT_TRAINING_REVISION,
@@ -25,7 +26,6 @@ import {
   GhostPose,
   GhostSampleFrame,
   GhostState,
-  KartState,
   KeyboardAssistanceSettings,
   LapSummaryState,
   PracticeMode,
@@ -39,9 +39,7 @@ import {
 
 import {
   FIXED_TIMESTEP_SECONDS,
-  FLYING_START_SPEED_KPH,
   FLYING_START_SPEED_MPS,
-  FLYING_START_DISTANCE_METERS,
   WHEELBASE_METERS,
 } from './kart-parameters';
 import { stepKartOnCircuit } from './kart-world';
@@ -63,6 +61,8 @@ export type { PersistedTrainingData } from './training-data';
 export interface SimulationSessionOptions {
   storage?: StorageLike;
   trainingRevision?: TrainingRevision;
+  /** Start at the retained Reference Lap's complete initial state for deterministic playback. */
+  referenceReplay?: boolean;
 }
 
 export interface SimulationSession {
@@ -80,18 +80,8 @@ export interface SimulationSession {
   exportTrainingDataJson(): string;
   importTrainingDataJson(json: string): SessionSnapshot;
   getSnapshot(): SessionSnapshot;
-}
-
-function resolveTurnAtDistance(
-  distanceMeters: number,
-  turns: ReturnType<typeof buildK1TorontoCircuit>['turns'],
-): TurnNumber | null {
-  for (const t of turns) {
-    if (distanceMeters >= t.entryDistanceMeters && distanceMeters <= t.exitDistanceMeters) {
-      return t.number;
-    }
-  }
-  return null;
+  /** Portable exact 120 Hz analog input tape plus observed poses; callers receive a copy. */
+  getReferenceReplay(): ReferenceReplay;
 }
 
 function interpolateGhostPose(
@@ -112,32 +102,6 @@ function interpolateGhostPose(
     headingRad: aHeading + wrapAngleRad(bHeading - aHeading) * clamped,
     speedKph: aSpeedKph + (bSpeedKph - aSpeedKph) * clamped,
   };
-}
-
-function sampleTrackRecordGhostPose(
-  points: RacingLinePoint[],
-  benchmarkLapSeconds: number,
-  lapSeconds: number,
-): GhostPose {
-  const t = ((lapSeconds % benchmarkLapSeconds) + benchmarkLapSeconds) % benchmarkLapSeconds;
-  const n = points.length;
-  let idx = 0;
-  while (idx < n - 1 && points[idx + 1].benchmarkTimeSeconds <= t) {
-    idx++;
-  }
-  const a = points[idx];
-  const b = points[(idx + 1) % n];
-  const bTime = idx + 1 < n ? b.benchmarkTimeSeconds : benchmarkLapSeconds;
-  const span = Math.max(1e-6, bTime - a.benchmarkTimeSeconds);
-  return interpolateGhostPose(
-    a.position,
-    b.position,
-    a.headingRad,
-    b.headingRad,
-    a.targetSpeedKph,
-    b.targetSpeedKph,
-    (t - a.benchmarkTimeSeconds) / span,
-  );
 }
 
 function samplePersonalBestGhostPose(
@@ -290,15 +254,11 @@ export function createSimulationSession(
   options: SimulationSessionOptions = {},
 ): SimulationSession {
   const circuit = buildK1TorontoCircuit();
+  const reference = buildReferenceLap(circuit);
+  const referenceApexTargets = new Map(circuit.turns.map((turn) => [turn.number, referenceApexTarget(circuit, reference, turn.number)]));
+  const flyingStartState = referenceStateAtDistance(reference, circuit.totalLengthMeters - 13.5);
   const baseProfile = evaluateLiveRacingLine(circuit, 0, FLYING_START_SPEED_MPS, true);
   const drillCatalog = buildDrillTargetCatalog(circuit, baseProfile.points);
-
-  const nSamples = circuit.samples.length;
-  const flyingStartIdx =
-    Math.round((FLYING_START_DISTANCE_METERS / circuit.totalLengthMeters) * nSamples) %
-    nSamples;
-  const startSample = circuit.samples[flyingStartIdx];
-  const initialHeading = Math.atan2(startSample.tangent.z, startSample.tangent.x);
 
   const storage: StorageLike | undefined = options.storage;
   const trainingRevision = { ...(options.trainingRevision ?? CURRENT_TRAINING_REVISION) };
@@ -313,7 +273,7 @@ export function createSimulationSession(
   let cameraMode: CameraMode = 'Chase Cam';
   const cameraPresentation = createCameraPresentation();
   let racingLineVisible = true;
-  let ghostMode: GhostMode = 'Track Record';
+  let ghostMode: GhostMode = 'Reference Lap';
 
   const keyboardAssistance = createKeyboardAssistance();
 
@@ -357,30 +317,11 @@ export function createSimulationSession(
     bestSectorSplits: [null, null, null],
   };
 
-  let kart: KartState = {
-    position: { ...startSample.center },
-    headingRad: initialHeading,
-    speedMps: FLYING_START_SPEED_MPS,
-    velocity: { x: Math.cos(initialHeading) * FLYING_START_SPEED_MPS, z: Math.sin(initialHeading) * FLYING_START_SPEED_MPS },
-    yawRateRadPerSecond: 0,
-    speedKph: FLYING_START_SPEED_KPH,
-    forwardAccelMps2: 0,
-    lateralAccelMps2: 0,
-    steerAngleRad: 0,
-    steeringWheelAngleRad: 0,
-    throttleInput: 1,
-    brakeInput: 0,
-    isTrailBraking: false,
-    axleScrub: 0,
-    slipRatio: 0,
-    barrierContact: false,
-    barrierContactCount: 0,
-    lapDistanceMeters: startSample.distanceMeters,
-    unwrappedDistanceMeters: startSample.distanceMeters,
-    lapProgress: startSample.progress,
-    currentTurn: resolveTurnAtDistance(startSample.distanceMeters, circuit.turns),
-    currentSector: startSample.sector,
-  };
+  let kart = cloneKartState(options.referenceReplay ? reference.initialState : flyingStartState);
+  if (options.referenceReplay) {
+    lap.lapNumber = 1;
+    timeTrial.status = 'Driving';
+  }
 
   function spawnAtTimeTrialFlyingStart(): void {
     timeTrial = { ...timeTrial, status: 'Flying Start', completedLaps: [], totalSeconds: 0, bestCleanLapSeconds: null };
@@ -394,30 +335,8 @@ export function createSimulationSession(
     lap.lapNumber = 0;
     lap.currentSectorSplits = [null, null, null];
 
-    kart = {
-      position: { ...startSample.center },
-      headingRad: initialHeading,
-      speedMps: FLYING_START_SPEED_MPS,
-    velocity: { x: Math.cos(initialHeading) * FLYING_START_SPEED_MPS, z: Math.sin(initialHeading) * FLYING_START_SPEED_MPS },
-    yawRateRadPerSecond: 0,
-      speedKph: FLYING_START_SPEED_KPH,
-      forwardAccelMps2: 0,
-      lateralAccelMps2: 0,
-      steerAngleRad: 0,
-      steeringWheelAngleRad: 0,
-      throttleInput: 1,
-      brakeInput: 0,
-      isTrailBraking: false,
-      axleScrub: 0,
-      slipRatio: 0,
-      barrierContact: false,
-      barrierContactCount: kart.barrierContactCount,
-      lapDistanceMeters: startSample.distanceMeters,
-    unwrappedDistanceMeters: startSample.distanceMeters,
-      lapProgress: startSample.progress,
-      currentTurn: resolveTurnAtDistance(startSample.distanceMeters, circuit.turns),
-      currentSector: startSample.sector,
-    };
+    kart = cloneKartState(options.referenceReplay ? reference.initialState : flyingStartState);
+    if (options.referenceReplay) { lap.lapNumber = 1; timeTrial.status = 'Driving'; }
     cameraPresentation.reset(kart);
   }
 
@@ -434,38 +353,7 @@ export function createSimulationSession(
       drillApexMinDistMeters.set(tn, Infinity);
     }
 
-    const ptIdx =
-      Math.round(
-        (activeDrillTarget.flyingEntryDistanceMeters / circuit.totalLengthMeters) *
-          baseProfile.points.length,
-      ) % baseProfile.points.length;
-    const entryLinePt = baseProfile.points[ptIdx];
-    const sample = circuit.samples[ptIdx];
-
-    kart = {
-      position: { ...entryLinePt.position },
-      headingRad: entryLinePt.headingRad,
-      speedMps: entryLinePt.targetSpeedMps,
-      velocity: { x: Math.cos(entryLinePt.headingRad) * entryLinePt.targetSpeedMps, z: Math.sin(entryLinePt.headingRad) * entryLinePt.targetSpeedMps },
-      yawRateRadPerSecond: 0,
-      speedKph: entryLinePt.targetSpeedKph,
-      forwardAccelMps2: 0,
-      lateralAccelMps2: 0,
-      steerAngleRad: 0,
-      steeringWheelAngleRad: 0,
-      throttleInput: 1,
-      brakeInput: 0,
-      isTrailBraking: false,
-      axleScrub: 0,
-      slipRatio: 0,
-      barrierContact: false,
-      barrierContactCount: kart.barrierContactCount,
-      lapDistanceMeters: sample.distanceMeters,
-      unwrappedDistanceMeters: sample.distanceMeters,
-      lapProgress: sample.progress,
-      currentTurn: resolveTurnAtDistance(sample.distanceMeters, circuit.turns),
-      currentSector: sample.sector,
-    };
+    kart = referenceStateAtDistance(reference, activeDrillTarget.flyingEntryDistanceMeters);
     cameraPresentation.reset(kart);
   }
 
@@ -673,8 +561,8 @@ export function createSimulationSession(
             rightZ * insideSign * 0.42,
         };
         const distToApex = Math.hypot(
-          insideFrontTire.x - turnMeta.apexPoint.x,
-          insideFrontTire.z - turnMeta.apexPoint.z,
+          insideFrontTire.x - referenceApexTargets.get(tn)!.x,
+          insideFrontTire.z - referenceApexTargets.get(tn)!.z,
         );
         const prevMin = drillApexMinDistMeters.get(tn) ?? Infinity;
         if (distToApex < prevMin) {
@@ -823,7 +711,7 @@ export function createSimulationSession(
   }
 
   function cycleGhostMode(): SessionSnapshot {
-    const order: GhostMode[] = ['Track Record', 'Personal Best', 'Both', 'Off'];
+    const order: GhostMode[] = ['Reference Lap', 'Personal Best', 'Both', 'Off'];
     const nextIdx = (order.indexOf(ghostMode) + 1) % order.length;
     ghostMode = order[nextIdx];
     return getSnapshot();
@@ -943,9 +831,6 @@ export function createSimulationSession(
       racingLineVisible,
     );
 
-    const ptIdx =
-      Math.floor(kart.lapProgress * racingLine.points.length) %
-      racingLine.points.length;
     const pbAtDist =
       ghostMode === 'Personal Best'
         ? samplePersonalBestSecondsAtDistance(
@@ -954,22 +839,21 @@ export function createSimulationSession(
           )
         : null;
     const refBenchmarkSeconds =
-      pbAtDist ?? racingLine.points[ptIdx].benchmarkTimeSeconds;
+      pbAtDist ?? referenceTimeAtDistance(reference, kart.lapDistanceMeters);
     const liveDelta =
       lap.lapNumber >= 1 ? lap.currentLapSeconds - refBenchmarkSeconds : 0;
     lap.timeDeltaSeconds = liveDelta;
 
     const showTrackRecord =
-      ghostMode === 'Track Record' || ghostMode === 'Both';
+      ghostMode === 'Reference Lap' || ghostMode === 'Both';
     const showPersonalBest =
       ghostMode === 'Personal Best' || ghostMode === 'Both';
 
     const ghost: GhostState = {
       mode: ghostMode,
       trackRecordPose: showTrackRecord
-        ? sampleTrackRecordGhostPose(
-            racingLine.points,
-            racingLine.benchmarkLapSeconds,
+        ? referencePoseAtTime(
+            reference,
             lap.lapNumber >= 1 ? lap.currentLapSeconds : elapsedSeconds,
           )
         : null,
@@ -1044,6 +928,7 @@ export function createSimulationSession(
     exportTrainingDataJson,
     importTrainingDataJson,
     getSnapshot,
+    getReferenceReplay: () => structuredClone(reference),
   };
 }
 

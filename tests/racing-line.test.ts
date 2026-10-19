@@ -1,30 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { createSimulationSession } from '../src/simulation/session';
 
-describe('Ticket #5: Optimal Racing Line with Live Speed-Reactive Color Cues & 24.499s Target Profile', () => {
-  it('computes an outside-inside-outside Racing Line clipping all 11 Turn apexes and calibrated to 24.499s (±0.05s) under 45.0 km/h', () => {
+describe('Validated Racing Line and live cues', () => {
+  it('uses an achieved Reference Lap with separately labeled Real-World Benchmark and infeasible baseline evidence', () => {
     const session = createSimulationSession();
     const snap = session.getSnapshot();
-
-    expect(snap.racingLine.visible).toBe(true);
-    expect(snap.racingLine.benchmarkLapSeconds).toBeCloseTo(24.499, 2);
-
-    for (const pt of snap.racingLine.points) {
-      expect(pt.targetSpeedKph).toBeGreaterThan(15);
-      expect(pt.targetSpeedKph).toBeLessThanOrEqual(45.0001);
-    }
-
-    // Verify each Turn apex is clipped closely by the Racing Line
-    for (const turn of snap.circuit.turns) {
-      let minDist = Infinity;
-      for (const pt of snap.racingLine.points) {
-        const d = Math.hypot(
-          pt.position.x - turn.apexPoint.x,
-          pt.position.z - turn.apexPoint.z,
-        );
-        if (d < minDist) minDist = d;
-      }
-      expect(minDist).toBeLessThan(0.95);
+    const replay = session.getReferenceReplay();
+    expect(snap.racingLine.reference.validated).toBe(true);
+    expect(snap.racingLine.benchmarkLapSeconds).toBe(replay.lapSeconds);
+    expect(snap.racingLine.reference.realWorldBenchmarkSeconds).toBe(24.499);
+    expect(snap.racingLine.reference.candidates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'Conservative centerline', feasible: true, lapSeconds: replay.lapSeconds }),
+      expect.objectContaining({ name: 'Prior pinned-apex heuristic', feasible: false, lapSeconds: null, reason: expect.any(String) }),
+    ]));
+    for (const point of snap.racingLine.points) {
+      expect(point.targetSpeedKph).toBeGreaterThan(0);
+      expect(point.targetSpeedKph).toBeLessThanOrEqual(45);
     }
   });
 

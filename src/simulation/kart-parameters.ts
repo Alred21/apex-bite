@@ -3,7 +3,9 @@ export const MAX_KART_SPEED_KPH = 45.0;
 export const MAX_KART_SPEED_MPS = MAX_KART_SPEED_KPH / 3.6; // 12.5 m/s
 export const FLYING_START_SPEED_KPH = 36.0;
 export const FLYING_START_SPEED_MPS = FLYING_START_SPEED_KPH / 3.6; // 10.0 m/s
-export const FLYING_START_DISTANCE_METERS = 236.0; // Exiting Turn 11 onto the main straight
+export const FLYING_START_APPROACH_METERS = 13.5;
+/** Approximate current Circuit coordinate; Session derives the exact start from its Reference Lap. */
+export const FLYING_START_DISTANCE_METERS = 349.6;
 
 export const PEAK_LAUNCH_ACCEL_MPS2 = 5.2;
 export const MOTOR_DRAG_DECEL_MPS2 = 1.45;

@@ -227,10 +227,12 @@ export interface DrillTargetDefinition {
 }
 
 export type CoachingInsightCategory =
-  | 'Optimal Pass'
+  | 'Matched Reference'
+  | 'Clean Faster Pass'
   | 'Barrier Contact'
-  | 'Late Braking Overshoot'
-  | 'Over-Slowed Entry'
+  | 'Missed Reference Target'
+  | 'Below Reference Speed'
+  | 'Measured Time Loss'
   | 'Excessive Axle Scrub';
 
 export interface CornerExecutionCard {
@@ -249,7 +251,11 @@ export interface CornerExecutionCard {
   targetEntrySpeedKph: number;
   targetMinApexSpeedKph: number;
   targetExitSpeedKph: number;
-  apexProximityCm: number;
+  apexProximityCm: number | null;
+  turnApexProximities: Array<{ turnNumber: TurnNumber; distanceCm: number | null; referenceTarget: Vector2D }>;
+  peakAxleScrub: number;
+  referencePeakAxleScrub: number;
+  excessScrubSeconds: number;
   coachingCategory: CoachingInsightCategory;
   coachingInsight: string;
 }

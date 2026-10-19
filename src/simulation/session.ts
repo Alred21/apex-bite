@@ -1,5 +1,7 @@
 import { createKeyboardAssistance } from './keyboard-assistance';
 import { buildReferenceLap, cloneKartState, referenceStateAtDistance, referenceApexTarget, referenceTimeAtDistance, referencePoseAtTime, type ReferenceReplay } from './reference-lap';
+import { insideFrontTirePosition } from './kart-geometry';
+import { buildReferenceDrills, evaluateDrillCoaching } from './corner-drill';
 import { createCameraPresentation } from './camera';
 import {
   CURRENT_TRAINING_REVISION,
@@ -15,8 +17,6 @@ import { evaluateLiveRacingLine } from './racing-line';
 import {
   CameraMode,
   CameraSettings,
-  CircuitData,
-  CoachingInsightCategory,
   CornerExecutionCard,
   DrillState,
   DrillTargetDefinition,
@@ -29,7 +29,6 @@ import {
   KeyboardAssistanceSettings,
   LapSummaryState,
   PracticeMode,
-  RacingLinePoint,
   SectorSplitsTuple,
   SessionSnapshot,
   TurnNumber,
@@ -39,9 +38,7 @@ import {
 
 import {
   FIXED_TIMESTEP_SECONDS,
-  FLYING_START_SPEED_MPS,
   FLYING_START_APPROACH_METERS,
-  WHEELBASE_METERS,
 } from './kart-parameters';
 import { stepKartOnCircuit } from './kart-world';
 export {
@@ -148,109 +145,6 @@ function samplePersonalBestSecondsAtDistance(
   return a.lapSeconds + (b.lapSeconds - a.lapSeconds) * ratio;
 }
 
-function buildDrillTargetCatalog(
-  circuit: CircuitData,
-  racingLinePoints: RacingLinePoint[],
-): DrillTargetDefinition[] {
-  const n = racingLinePoints.length;
-  const pointAtDistance = (dist: number): RacingLinePoint => {
-    const clamped = Math.max(0, Math.min(circuit.totalLengthMeters - 0.01, dist));
-    const idx = Math.min(n - 1, Math.max(0, Math.round((clamped / circuit.totalLengthMeters) * n)));
-    return racingLinePoints[idx];
-  };
-
-  const specs: Array<{
-    id: DrillTargetId;
-    label: string;
-    kind: 'Turn' | 'Corner Complex';
-    turns: TurnNumber[];
-  }> = [
-    ...circuit.turns.map((t) => ({
-      id: `T${t.number}` as DrillTargetId,
-      label: t.name,
-      kind: 'Turn' as const,
-      turns: [t.number],
-    })),
-    {
-      id: 'T1-T3',
-      label: 'Complex T1–T3 (Opening Chute & Center Hairpin)',
-      kind: 'Corner Complex',
-      turns: [1, 2, 3],
-    },
-    {
-      id: 'T2-T3',
-      label: 'Complex T2–T3 (Infield Entry into Hairpin)',
-      kind: 'Corner Complex',
-      turns: [2, 3],
-    },
-    {
-      id: 'T4-T5',
-      label: 'Complex T4–T5 (North Loop Double-Right)',
-      kind: 'Corner Complex',
-      turns: [4, 5],
-    },
-    {
-      id: 'T6-T7-T8',
-      label: 'Complex T6–T7–T8 (Esses into East Sweeper)',
-      kind: 'Corner Complex',
-      turns: [6, 7, 8],
-    },
-    {
-      id: 'T9-T10-T11',
-      label: 'Complex T9–T10–T11 (West Hairpin & Final Carousel)',
-      kind: 'Corner Complex',
-      turns: [9, 10, 11],
-    },
-  ];
-
-  return specs.map((spec) => {
-    const firstTurn = circuit.turns[spec.turns[0] - 1];
-    const lastTurn = circuit.turns[spec.turns[spec.turns.length - 1] - 1];
-    const flyingEntryDistanceMeters = Math.max(2.0, firstTurn.entryDistanceMeters - 7.0);
-    const exitDistanceMeters = Math.min(
-      circuit.totalLengthMeters - 2.0,
-      lastTurn.exitDistanceMeters + 4.0,
-    );
-
-    const entryPt = pointAtDistance(flyingEntryDistanceMeters);
-    const firstTurnEntryPt = pointAtDistance(firstTurn.entryDistanceMeters);
-    const exitPt = pointAtDistance(exitDistanceMeters);
-
-    let minApexSpeedKph = Infinity;
-    for (const pt of racingLinePoints) {
-      if (
-        pt.distanceMeters >= firstTurn.entryDistanceMeters &&
-        pt.distanceMeters <= lastTurn.exitDistanceMeters
-      ) {
-        if (pt.targetSpeedKph < minApexSpeedKph) {
-          minApexSpeedKph = pt.targetSpeedKph;
-        }
-      }
-    }
-    if (!Number.isFinite(minApexSpeedKph)) {
-      minApexSpeedKph = firstTurnEntryPt.targetSpeedKph;
-    }
-
-    const benchmarkTimeSeconds = Math.max(
-      0.5,
-      exitPt.benchmarkTimeSeconds - entryPt.benchmarkTimeSeconds,
-    );
-
-    return {
-      id: spec.id,
-      label: spec.label,
-      kind: spec.kind,
-      turns: spec.turns,
-      flyingEntryDistanceMeters,
-      exitDistanceMeters,
-      benchmarkTimeSeconds,
-      targetEntrySpeedKph: firstTurnEntryPt.targetSpeedKph,
-      targetMinApexSpeedKph: minApexSpeedKph,
-      targetExitSpeedKph: exitPt.targetSpeedKph,
-    };
-  });
-}
-
 export function createSimulationSession(
   options: SimulationSessionOptions = {},
 ): SimulationSession {
@@ -258,8 +152,8 @@ export function createSimulationSession(
   const reference = buildReferenceLap(circuit);
   const referenceApexTargets = new Map(circuit.turns.map((turn) => [turn.number, referenceApexTarget(circuit, reference, turn.number)]));
   const flyingStartState = referenceStateAtDistance(reference, circuit.totalLengthMeters - FLYING_START_APPROACH_METERS);
-  const baseProfile = evaluateLiveRacingLine(circuit, 0, FLYING_START_SPEED_MPS, true);
-  const drillCatalog = buildDrillTargetCatalog(circuit, baseProfile.points);
+  const referenceDrills = buildReferenceDrills(circuit, reference);
+  const drillCatalog = referenceDrills.map((drill) => drill.target);
 
   const storage: StorageLike | undefined = options.storage;
   const trainingRevision = { ...(options.trainingRevision ?? CURRENT_TRAINING_REVISION) };
@@ -295,7 +189,7 @@ export function createSimulationSession(
   let drillEntrySpeedKph: number | null = null;
   let drillMinApexSpeedKph = Infinity;
   let drillPeakAxleScrub = 0;
-  let drillSawTrailBraking = false;
+  let drillExcessScrubSeconds = 0;
   let drillApexMinDistMeters = new Map<TurnNumber, number>();
 
   let timeTrial: TimeTrialState = {
@@ -348,13 +242,13 @@ export function createSimulationSession(
     drillEntrySpeedKph = null;
     drillMinApexSpeedKph = Infinity;
     drillPeakAxleScrub = 0;
-    drillSawTrailBraking = false;
+    drillExcessScrubSeconds = 0;
     drillApexMinDistMeters = new Map<TurnNumber, number>();
     for (const tn of activeDrillTarget.turns) {
       drillApexMinDistMeters.set(tn, Infinity);
     }
 
-    kart = referenceStateAtDistance(reference, activeDrillTarget.flyingEntryDistanceMeters);
+    kart = cloneKartState(referenceDrills.find((drill) => drill.target.id === activeDrillTarget.id)!.initialState);
     cameraPresentation.reset(kart);
   }
 
@@ -386,20 +280,19 @@ export function createSimulationSession(
 
   function finalizeCornerDrillPass(exitSpeedKph: number): void {
     const segmentTimeSeconds = Math.max(0.05, drillCurrentSegmentSeconds);
-    const firstTurn = circuit.turns[activeDrillTarget.turns[0] - 1];
+    const activeReferenceDrill = referenceDrills.find((drill) => drill.target.id === activeDrillTarget.id)!;
     const entrySpeedKph =
       drillEntrySpeedKph ?? activeDrillTarget.targetEntrySpeedKph;
     const minApexSpeedKph = Number.isFinite(drillMinApexSpeedKph)
       ? drillMinApexSpeedKph
       : Math.min(entrySpeedKph, exitSpeedKph);
 
-    let totalApexDistMeters = 0;
-    for (const tn of activeDrillTarget.turns) {
-      const d = drillApexMinDistMeters.get(tn) ?? 1.2;
-      totalApexDistMeters += Number.isFinite(d) ? d : 1.2;
-    }
-    const avgApexDistMeters = totalApexDistMeters / activeDrillTarget.turns.length;
-    const apexProximityCm = Math.max(0, Math.round(avgApexDistMeters * 100 * 10) / 10);
+    const turnApexProximities = activeDrillTarget.turns.map((turnNumber) => ({
+      turnNumber,
+      distanceCm: Number.isFinite(drillApexMinDistMeters.get(turnNumber)) ? Math.round(drillApexMinDistMeters.get(turnNumber)! * 1000) / 10 : null,
+      referenceTarget: { ...referenceApexTargets.get(turnNumber)! },
+    }));
+    const apexProximityCm = turnApexProximities.some((turn) => turn.distanceCm === null) ? null : Math.max(...turnApexProximities.map((turn) => turn.distanceCm!));
 
     const prevBest = drillPersonalBests[activeDrillTarget.id] ?? null;
     const deltaToPersonalBestSeconds =
@@ -419,38 +312,12 @@ export function createSimulationSession(
     const deltaToBenchmarkSeconds =
       segmentTimeSeconds - activeDrillTarget.benchmarkTimeSeconds;
 
-    let coachingCategory: CoachingInsightCategory;
-    let coachingInsight: string;
-
-    if (!drillIsClean) {
-      coachingCategory = 'Barrier Contact';
-      coachingInsight = `Barrier Contact: Scrubbed against the indoor Barrier in ${firstTurn.name} — widen your turn-in arc to keep the pass Clean.`;
-    } else if (minApexSpeedKph < activeDrillTarget.targetMinApexSpeedKph - 2.8) {
-      coachingCategory = 'Over-Slowed Entry';
-      coachingInsight = `Over-Slowed Entry: Minimum apex speed (${minApexSpeedKph.toFixed(1)} km/h) dropped ${(activeDrillTarget.targetMinApexSpeedKph - minApexSpeedKph).toFixed(1)} km/h below target (${activeDrillTarget.targetMinApexSpeedKph.toFixed(1)} km/h) — release the rear brake earlier to carry rolling momentum.`;
-    } else if (apexProximityCm > 50) {
-      if (
-        !drillSawTrailBraking &&
-        drillPeakAxleScrub > 0.38 &&
-        entrySpeedKph <= activeDrillTarget.targetEntrySpeedKph + 0.5
-      ) {
-        coachingCategory = 'Excessive Axle Scrub';
-        coachingInsight = `Excessive Axle Scrub: Solid rear axle bound up (${Math.round(drillPeakAxleScrub * 100)}% scrub) without Trail Braking, pushing the Kart ${Math.round(apexProximityCm)} cm wide of the apex.`;
-      } else {
-        coachingCategory = 'Late Braking Overshoot';
-        coachingInsight = `Late Braking Overshoot: Carried ${entrySpeedKph.toFixed(1)} km/h into entry and missed the inside apex by ${Math.round(apexProximityCm)} cm — initiate Trail Braking earlier before turn-in.`;
-      }
-    } else if (
-      drillPeakAxleScrub > 0.44 &&
-      !drillSawTrailBraking &&
-      exitSpeedKph < activeDrillTarget.targetExitSpeedKph - 2.0
-    ) {
-      coachingCategory = 'Excessive Axle Scrub';
-      coachingInsight = `Excessive Axle Scrub: High solid-axle binding bogged exit speed down to ${exitSpeedKph.toFixed(1)} km/h — blend light Trail Braking (20–70%) on turn-in to unload the inside rear tire.`;
-    } else {
-      coachingCategory = 'Optimal Pass';
-      coachingInsight = `Optimal Pass: Clipped the inside apex within ${Math.round(apexProximityCm)} cm with balanced rotation and a ${exitSpeedKph.toFixed(1)} km/h exit.`;
-    }
+    const coaching = evaluateDrillCoaching({
+      target: activeDrillTarget, isClean: drillIsClean, seconds: segmentTimeSeconds,
+      minimumSpeedKph: minApexSpeedKph, peakScrub: drillPeakAxleScrub,
+      referencePeakScrub: activeReferenceDrill.referencePeakAxleScrub,
+      excessScrubSeconds: drillExcessScrubSeconds, turnApexProximities,
+    });
 
     lastExecutionCard = {
       targetId: activeDrillTarget.id,
@@ -469,8 +336,12 @@ export function createSimulationSession(
       targetMinApexSpeedKph: activeDrillTarget.targetMinApexSpeedKph,
       targetExitSpeedKph: activeDrillTarget.targetExitSpeedKph,
       apexProximityCm,
-      coachingCategory,
-      coachingInsight,
+      turnApexProximities,
+      peakAxleScrub: drillPeakAxleScrub,
+      referencePeakAxleScrub: activeReferenceDrill.referencePeakAxleScrub,
+      excessScrubSeconds: drillExcessScrubSeconds,
+      coachingCategory: coaching.category,
+      coachingInsight: coaching.insight,
     };
 
     drillRunNumber += 1;
@@ -505,7 +376,7 @@ export function createSimulationSession(
     const nextHeading = kart.headingRad;
     const nextSpeedKph = kart.speedKph;
     const nextSector = kart.currentSector;
-    const { axleScrub, isTrailBraking, barrierContact } = kart;
+    const { axleScrub, barrierContact } = kart;
     const nearest = { distanceMeters: kart.lapDistanceMeters, progress: kart.lapProgress };
     if (barrierContact) {
       lap.isClean = false;
@@ -539,39 +410,21 @@ export function createSimulationSession(
         if (axleScrub > drillPeakAxleScrub) {
           drillPeakAxleScrub = axleScrub;
         }
-        if (isTrailBraking) {
-          drillSawTrailBraking = true;
+        if (axleScrub > referenceDrills.find((drill) => drill.target.id === activeDrillTarget.id)!.referencePeakAxleScrub + 0.1) {
+          drillExcessScrubSeconds += dtSeconds;
         }
       }
 
-      const fwdX = Math.cos(nextHeading);
-      const fwdZ = Math.sin(nextHeading);
-      const rightX = -fwdZ;
-      const rightZ = fwdX;
       for (const tn of activeDrillTarget.turns) {
-        const turnMeta = circuit.turns[tn - 1];
-        const insideSign = turnMeta.direction === 'Right' ? 1 : -1;
-        const insideFrontTire = {
-          x:
-            nextPosition.x +
-            fwdX * (WHEELBASE_METERS * 0.5) +
-            rightX * insideSign * 0.42,
-          z:
-            nextPosition.z +
-            fwdZ * (WHEELBASE_METERS * 0.5) +
-            rightZ * insideSign * 0.42,
-        };
-        const distToApex = Math.hypot(
-          insideFrontTire.x - referenceApexTargets.get(tn)!.x,
-          insideFrontTire.z - referenceApexTargets.get(tn)!.z,
-        );
-        const prevMin = drillApexMinDistMeters.get(tn) ?? Infinity;
-        if (distToApex < prevMin) {
-          drillApexMinDistMeters.set(tn, distToApex);
-        }
+        const turn = circuit.turns[tn - 1];
+        if (kart.lapDistanceMeters < turn.entryDistanceMeters || kart.lapDistanceMeters > turn.exitDistanceMeters) continue;
+        const tire = insideFrontTirePosition(kart, turn.direction);
+        const target = referenceApexTargets.get(tn)!;
+        const distance = Math.hypot(tire.x - target.x, tire.z - target.z);
+        if (distance < (drillApexMinDistMeters.get(tn) ?? Infinity)) drillApexMinDistMeters.set(tn, distance);
       }
 
-      if (nearest.distanceMeters >= activeDrillTarget.exitDistanceMeters) {
+      if (kart.unwrappedDistanceMeters >= referenceDrills.find((drill) => drill.target.id === activeDrillTarget.id)!.finishProgressMeters) {
         finalizeCornerDrillPass(nextSpeedKph);
       }
 
@@ -748,6 +601,7 @@ export function createSimulationSession(
     accumulatedStepSeconds = 0;
     const found = drillCatalog.find((d) => d.id === targetId);
     if (found) {
+      if (found.id !== activeDrillTarget.id) lastExecutionCard = null;
       activeDrillTarget = found;
     }
     mode = 'Corner Drill';
@@ -855,25 +709,32 @@ export function createSimulationSession(
       trackRecordPose: showTrackRecord
         ? referencePoseAtTime(
             reference,
-            lap.lapNumber >= 1 ? lap.currentLapSeconds : elapsedSeconds,
+            mode === 'Corner Drill'
+              ? referenceDrills.find((drill) => drill.target.id === activeDrillTarget.id)!.referenceStartSeconds + drillCurrentSegmentSeconds
+              : lap.lapNumber >= 1 ? lap.currentLapSeconds : elapsedSeconds,
           )
         : null,
       personalBestPose: showPersonalBest
         ? samplePersonalBestGhostPose(
             personalBestGhostFrames,
-            lap.lapNumber >= 1 ? lap.currentLapSeconds : elapsedSeconds,
+            mode === 'Corner Drill'
+              ? (samplePersonalBestSecondsAtDistance(personalBestGhostFrames, activeDrillTarget.flyingEntryDistanceMeters) ?? 0) + drillCurrentSegmentSeconds
+              : lap.lapNumber >= 1 ? lap.currentLapSeconds : elapsedSeconds,
           )
         : null,
     };
 
     const drill: DrillState = {
-      target: activeDrillTarget,
-      availableTargets: drillCatalog,
+      target: { ...activeDrillTarget, turns: [...activeDrillTarget.turns] },
+      availableTargets: drillCatalog.map((target) => ({ ...target, turns: [...target.turns] })),
       runNumber: drillRunNumber,
       currentSegmentSeconds: drillCurrentSegmentSeconds,
       isClean: drillIsClean,
       personalBests: { ...drillPersonalBests },
-      lastExecutionCard: lastExecutionCard ? { ...lastExecutionCard } : null,
+      lastExecutionCard: lastExecutionCard ? {
+        ...lastExecutionCard,
+        turnApexProximities: lastExecutionCard.turnApexProximities.map((turn) => ({ ...turn, referenceTarget: { ...turn.referenceTarget } })),
+      } : null,
     };
 
     return {

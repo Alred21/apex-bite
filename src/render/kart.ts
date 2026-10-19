@@ -1,14 +1,15 @@
 import * as THREE from 'three';
+import { KART_WHEEL_GEOMETRY } from '../simulation/kart-parameters';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { SessionSnapshot } from '../simulation/types';
 
 // Metres, +X forward, +Z right. The bumper remains inside the solver's
 // 0.45 m half-width; the front and rear axle centres retain a 1.06 m wheelbase.
-const FRONT_AXLE = 0.54;
-const REAR_AXLE = -0.52;
-const TIRE_RADIUS = 0.145;
-const FRONT_TRACK_HALF = 0.285;
-const REAR_TRACK_HALF = 0.335;
+const FRONT_AXLE = KART_WHEEL_GEOMETRY.frontAxleMeters;
+const REAR_AXLE = KART_WHEEL_GEOMETRY.rearAxleMeters;
+const TIRE_RADIUS = KART_WHEEL_GEOMETRY.tireRadiusMeters;
+const FRONT_TRACK_HALF = KART_WHEEL_GEOMETRY.frontTrackHalfMeters;
+const REAR_TRACK_HALF = KART_WHEEL_GEOMETRY.rearTrackHalfMeters;
 
 export interface KartRig {
   root: THREE.Group;

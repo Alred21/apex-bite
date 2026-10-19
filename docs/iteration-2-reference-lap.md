@@ -1,6 +1,6 @@
 # Executable Reference Lap
 
-Ticket #13 replaces prescribed Racing Line timing with an actual deterministic traversal. The conservative centerline candidate completes the corrected estimated Circuit in **45.983333 seconds** under the same 120 Hz `stepKartOnCircuit` solver used by the driver, with no swept whole-Kart Barrier contact. The **24.499-second Real-World Benchmark** remains separately labeled; no grip parameter is adjusted to reproduce it. This conservative baseline is not a claim of the fastest possible line; ticket #14 compares alternatives through the same execution protocol.
+Ticket #13 replaces prescribed Racing Line timing with an actual deterministic traversal. The conservative centerline candidate completes the corrected estimated Circuit in **45.983333 seconds** under the same 120 Hz `stepKartOnCircuit` solver used by the driver, with no swept whole-Kart Barrier contact. The **24.499-second Real-World Benchmark** remains separately labeled; no grip parameter is adjusted to reproduce it. This conservative baseline remains the comparison starting point, not the default selected lap after ticket #14. The bounded connected-Turn search now selects a 45.791667-second achieved lap; see [the search report](iteration-2-reference-search.md). Neither result is a claim of a globally optimal line.
 
 ## Geometry and uncertainty
 

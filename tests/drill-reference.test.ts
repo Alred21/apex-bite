@@ -1,37 +1,7 @@
 import { driveReference } from './reference-driver';
 import { describe, expect, it } from 'vitest';
-import type { SimulationSession } from '../src/simulation/session';
+import { driveDrillVariant } from './drill-driver';
 import { createSimulationSession, FIXED_TIMESTEP_SECONDS } from '../src/simulation/session';
-
-/** Ordinary analog driver; variations are visible inputs, never injected Kart state. */
-function driveVariant(session: SimulationSession, speedScale: number, turn2Offset = 0, steeringOscillation = 0) {
-  let snapshot = session.getSnapshot();
-  for (let tick = 0; tick < 8000; tick++) {
-    const points = snapshot.racingLine.points, n = points.length, length = snapshot.circuit.totalLengthMeters;
-    const lookahead = 0.85 + snapshot.kart.speedMps * 0.11;
-    const fractionalIndex = (snapshot.kart.lapDistanceMeters + lookahead) % length / length * n;
-    const i = Math.floor(fractionalIndex), j = (i + 1) % n, ratio = fractionalIndex - i;
-    const distanceToTurn2 = snapshot.kart.lapDistanceMeters - snapshot.circuit.turns[1].apexDistanceMeters;
-    const offset = turn2Offset * Math.exp(-((distanceToTurn2 / 6) ** 2));
-    const heading = points[i].headingRad;
-    const x = points[i].position.x + (points[j].position.x - points[i].position.x) * ratio - Math.sin(heading) * offset - snapshot.kart.position.x;
-    const z = points[i].position.z + (points[j].position.z - points[i].position.z) * ratio + Math.cos(heading) * offset - snapshot.kart.position.z;
-    const alpha = Math.atan2(Math.sin(Math.atan2(z, x) - snapshot.kart.headingRad), Math.cos(Math.atan2(z, x) - snapshot.kart.headingRad));
-    const steer = Math.max(-1, Math.min(1, Math.atan2(2 * 1.06 * Math.sin(alpha), Math.hypot(x, z)) / 0.46 + steeringOscillation * Math.sin(tick * Math.PI / 12)));
-    let targetSpeed = 12.5;
-    for (let distance = 0; distance <= snapshot.kart.speedMps ** 2 / 6.4 + 3; distance += 0.65) {
-      const point = points[Math.floor((snapshot.kart.lapDistanceMeters + distance) % length / length * n) % n];
-      targetSpeed = Math.min(targetSpeed, Math.sqrt((point.targetSpeedMps * speedScale) ** 2 + 6 * Math.max(0, distance - 0.8)));
-    }
-    const error = targetSpeed - snapshot.kart.speedMps;
-    snapshot = session.step(FIXED_TIMESTEP_SECONDS, {
-      steer, throttle: error > -0.08 ? Math.min(1, Math.max(0, 0.37 + error * 1.7)) : 0,
-      brake: error < -0.2 ? Math.min(1, (-error - 0.1) * 0.8) : 0,
-    });
-    if (snapshot.drill.lastExecutionCard) return snapshot.drill.lastExecutionCard;
-  }
-  throw new Error('Driver did not complete the Corner Drill.');
-}
 
 // Approved seam: public Session commands/snapshots and its retained input tape.
 describe('Reference-backed Corner Drills', () => {
@@ -57,6 +27,14 @@ describe('Reference-backed Corner Drills', () => {
       expect(completed!.segmentTimeSeconds).toBeCloseTo(completed!.benchmarkTimeSeconds, 8);
       expect(completed!.exitSpeedKph).toBeCloseTo(replay.frames[index].kart.speedKph, 8);
       expect(completed!.targetExitSpeedKph).toBeCloseTo(completed!.exitSpeedKph, 8);
+      const firstTurn = start.circuit.turns[target.turns[0] - 1];
+      const lastTurn = start.circuit.turns[target.turns[target.turns.length - 1] - 1];
+      const entry = replay.frames.find((frame) => frame.kart.lapDistanceMeters >= firstTurn.entryDistanceMeters)!;
+      const minimum = Math.min(...replay.frames.filter((frame) => frame.kart.lapDistanceMeters >= firstTurn.entryDistanceMeters && frame.kart.lapDistanceMeters <= lastTurn.exitDistanceMeters).map((frame) => frame.kart.speedKph));
+      expect(completed!.entrySpeedKph).toBeCloseTo(entry.kart.speedKph, 8);
+      expect(completed!.targetEntrySpeedKph).toBeCloseTo(completed!.entrySpeedKph, 8);
+      expect(completed!.minApexSpeedKph).toBeCloseTo(minimum, 8);
+      expect(completed!.targetMinApexSpeedKph).toBeCloseTo(completed!.minApexSpeedKph, 8);
       const reset = session.reset();
       expect(reset.kart).toEqual(start.kart);
     }
@@ -100,7 +78,7 @@ describe('Reference-backed Corner Drills', () => {
   it('keeps a significant individual Turn miss visible within a clean Corner Complex without calling it late braking', () => {
     const session = createSimulationSession();
     session.selectDrillTarget('T1-T3');
-    const card = driveVariant(session, 0.85, 0.9);
+    const card = driveDrillVariant(session, 0.85, 0.9);
     expect(card.isClean).toBe(true);
     const turn2 = card.turnApexProximities.find((turn) => turn.turnNumber === 2)!;
     expect(turn2.distanceCm).toBeGreaterThan(70);
@@ -114,7 +92,7 @@ describe('Reference-backed Corner Drills', () => {
   it('reports sustained measured Axle Scrub above the Reference Lap in a clean pass', () => {
     const session = createSimulationSession();
     session.selectDrillTarget('T6');
-    const card = driveVariant(session, 0.95, 0, 0.75);
+    const card = driveDrillVariant(session, 0.95, 0, 0.75);
     expect(card.isClean).toBe(true);
     expect(card.peakAxleScrub).toBeGreaterThan(card.referencePeakAxleScrub + 0.1);
     expect(card.excessScrubSeconds).toBeGreaterThan(0.15);
@@ -126,7 +104,7 @@ describe('Reference-backed Corner Drills', () => {
   it('does not call a slower clean pass optimal when its minimum speed and target distance look acceptable', () => {
     const session = createSimulationSession();
     session.selectDrillTarget('T1');
-    const card = driveVariant(session, 0.9);
+    const card = driveDrillVariant(session, 0.9);
     expect(card.isClean).toBe(true);
     expect(card.minApexSpeedKph).toBeGreaterThan(card.targetMinApexSpeedKph - 2.8);
     expect(card.apexProximityCm).toBeLessThan(50);
@@ -142,11 +120,43 @@ describe('Reference-backed Corner Drills', () => {
     initial.drill.availableTargets[0].benchmarkTimeSeconds = 0;
     expect(session.getSnapshot().drill.target.turns).toEqual(intendedTurns);
     expect(session.getSnapshot().drill.availableTargets[0].benchmarkTimeSeconds).toBeGreaterThan(0);
-    const card = driveVariant(session, 0.9);
+    const card = driveDrillVariant(session, 0.9);
     const intendedTarget = { ...card.turnApexProximities[0].referenceTarget };
     card.turnApexProximities[0].referenceTarget.x += 100;
     expect(session.getSnapshot().drill.lastExecutionCard!.turnApexProximities[0].referenceTarget).toEqual(intendedTarget);
     expect(session.selectDrillTarget('T8').drill.lastExecutionCard).toBeNull();
+  });
+
+
+  it('aligns the Reference Ghost Kart with the selected Flying Entry and its elapsed segment time', () => {
+    const session = createSimulationSession();
+    let snapshot = session.selectDrillTarget('T8');
+    const replay = session.getReferenceReplay();
+    const first = replay.frames.findIndex((frame) => frame.kart.position.x === snapshot.kart.position.x && frame.kart.position.z === snapshot.kart.position.z);
+    for (let tick = 0; tick <= 100; tick++) {
+      const ghost = snapshot.ghost.trackRecordPose!;
+      expect(Math.hypot(ghost.position.x - snapshot.kart.position.x, ghost.position.z - snapshot.kart.position.z)).toBeLessThan(1e-8);
+      if (tick < 100) snapshot = session.step(FIXED_TIMESTEP_SECONDS, replay.commands[first + tick]);
+    }
+  });
+
+
+  it('retains the full-lap Personal Best Ghost Kart and aligns its selected drill segment', () => {
+    const session = createSimulationSession({ referenceReplay: true });
+    session.setTimeTrialLapLimit(1);
+    const replay = session.getReferenceReplay();
+    for (const command of replay.commands) session.step(FIXED_TIMESTEP_SECONDS, command);
+    expect(session.getSnapshot().lap.personalBestSeconds).not.toBeNull();
+    session.cycleGhostMode();
+    let snapshot = session.selectDrillTarget('T8');
+    const first = replay.frames.findIndex((frame) => frame.kart.position.x === snapshot.kart.position.x && frame.kart.position.z === snapshot.kart.position.z);
+    for (let tick = 0; tick <= 100; tick++) {
+      const ghost = snapshot.ghost.personalBestPose;
+      expect(ghost).not.toBeNull();
+      // The Personal Best is recorded at 40Hz, so interpolation has finite error.
+      expect(Math.hypot(ghost!.position.x - snapshot.kart.position.x, ghost!.position.z - snapshot.kart.position.z)).toBeLessThan(0.15);
+      if (tick < 100) snapshot = session.step(FIXED_TIMESTEP_SECONDS, replay.commands[first + tick]);
+    }
   });
 
 });

@@ -1,10 +1,11 @@
 import { cloneKartState, type ReferenceReplay } from './reference-lap';
-import type { CircuitData, DrillTargetDefinition, DrillTargetId, KartState, TurnNumber } from './types';
+import type { CircuitData, DrillTargetDefinition, DrillTargetId, KartState, TurnNumber, CoachingInsightCategory, CornerExecutionCard } from './types';
 
 export interface ReferenceDrill {
   target: DrillTargetDefinition;
   initialState: KartState;
   finishProgressMeters: number;
+  referenceStartSeconds: number;
   referencePeakAxleScrub: number;
 }
 
@@ -39,13 +40,12 @@ export function buildReferenceDrills(circuit: CircuitData, reference: ReferenceR
         targetMinApexSpeedKph: Math.min(...turnFrames.map((frame) => frame.kart.speedKph)),
         targetExitSpeedKph: finish.kart.speedKph,
       },
-      initialState: cloneKartState(start.kart), finishProgressMeters: finish.kart.unwrappedDistanceMeters,
+      initialState: cloneKartState(start.kart), finishProgressMeters: finish.kart.unwrappedDistanceMeters, referenceStartSeconds: start.lapSeconds,
       referencePeakAxleScrub: Math.max(...turnFrames.map((frame) => frame.kart.axleScrub)),
     };
   });
 }
 
-import type { CoachingInsightCategory, CornerExecutionCard } from './types';
 
 export function evaluateDrillCoaching(evidence: {
   target: DrillTargetDefinition;
@@ -70,8 +70,8 @@ export function evaluateDrillCoaching(evidence: {
   if (delta > tolerance && evidence.minimumSpeedKph < target.targetMinApexSpeedKph - 2.8) {
     return { category: 'Below Reference Speed', insight: `Measured minimum speed ${evidence.minimumSpeedKph.toFixed(1)} km/h versus ${target.targetMinApexSpeedKph.toFixed(1)} km/h in the Reference Lap. ${timeFact}${targetFacts}` };
   }
-  if (missed.length > 0) return { category: 'Missed Reference Target', insight: `${timeFact}${targetFacts} Target distance alone does not identify a braking cause.` };
-  if (delta > tolerance) return { category: 'Measured Time Loss', insight: `Clean pass: ${timeFact} Compare the measured entry, minimum and exit speeds with the reference; these measurements do not establish a specific cause.` };
-  if (delta < -tolerance) return { category: 'Clean Faster Pass', insight: `Clean pass: ${timeFact} All measured tire targets were within 50 cm; this does not prove a globally optimal line.` };
+  if (missed.length > 0) return { category: 'Missed Reference Target', insight: `${timeFact}${targetFacts} Compare the affected Turn with the reference.` };
+  if (delta > tolerance) return { category: 'Measured Time Loss', insight: `Clean pass: ${timeFact} Compare the measured entry, minimum and exit speeds with the reference.` };
+  if (delta < -tolerance) return { category: 'Clean Faster Pass', insight: `Clean pass: ${timeFact} All measured tire targets were within 50 cm.` };
   return { category: 'Matched Reference', insight: `Clean pass within ${tolerance.toFixed(3)}s of the Reference Lap segment; all measured tire targets were within 50 cm.` };
 }

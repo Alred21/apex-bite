@@ -709,13 +709,17 @@ export function createSimulationSession(
       trackRecordPose: showTrackRecord
         ? referencePoseAtTime(
             reference,
-            lap.lapNumber >= 1 ? lap.currentLapSeconds : elapsedSeconds,
+            mode === 'Corner Drill'
+              ? referenceDrills.find((drill) => drill.target.id === activeDrillTarget.id)!.referenceStartSeconds + drillCurrentSegmentSeconds
+              : lap.lapNumber >= 1 ? lap.currentLapSeconds : elapsedSeconds,
           )
         : null,
       personalBestPose: showPersonalBest
         ? samplePersonalBestGhostPose(
             personalBestGhostFrames,
-            lap.lapNumber >= 1 ? lap.currentLapSeconds : elapsedSeconds,
+            mode === 'Corner Drill'
+              ? (samplePersonalBestSecondsAtDistance(personalBestGhostFrames, activeDrillTarget.flyingEntryDistanceMeters) ?? 0) + drillCurrentSegmentSeconds
+              : lap.lapNumber >= 1 ? lap.currentLapSeconds : elapsedSeconds,
           )
         : null,
     };

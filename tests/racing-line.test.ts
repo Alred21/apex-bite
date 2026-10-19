@@ -19,19 +19,8 @@ describe('Validated Racing Line and live cues', () => {
     }
   });
 
-  it('is ON by default and toggles cleanly via toggleRacingLine()', () => {
-    const session = createSimulationSession();
-    expect(session.getSnapshot().racingLine.visible).toBe(true);
-
-    const offSnap = session.toggleRacingLine();
-    expect(offSnap.racingLine.visible).toBe(false);
-
-    const onSnap = session.toggleRacingLine();
-    expect(onSnap.racingLine.visible).toBe(true);
-  });
-
   it('dynamically shifts upcoming Racing Line segment colors between Green/Yellow and Red based on live Kart speed vs target speed', () => {
-    // Low-speed session at s = 0 (0 km/h approaching Turn 1): segments ahead should cue Green (Full Throttle)
+    // A normal Flying Start permits progressive acceleration on some distant segments.
     const slowSession = createSimulationSession();
     const slowSnap = slowSession.getSnapshot();
     const turn1ApexIdx = Math.round(

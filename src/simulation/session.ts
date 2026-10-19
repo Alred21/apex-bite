@@ -29,6 +29,7 @@ import {
   KeyboardAssistanceSettings,
   LapSummaryState,
   PracticeMode,
+  RacingLineDisplayMode,
   SectorSplitsTuple,
   SessionSnapshot,
   TurnNumber,
@@ -167,7 +168,7 @@ export function createSimulationSession(
   let mode: PracticeMode = 'Time Trial';
   let cameraMode: CameraMode = 'Chase Cam';
   const cameraPresentation = createCameraPresentation();
-  let racingLineVisible = true;
+  let racingLineDisplayMode: RacingLineDisplayMode = 'Full';
   let ghostMode: GhostMode = 'Reference Lap';
 
   const keyboardAssistance = createKeyboardAssistance();
@@ -560,7 +561,8 @@ export function createSimulationSession(
   }
 
   function toggleRacingLine(): SessionSnapshot {
-    racingLineVisible = !racingLineVisible;
+    const modes: RacingLineDisplayMode[] = ['Full', 'Corners Only', 'Off'];
+    racingLineDisplayMode = modes[(modes.indexOf(racingLineDisplayMode) + 1) % modes.length];
     return getSnapshot();
   }
 
@@ -681,9 +683,8 @@ export function createSimulationSession(
   function getSnapshot(): SessionSnapshot {
     const racingLine = evaluateLiveRacingLine(
       circuit,
-      kart.lapDistanceMeters,
-      kart.speedMps,
-      racingLineVisible,
+      kart,
+      racingLineDisplayMode,
     );
 
     const pbAtDist =

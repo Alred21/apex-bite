@@ -82,8 +82,8 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
             CAM [C]: <strong id="hud-camera-label">Chase Cam</strong>
           </button>
           <button type="button" class="hud-btn" id="hud-btn-camera-settings">DRIVING &amp; VIEW</button>
-          <button type="button" class="hud-btn" id="hud-btn-line" title="Toggle Dynamic Racing Line (L)">
-            LINE [L]: <strong id="hud-line-label">ON</strong>
+          <button type="button" class="hud-btn" id="hud-btn-line" title="Cycle Racing Line display: Full / Corners Only / Off (L)">
+            LINE [L]: <strong id="hud-line-label">Full</strong>
           </button>
           <button type="button" class="hud-btn" id="hud-btn-ghost" title="Cycle Ghost Kart Mode (G)">
             GHOST [G]: <strong id="hud-ghost-label">Reference Lap</strong>
@@ -201,6 +201,11 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
         <div class="speed-unit">km/h</div>
       </div>
 
+      <div class="line-guidance" id="hud-line-guidance" aria-label="Racing Line guidance">
+        <strong id="hud-guidance-action">Coast</strong>
+        <span id="hud-guidance-reason">Prepare for the Turns ahead</span>
+      </div>
+
       <div class="dynamics-indicators">
         <div class="status-pill" id="hud-trail-pill">TRAIL BRAKE</div>
         <div class="scrub-meter-row">
@@ -312,6 +317,9 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
   });
 
   const speedEl = root.querySelector<HTMLElement>('#hud-speed-kph')!;
+  const guidanceEl = root.querySelector<HTMLElement>('#hud-line-guidance')!;
+  const guidanceAction = root.querySelector<HTMLElement>('#hud-guidance-action')!;
+  const guidanceReason = root.querySelector<HTMLElement>('#hud-guidance-reason')!;
   const throttleBar = root.querySelector<HTMLElement>('#hud-throttle-bar')!;
   const brakeBar = root.querySelector<HTMLElement>('#hud-brake-bar')!;
   const scrubBar = root.querySelector<HTMLElement>('#hud-scrub-bar')!;
@@ -611,6 +619,11 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
       if (resultsDialog.open) resultsDialog.close();
     }
     speedEl.textContent = kart.speedKph.toFixed(1);
+    const guidance = snapshot.racingLine.guidance;
+    guidanceEl.hidden = snapshot.racingLine.displayMode === 'Off';
+    guidanceEl.style.color = guidance.cue === 'Red' ? 'var(--accent-red)' : guidance.cue === 'Yellow' ? 'var(--accent-amber)' : 'var(--accent-green)';
+    guidanceAction.textContent = `${guidance.action} · up to ${Math.round(guidance.targetSpeedKph)} km/h`;
+    guidanceReason.textContent = guidance.reason;
     throttleBar.style.width = `${Math.round(kart.throttleInput * 100)}%`;
     brakeBar.style.width = `${Math.round(kart.brakeInput * 100)}%`;
     scrubBar.style.width = `${Math.round(kart.axleScrub * 100)}%`;
@@ -623,7 +636,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
       drillSelect.value = drill.target.id;
     }
     cameraLabel.textContent = camera.mode;
-    lineLabel.textContent = snapshot.racingLine.visible ? 'ON' : 'OFF';
+    lineLabel.textContent = snapshot.racingLine.displayMode;
     ghostLabel.textContent = ghost.mode;
 
     if (mode === 'Corner Drill') {

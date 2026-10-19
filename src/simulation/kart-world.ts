@@ -1,8 +1,8 @@
 import { stepKartDynamics, type KartCommand, type PlanarKartState } from './kart-dynamics';
-import { BARRIER_HALF_THICKNESS_METERS, FIXED_TIMESTEP_SECONDS, KART_DIMENSIONS, MAX_KART_SPEED_MPS } from './kart-parameters';
+import { FIXED_TIMESTEP_SECONDS, KART_DIMENSIONS, MAX_KART_SPEED_MPS } from './kart-parameters';
 import type { CircuitData, KartState, SectorNumber, Vector2D } from './types';
+import { buildBarrierSegments, BARRIER_HALF_THICKNESS_METERS, type BarrierSegment } from './barrier-geometry';
 
-interface BarrierSegment { a: Vector2D; b: Vector2D; }
 interface Pose { position: Vector2D; headingRad: number; }
 const GRID_SIZE = 3;
 const SAFETY_METERS = 0.004;
@@ -12,24 +12,14 @@ function barrierIndex(circuit: CircuitData): Map<string, BarrierSegment[]> {
   const cached = indexes.get(circuit);
   if (cached) return cached;
   const grid = new Map<string, BarrierSegment[]>();
-  for (const side of ['leftBarrier', 'rightBarrier'] as const) {
-    // Exactly the chord spans and 4% join overlap rendered by the indoor wall meshes.
-    for (let i = 0; i < circuit.samples.length; i += 2) {
-      const start = circuit.samples[i][side];
-      const end = circuit.samples[(i + 2) % circuit.samples.length][side];
-      const dx = end.x - start.x, dz = end.z - start.z;
-      const segment = {
-        a: { x: start.x - dx * 0.02, z: start.z - dz * 0.02 },
-        b: { x: end.x + dx * 0.02, z: end.z + dz * 0.02 },
-      };
-      const margin = BARRIER_HALF_THICKNESS_METERS;
-      for (let x = Math.floor((Math.min(segment.a.x, segment.b.x) - margin) / GRID_SIZE); x <= Math.floor((Math.max(segment.a.x, segment.b.x) + margin) / GRID_SIZE); x++) {
-        for (let z = Math.floor((Math.min(segment.a.z, segment.b.z) - margin) / GRID_SIZE); z <= Math.floor((Math.max(segment.a.z, segment.b.z) + margin) / GRID_SIZE); z++) {
-          const key = `${x},${z}`;
-          const cell = grid.get(key) ?? [];
-          cell.push(segment);
-          grid.set(key, cell);
-        }
+  for (const segment of buildBarrierSegments(circuit)) {
+    const margin = BARRIER_HALF_THICKNESS_METERS;
+    for (let x = Math.floor((Math.min(segment.a.x, segment.b.x) - margin) / GRID_SIZE); x <= Math.floor((Math.max(segment.a.x, segment.b.x) + margin) / GRID_SIZE); x++) {
+      for (let z = Math.floor((Math.min(segment.a.z, segment.b.z) - margin) / GRID_SIZE); z <= Math.floor((Math.max(segment.a.z, segment.b.z) + margin) / GRID_SIZE); z++) {
+        const key = `${x},${z}`;
+        const cell = grid.get(key) ?? [];
+        cell.push(segment);
+        grid.set(key, cell);
       }
     }
   }

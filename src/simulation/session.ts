@@ -214,6 +214,7 @@ export function createSimulationSession(
   };
 
   let kart = cloneKartState(options.referenceReplay ? reference.initialState : flyingStartState);
+  let lapStartProgressMeters = kart.unwrappedDistanceMeters - kart.lapDistanceMeters;
   if (options.referenceReplay) {
     lap.lapNumber = 1;
     timeTrial.status = 'Driving';
@@ -233,6 +234,7 @@ export function createSimulationSession(
 
     kart = cloneKartState(options.referenceReplay ? reference.initialState : flyingStartState);
     if (options.referenceReplay) { lap.lapNumber = 1; timeTrial.status = 'Driving'; }
+    lapStartProgressMeters = kart.unwrappedDistanceMeters - kart.lapDistanceMeters;
     cameraPresentation.reset(kart);
   }
 
@@ -370,13 +372,12 @@ export function createSimulationSession(
     if (mode === 'Time Trial' && timeTrial.status === 'Finished') return;
     const command = keyboardAssistance.step(input, kart.speedMps, dtSeconds);
 
-    const prevSector = kart.currentSector;
+    const previousProgress = kart.unwrappedDistanceMeters;
     const previousDistance = kart.lapDistanceMeters;
     kart = stepKartOnCircuit(circuit, kart, command, dtSeconds);
     const nextPosition = kart.position;
     const nextHeading = kart.headingRad;
     const nextSpeedKph = kart.speedKph;
-    const nextSector = kart.currentSector;
     const { axleScrub, barrierContact } = kart;
     const nearest = { distanceMeters: kart.lapDistanceMeters, progress: kart.lapProgress };
     if (barrierContact) {
@@ -445,9 +446,12 @@ export function createSimulationSession(
       });
     }
 
-    // Sector boundary transitions during timed laps
-    if (lap.lapNumber >= 1 && nextSector !== prevSector) {
-      if (prevSector === 1 && nextSector === 2) {
+    // Ordered forward checkpoints use net Circuit progress; backtracking cannot
+    // overwrite an observed split or turn a local Start/Finish loop into a lap.
+    if (lap.lapNumber >= 1) {
+      const firstCheckpoint = lapStartProgressMeters + circuit.turns[2].exitDistanceMeters;
+      const secondCheckpoint = lapStartProgressMeters + circuit.turns[7].exitDistanceMeters;
+      if (lap.currentSectorSplits[0] === null && previousProgress <= firstCheckpoint && kart.unwrappedDistanceMeters > firstCheckpoint) {
         const s1Time = lap.currentLapSeconds - sectorEntryLapSeconds;
         lap.currentSectorSplits[0] = s1Time;
         if (
@@ -457,7 +461,7 @@ export function createSimulationSession(
           lap.bestSectorSplits[0] = s1Time;
         }
         sectorEntryLapSeconds = lap.currentLapSeconds;
-      } else if (prevSector === 2 && nextSector === 3) {
+      } else if (lap.currentSectorSplits[0] !== null && lap.currentSectorSplits[1] === null && previousProgress <= secondCheckpoint && kart.unwrappedDistanceMeters > secondCheckpoint) {
         const s2Time = lap.currentLapSeconds - sectorEntryLapSeconds;
         lap.currentSectorSplits[1] = s2Time;
         if (
@@ -470,13 +474,17 @@ export function createSimulationSession(
       }
     }
 
-    // Start / Finish line crossing (wrapping from end of circuit > 200m to start < 40m)
+    // Only a complete traversal may end a timed lap. Incomplete crossings keep its timer running.
     if (previousDistance > circuit.totalLengthMeters * 0.8 && nearest.distanceMeters < circuit.totalLengthMeters * 0.2) {
+      if (lap.lapNumber >= 1 && (
+        kart.unwrappedDistanceMeters < lapStartProgressMeters + circuit.totalLengthMeters ||
+        lap.currentSectorSplits[0] === null || lap.currentSectorSplits[1] === null
+      )) return;
       if (lap.lapNumber >= 1) {
         const finishedLapSeconds = lap.currentLapSeconds;
-        const s1 = lap.currentSectorSplits[0] ?? finishedLapSeconds * 0.32;
-        const s2 = lap.currentSectorSplits[1] ?? finishedLapSeconds * 0.38;
-        const s3 = Math.max(0.1, finishedLapSeconds - s1 - s2);
+        const s1 = lap.currentSectorSplits[0]!;
+        const s2 = lap.currentSectorSplits[1]!;
+        const s3 = finishedLapSeconds - sectorEntryLapSeconds;
         lap.currentSectorSplits[2] = s3;
         lap.lastSectorSplits = [s1, s2, s3];
         lap.lastLapSeconds = finishedLapSeconds;
@@ -520,6 +528,7 @@ export function createSimulationSession(
         return;
       }
       timeTrial.status = 'Driving';
+      lapStartProgressMeters = kart.unwrappedDistanceMeters - kart.lapDistanceMeters;
       lap.lapNumber += 1;
       lap.currentLapSeconds = 0;
       lap.isClean = !barrierContact;
@@ -705,22 +714,24 @@ export function createSimulationSession(
     const showPersonalBest =
       ghostMode === 'Personal Best' || ghostMode === 'Both';
 
+    // Lap replays have no approach tape: reveal them only when the lap clock starts.
+    const ghostClockStarted = mode === 'Corner Drill' || lap.lapNumber >= 1;
     const ghost: GhostState = {
       mode: ghostMode,
-      trackRecordPose: showTrackRecord
+      trackRecordPose: showTrackRecord && ghostClockStarted
         ? referencePoseAtTime(
             reference,
             mode === 'Corner Drill'
               ? referenceDrills.find((drill) => drill.target.id === activeDrillTarget.id)!.referenceStartSeconds + drillCurrentSegmentSeconds
-              : lap.lapNumber >= 1 ? lap.currentLapSeconds : elapsedSeconds,
+              : lap.currentLapSeconds,
           )
         : null,
-      personalBestPose: showPersonalBest
+      personalBestPose: showPersonalBest && ghostClockStarted
         ? samplePersonalBestGhostPose(
             personalBestGhostFrames,
             mode === 'Corner Drill'
               ? (samplePersonalBestSecondsAtDistance(personalBestGhostFrames, activeDrillTarget.flyingEntryDistanceMeters) ?? 0) + drillCurrentSegmentSeconds
-              : lap.lapNumber >= 1 ? lap.currentLapSeconds : elapsedSeconds,
+              : lap.currentLapSeconds,
           )
         : null,
     };

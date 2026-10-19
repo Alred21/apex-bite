@@ -1,0 +1,42 @@
+# Iteration 2 code review
+
+Review target: integration commit `699aff3`. The independent reports are retained below with their original axes and ordering. Temporary reproduction paths in the original reports describe review-time evidence; permanent regressions now live in the test suite and focused browser harness.
+
+## Standards
+
+No hard breaches of the documented repository standards found. The custom deterministic 120 Hz solver, separate Real-World Benchmark, executable Reference Lap, and legacy record separation follow ADRs 0001–0003. The following are Fowler-baseline judgement calls, not documented-standard violations.
+
+1. **Possible Duplicated Code — physical Barrier geometry** (`src/simulation/kart-world.ts:15–23`; `src/render/venue.ts:11–23`). The solver independently reconstructs the same every-other-sample wall chords as the renderer: `for (let i = 0; i < circuit.samples.length; i += 2)`, with endpoints extended by `dx * 0.02` / `dz * 0.02`; rendering independently uses `length: Math.max(0.2, Math.hypot(...)) * 1.04` and `new THREE.BoxGeometry(0.24, ...)`, while physics uses `BARRIER_HALF_THICKNESS_METERS`. This makes the physical/rendered agreement depend on editing both implementations together. Extract shared, renderer-independent Barrier segment geometry and dimensions; let rendering and collision consume it.
+
+2. **Possible Duplicated Code — Corner Complex catalogue** (`src/simulation/corner-drill.ts:13–19`; `src/simulation/reference-proposals.ts:3–9`; `src/simulation/training-data.ts:55–58`). Both new catalogues repeat definitions such as `{ id: 'T6-T7-T8', ... turns: [6, 7, 8] }`; the importer repeats the accepted identifiers again: `'T1-T3', 'T2-T3', 'T4-T5', 'T6-T7-T8', 'T9-T10-T11'`. Changes to a curated Corner Complex therefore require synchronized changes across drill construction, Reference Lap search, and persistence validation. Keep the identifiers, labels, and Turn membership in one domain catalogue and derive these consumers from it.
+
+Total: 0 hard violations; 2 judgement-call findings. Highest-impact smell: duplicated physical/rendered Barrier geometry.
+
+### Resolutions and evidence
+
+1. **Resolved:** `src/simulation/barrier-geometry.ts` now owns the renderer-independent wall chords, join overlap, placements and half thickness. Collision indexing and venue instances consume it. Endpoint and placement arithmetic retain the existing geometry and floating-point behavior. A one-time public Session comparison against integration `699aff3` found the entire exported ReferenceReplay JSON identical: 5,496 frames, 5,495 commands and 45.791667 s. The retained Reference Lap still reproduces every observed Kart state exactly through the public Session, and all twelve tape laps remain clean. No private-helper tests were added for this refactor.
+2. **Resolved:** `src/simulation/corner-complexes.ts` owns the five curated IDs, labels and Turn memberships. Drill construction, Reference Lap proposals/evidence, portable-record validation and the DrillTargetId union derive from that catalogue. Existing public-session coverage still exercises all sixteen targets, all five search Complexes and portable records.
+
+Standards summary: **0 hard violations, 2 judgement-call findings; both resolved.** Highest-impact original smell: duplicated physical/rendered Barrier geometry. No remaining Standards findings.
+
+## Spec
+
+1. **[P2] Require a complete Circuit traversal before counting a lap.** `src/simulation/session.ts:474–488` counts any forward Start/Finish wrap; it never requires the missing Sectors or a lap's progress. Spec story 41: “all 12 laps are complete timed laps”; story 45 requires “Sector results.” Public-command reproduction: brake the ordinary Flying Start, then follow a 2.15 m clockwise circle around Start/Finish at 1.5 m/s. The session finishes twelve 10.7–12.3 s laps while remaining within 3.715 m of Start/Finish and visiting only Sectors 1/3. Missing S1/S2 splits are fabricated from percentages at lines 477–478. Require ordered checkpoints/full progress and measured splits. Repro/evidence: `/private/tmp/apex-bite-lap-check.ts`, `/private/tmp/apex-bite-lap-check.json`.
+
+2. **[P2] Align Reference Ghost playback across the Flying Start.** `src/simulation/session.ts:715` switches from session elapsed time to zeroed lap time at the first crossing. Spec story 25: “Reference Ghost Kart timing and motion [must] agree with the validated Reference Lap.” In an ordinary session, replay the retained commands from the frame matching its Flying Start spawn: the Ghost jumps **11.178 m in one 120 Hz tick** as lap number changes 0→1 (maximum physical travel is 0.104 m). Reset also retains unrelated session elapsed time. Phase playback from the actual approach state, or hide/wait before timing starts. Repro: `/private/tmp/apex-bite-spec-check.ts`.
+
+3. **[P2] Restore keyboard driving after closing Driving & View.** `src/ui/hud.ts:287` opens the settings dialog without clearing/restoring driving focus; `src/ui/driver-controls.ts:13–14,41–45` suppresses all input while any button owns focus. Spec story 7 requires sensitivity settings “so that I can adjust input response without needing to repair the handling myself.” Repro in Chrome: click Driving & View, adjust sensitivity, click Close view settings, then press W/A/D. Native dialog focus restoration returns to the opener, so fresh keys remain ignored until clicking the Circuit. Blur the opener before opening, or restore driving focus on close. This finding is static code/native-dialog analysis, not browser-verified.
+
+No additional missing requirements or unrequested scope found. Three Spec findings; worst impact: incomplete circuits ending the twelve-lap session with invented Sector results.
+
+### Resolutions and evidence
+
+1. **Resolved:** a timed lap now needs forward crossings of both ordered Sector checkpoints and net unwrapped Circuit progress through the next Start/Finish before it may complete. Splits use measured lap-clock times only; synthetic percentage fallbacks are removed. Backtracking or local Start/Finish recrossings preserve the active timer, lap number and recorded splits. The new public-session regression first failed with a fabricated **12.266667 s** lap; after the fix, a 30-second 2.15 m circle with repeated Start/Finish crossings records no completed lap, no Sector results, and keeps timing Lap 1. Existing normal Flying Start, default twelve-lap, contact-lap, unlimited and exact retained-tape tests pass.
+2. **Resolved:** Reference and Personal Best lap Ghost Karts wait until Lap 1's clock starts; there is no approach tape to replay. Reset uses the same waiting behavior. A new public-session regression first failed on the visible approach Ghost and now verifies both Ghosts stay absent during two Flying Start approaches separated by reset, appear at timing start, and Reference motion on the following tick stays below **0.105 m**. Existing full-lap replay and all sixteen Reference/PB drill-alignment cases pass.
+3. **Resolved:** every HUD native dialog releases its restored focused control on close, including native cancel and results restart. The real-HUD/real-driver-controls browser harness first reproduced the reported settings defect and the equivalent Data/results-focus defects. After the fix, all **10 focused checks pass**, including sensitivity changes, fresh W/A/D after settings Close/cancel and Data/results close/restart, open-form input suppression and cleared restart results. The [before/after browser evidence](iteration-2-dialog-focus-check.json) explicitly records the use of native dialogs and DOM KeyboardEvents. No WebGL inspection or nine-minute performance rerun was repeated.
+
+Spec summary: **3 findings; all resolved.** Highest-impact original issue: incomplete Circuits ending a limited session with invented Sector results. No remaining Spec findings.
+
+## Final verification
+
+`npm test`: **61 tests in 13 files pass**. `npm run typecheck`, `npm run build` and `git diff --check` pass. Production bundle: **618.71 kB**, **164.80 kB gzip**, with the existing Vite size advisory. The full-session production metrics were captured before these review fixes and remain historical evidence; exact tape replay verifies unchanged clean traversal, while this pass adds focused lifecycle/Ghost/focus regressions. Human acoustic audition, formal human keyboard usability and performance on broader hardware remain unmeasured as documented in the implementation report.

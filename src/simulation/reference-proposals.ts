@@ -1,16 +1,10 @@
 import type { CircuitData, Vector2D } from './types';
 
-export const REFERENCE_COMPLEXES = [
-  { id: 'T1-T3', turns: [1, 2, 3] },
-  { id: 'T2-T3', turns: [2, 3] },
-  { id: 'T4-T5', turns: [4, 5] },
-  { id: 'T6-T7-T8', turns: [6, 7, 8] },
-  { id: 'T9-T10-T11', turns: [9, 10, 11] },
-] as const;
+import { CORNER_COMPLEXES } from './corner-complexes';
 
 /** One smooth whole-complex displacement, with no per-Turn apex pins. */
 export function offsetComplex(circuit: CircuitData, source: Vector2D[], complexIndex: number, amplitude: number, phaseMeters: number): Vector2D[] {
-  const complex = REFERENCE_COMPLEXES[complexIndex];
+  const complex = CORNER_COMPLEXES[complexIndex];
   const first = circuit.turns[complex.turns[0] - 1], last = circuit.turns[complex.turns[complex.turns.length - 1] - 1];
   const start = Math.max(0, first.entryDistanceMeters - 5), end = Math.min(circuit.totalLengthMeters, last.exitDistanceMeters + 5);
   const halfSpan = (end - start) * 0.5, center = (start + end) * 0.5 + phaseMeters;

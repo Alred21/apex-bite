@@ -26,7 +26,7 @@ npm exec vite build -- --config tests/browser/venue-vite.config.ts
 npm exec vite preview -- --config tests/browser/venue-vite.config.ts
 ```
 
-Open `http://127.0.0.1:5181/tests/browser/venue-performance.html`. Choose graphics quality and camera, then press **Sample 10 seconds of driving**. The visible test-only driver sends ordinary controls through SimulationSession while rendering the production scene and HUD, including the Racing Line and Ghost Kart. It warms up for two seconds and reports ten seconds of animation-frame intervals, browser/GPU identity, viewport, device/effective pixel ratios, and Barrier contacts. It cancels if the tab is hidden. Repeat for both views and compare Performance/Balanced/High at a fixed viewport. This extra build entry point is a QA tool, separate from the normal application.
+Open `http://127.0.0.1:5196/tests/browser/venue-performance.html`. The final integration harness now uses the documented executable ReferenceReplay tape rather than the old ten-second heuristic driver. Press **Run 12-lap production validation**, keep the tab visible for approximately nine minutes, then download the metrics JSON. It measures warmed full laps in both cameras with Full Racing Line, Both Ghost Karts and activated audio, followed by accumulation comparison through lap 12. See [the integration report](iteration-2-implementation-report.md) for the complete protocol and final evidence. This QA entry point remains separate from the normal application.
 
 ## Local production evidence — 2026-10-18
 

@@ -267,6 +267,8 @@ export interface CircuitRenderer {
   render(snapshot: SessionSnapshot): void;
   setGraphicsQuality(quality: GraphicsQuality): void;
   getGraphicsQuality(): GraphicsQuality;
+  /** Read-only production counters for repeatable performance QA. */
+  getDiagnostics(): { calls: number; triangles: number; geometries: number; textures: number; programs: number; activeSkidMarks: number; skidCapacity: number };
 }
 
 export function createCircuitRenderer(
@@ -410,5 +412,13 @@ export function createCircuitRenderer(
     renderer.render(scene, camera);
   }
 
-  return { render, setGraphicsQuality, getGraphicsQuality: () => graphicsQuality };
+  return {
+    render, setGraphicsQuality, getGraphicsQuality: () => graphicsQuality,
+    getDiagnostics: () => ({
+      calls: renderer.info.render.calls, triangles: renderer.info.render.triangles,
+      geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures,
+      programs: renderer.info.programs?.length ?? 0,
+      activeSkidMarks: skidPool.filter((mark) => mark.visible).length, skidCapacity: maxSkidMarks,
+    }),
+  };
 }

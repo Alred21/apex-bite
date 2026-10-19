@@ -3,45 +3,9 @@ import {
   createSimulationSession,
   FIXED_TIMESTEP_SECONDS,
 } from './simulation/session';
-import { GamepadInputState, KeyboardInputState } from './simulation/types';
+import { GamepadInputState } from './simulation/types';
 import { createHudView } from './ui/hud';
-
-const keys: KeyboardInputState = {
-  up: false,
-  down: false,
-  left: false,
-  right: false,
-  space: false,
-};
-
-function bindKeyboardListeners(): void {
-  const handleKey = (e: KeyboardEvent, isDown: boolean): void => {
-    switch (e.code) {
-      case 'KeyW':
-      case 'ArrowUp':
-        keys.up = isDown;
-        break;
-      case 'KeyS':
-      case 'ArrowDown':
-        keys.down = isDown;
-        break;
-      case 'KeyA':
-      case 'ArrowLeft':
-        keys.left = isDown;
-        break;
-      case 'KeyD':
-      case 'ArrowRight':
-        keys.right = isDown;
-        break;
-      case 'Space':
-        keys.space = isDown;
-        break;
-    }
-  };
-
-  window.addEventListener('keydown', (e) => handleKey(e, true));
-  window.addEventListener('keyup', (e) => handleKey(e, false));
-}
+import { bindDriverControls } from './ui/driver-controls';
 
 function pollGamepad(deadzone = 0.06): GamepadInputState | undefined {
   if (typeof navigator.getGamepads !== 'function') return undefined;
@@ -61,7 +25,6 @@ function bootstrap(): void {
   const hudRoot = document.querySelector<HTMLElement>('#hud-root');
   if (!canvas || !hudRoot) return;
 
-  bindKeyboardListeners();
   const session = createSimulationSession({
     // Access localStorage inside the session's guarded adapter calls: some browsers
     // throw even when obtaining the property (for example, blocked storage).
@@ -85,6 +48,7 @@ function bootstrap(): void {
     onSetCameraSettings: (settings) => {
       session.setCameraSettings(settings);
     },
+    onSetKeyboardAssistance: (settings) => session.setKeyboardAssistance(settings),
     onToggleRacingLine: () => {
       session.toggleRacingLine();
     },
@@ -107,20 +71,13 @@ function bootstrap(): void {
     },
   });
 
-  window.addEventListener('keydown', (e) => {
-    if (e.repeat) return;
-    if (e.code === 'KeyC' || e.code === 'KeyV') {
-      session.toggleCamera();
-    } else if (e.code === 'KeyL') {
-      session.toggleRacingLine();
-    } else if (e.code === 'KeyG') {
-      session.cycleGhostMode();
-    } else if (e.code === 'KeyM') {
-      togglePracticeMode();
-    } else if (e.code === 'KeyR') {
-      session.reset();
-    }
-  });
+  const controls = bindDriverControls((shortcut) => {
+    if (shortcut === 'camera') session.toggleCamera();
+    else if (shortcut === 'line') session.toggleRacingLine();
+    else if (shortcut === 'ghost') session.cycleGhostMode();
+    else if (shortcut === 'mode') togglePracticeMode();
+    else if (shortcut === 'reset') session.reset();
+  }, () => session.releaseDriverInputs());
 
   let lastTimeMs = performance.now();
   let accumulatorSeconds = 0;
@@ -131,12 +88,10 @@ function bootstrap(): void {
     accumulatorSeconds += frameSeconds;
 
     const gamepad = pollGamepad();
-    const dataDialogOpen = document.querySelector<HTMLDialogElement>('#hud-data-dialog')?.open;
-    if (dataDialogOpen) {
-      for (const key of Object.keys(keys) as (keyof KeyboardInputState)[]) keys[key] = false;
-    }
+    const paused = controls.isPaused();
+    const keys = controls.readKeys();
     while (accumulatorSeconds >= FIXED_TIMESTEP_SECONDS) {
-      if (!dataDialogOpen) session.step(FIXED_TIMESTEP_SECONDS, { keys, gamepad });
+      if (!paused) session.step(FIXED_TIMESTEP_SECONDS, { keys, gamepad });
       accumulatorSeconds -= FIXED_TIMESTEP_SECONDS;
     }
 

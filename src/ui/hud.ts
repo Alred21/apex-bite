@@ -1,4 +1,4 @@
-import { CameraSettings, DrillTargetId, PracticeMode, SessionSnapshot } from '../simulation/types';
+import { CameraSettings, DrillTargetId, KeyboardAssistanceSettings, PracticeMode, SessionSnapshot } from '../simulation/types';
 import { GraphicsQuality } from '../render/graphics';
 
 export interface HudCallbacks {
@@ -6,6 +6,7 @@ export interface HudCallbacks {
   onSelectGraphicsQuality?: (quality: GraphicsQuality) => void;
   onToggleCamera?: () => void;
   onSetCameraSettings?: (settings: Partial<CameraSettings>) => void;
+  onSetKeyboardAssistance?: (settings: Partial<KeyboardAssistanceSettings>) => void;
   onToggleRacingLine?: () => void;
   onCycleGhostMode?: () => void;
   onToggleMode?: () => void;
@@ -76,7 +77,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
           <button type="button" class="hud-btn" id="hud-btn-camera" title="Switch Camera View (C or V)">
             CAM [C]: <strong id="hud-camera-label">Chase Cam</strong>
           </button>
-          <button type="button" class="hud-btn" id="hud-btn-camera-settings">VIEW COMFORT</button>
+          <button type="button" class="hud-btn" id="hud-btn-camera-settings">DRIVING &amp; VIEW</button>
           <button type="button" class="hud-btn" id="hud-btn-line" title="Toggle Dynamic Racing Line (L)">
             LINE [L]: <strong id="hud-line-label">ON</strong>
           </button>
@@ -202,7 +203,10 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
 
     <dialog id="hud-camera-dialog" class="hud-dialog" aria-labelledby="hud-camera-settings-title">
       <form method="dialog" class="camera-settings">
-        <h2 id="hud-camera-settings-title">View comfort</h2>
+        <h2 id="hud-camera-settings-title">Driving and view settings</h2>
+        <label for="hud-steering-sensitivity">Keyboard steering sensitivity <output id="hud-steering-sensitivity-value" for="hud-steering-sensitivity">100%</output></label>
+        <input id="hud-steering-sensitivity" type="range" min="50" max="175" step="5" value="100" />
+        <p class="dialog-desc">Short taps make small corrections. Hold progressively and brake for tight Turns. Sensitivity changes response speed; the steering limit still adapts to speed.</p>
         <p>Adjust both Helmet Cam and Chase Cam. Camera motion adds gentle acceleration, cornering and contact feedback.</p>
         <label for="hud-camera-fov">Vertical field of view <output id="hud-camera-fov-value" for="hud-camera-fov">64°</output></label>
         <input id="hud-camera-fov" type="range" min="50" max="90" step="1" value="64" />
@@ -247,6 +251,9 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
   `;
 
   const cameraDialog = root.querySelector<HTMLDialogElement>('#hud-camera-dialog')!;
+  const steeringSensitivity = root.querySelector<HTMLInputElement>('#hud-steering-sensitivity')!;
+  const steeringSensitivityValue = root.querySelector<HTMLOutputElement>('#hud-steering-sensitivity-value')!;
+  steeringSensitivity.addEventListener('input', () => callbacks.onSetKeyboardAssistance?.({ steeringSensitivity: Number(steeringSensitivity.value) / 100 }));
   const cameraFov = root.querySelector<HTMLInputElement>('#hud-camera-fov')!;
   const cameraMotion = root.querySelector<HTMLInputElement>('#hud-camera-motion')!;
   const cameraFovValue = root.querySelector<HTMLOutputElement>('#hud-camera-fov-value')!;
@@ -543,6 +550,8 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
     latestTrainingData = snapshot.trainingData;
     if (dataDialog.open && needsRecordRefresh) refreshRecordInspection();
     const { kart, camera, lap, ghost, drill, mode, timeTrial } = snapshot;
+    steeringSensitivity.value = String(Math.round(snapshot.keyboardAssistance.steeringSensitivity * 100));
+    steeringSensitivityValue.value = `${Math.round(snapshot.keyboardAssistance.steeringSensitivity * 100)}%`;
     cameraFov.value = String(camera.settings.fieldOfViewDegrees);
     cameraFovValue.value = `${camera.settings.fieldOfViewDegrees}°`;
     cameraMotion.value = String(Math.round(camera.settings.motionStrength * 100));

@@ -1,0 +1,93 @@
+[
+  {
+    "name": "Before gesture activation",
+    "status": "Off",
+    "volume": 0.35,
+    "outputRms": 0,
+    "contacts": 0
+  },
+  {
+    "name": "Activated electric motor",
+    "status": "Running",
+    "volume": 0.35,
+    "outputRms": 0.050571,
+    "contacts": 0
+  },
+  {
+    "name": "Volume 10 percent",
+    "status": "Running",
+    "volume": 0.1,
+    "outputRms": 0.014672,
+    "contacts": 0
+  },
+  {
+    "name": "Volume 50 percent",
+    "status": "Running",
+    "volume": 0.5,
+    "outputRms": 0.07411,
+    "contacts": 0
+  },
+  {
+    "name": "Muted",
+    "status": "Muted",
+    "volume": 0.5,
+    "outputRms": 0,
+    "contacts": 0
+  },
+  {
+    "name": "Unmuted",
+    "status": "Running",
+    "volume": 0.5,
+    "outputRms": 0.074332,
+    "contacts": 0
+  },
+  {
+    "name": "Paused",
+    "status": "Paused",
+    "volume": 0.5,
+    "outputRms": 0,
+    "contacts": 0
+  },
+  {
+    "name": "Resumed",
+    "status": "Running",
+    "volume": 0.5,
+    "outputRms": 0.073528,
+    "contacts": 0
+  },
+  {
+    "name": "After 25 resets",
+    "status": "Running",
+    "volume": 0.5,
+    "outputRms": 0.06983,
+    "contacts": 0
+  },
+  {
+    "name": "Barrier contact reached",
+    "status": "Running",
+    "volume": 0.5,
+    "outputRms": 0.069967,
+    "contacts": 1
+  },
+  {
+    "name": "Same contact observed 50 times",
+    "status": "Running",
+    "volume": 0.5,
+    "outputRms": 0.069133,
+    "contacts": 1
+  },
+  {
+    "name": "Ready for actual focus check",
+    "status": "Running",
+    "volume": 0.5,
+    "outputRms": 0.069133,
+    "contacts": 1
+  },
+  {
+    "name": "Disposed twice safely",
+    "status": "Closed",
+    "volume": 0.5,
+    "outputRms": 0,
+    "contacts": 1
+  }
+]

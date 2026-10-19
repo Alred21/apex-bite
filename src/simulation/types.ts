@@ -63,6 +63,10 @@ export interface KeyboardInputState {
   space?: boolean;
 }
 
+export interface KeyboardAssistanceSettings {
+  steeringSensitivity: number; // 0.5–1.75, affects keyboard response rather than grip limits
+}
+
 export interface GamepadInputState {
   throttle?: number; // 0..1
   brake?: number; // 0..1
@@ -267,6 +271,7 @@ export interface SessionSnapshot {
   circuit: CircuitData;
   kart: KartState;
   camera: CameraState;
+  keyboardAssistance: KeyboardAssistanceSettings;
   lap: LapSummaryState;
   timeTrial: TimeTrialState;
   racingLine: RacingLineState;

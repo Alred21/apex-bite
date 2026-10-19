@@ -12,6 +12,7 @@ export function createKeyboardAssistance() {
   let throttle = 0;
   let brake = 0;
   let steer = 0;
+  let steeringFromKeyboard = true;
   const settings: KeyboardAssistanceSettings = { steeringSensitivity: 1 };
 
   function setSettings(next: Partial<KeyboardAssistanceSettings>): void {
@@ -22,26 +23,30 @@ export function createKeyboardAssistance() {
 
   function reset(): void {
     throttle = brake = steer = 0;
+    steeringFromKeyboard = true;
   }
 
   function step(input: DriverInput, speedMps: number, dt: number): KartCommand {
     throttle = approach(throttle, input.keys?.up ? 1 : 0, dt / (input.keys?.up ? 0.3 : 0.1));
     brake = approach(brake, input.keys?.down ? 1 : 0, dt / (input.keys?.down ? 0.22 : 0.08));
-    const analogThrottle = input.throttle ?? input.gamepad?.throttle;
-    const analogBrake = input.brake ?? input.gamepad?.brake;
-    const commandThrottle = analogThrottle !== undefined && !input.keys?.up
-      ? clamp(finite(analogThrottle)) : clamp(Math.max(throttle, finite(analogThrottle)));
+    if (!input.keys?.up && (input.throttle !== undefined || finite(input.gamepad?.throttle) > 0)) throttle = 0;
+    if (!input.keys?.down && (input.brake !== undefined || finite(input.gamepad?.brake) > 0)) brake = 0;
+    const commandThrottle = input.throttle !== undefined && !input.keys?.up
+      ? clamp(finite(input.throttle)) : clamp(Math.max(throttle, finite(input.throttle), finite(input.gamepad?.throttle)));
     const commandBrake = input.fullBrake || input.keys?.space ? 1
-      : analogBrake !== undefined && !input.keys?.down ? clamp(finite(analogBrake))
-      : clamp(Math.max(brake, finite(analogBrake)));
+      : input.brake !== undefined && !input.keys?.down ? clamp(finite(input.brake))
+      : clamp(Math.max(brake, finite(input.brake), finite(input.gamepad?.brake)));
 
     const keyDirection = (input.keys?.right ? 1 : 0) - (input.keys?.left ? 1 : 0);
     const rawGamepad = finite(input.gamepad?.steer);
     const deadzone = Number.isFinite(input.gamepad?.deadzone) ? clamp(input.gamepad!.deadzone!) : 0.06;
     const gamepadSteer = Math.abs(rawGamepad) > deadzone ? rawGamepad : 0;
-    if (input.steer !== undefined || (input.gamepad?.steer !== undefined && !keyDirection)) {
+    if (input.steer !== undefined || (!keyDirection &&
+      (Math.abs(gamepadSteer) > 0 || (!steeringFromKeyboard && input.gamepad?.steer !== undefined)))) {
+      steeringFromKeyboard = false;
       steer = clamp(input.steer !== undefined ? finite(input.steer) : gamepadSteer, -1, 1);
     } else if (keyDirection) {
+      steeringFromKeyboard = true;
       const speedRatio = Math.min(1, speedMps / MAX_KART_SPEED_MPS);
       // A held button cannot unlock steering beyond this speed-based limit.
       // Lower speeds naturally permit tight Turns; braking remains the driver's job.

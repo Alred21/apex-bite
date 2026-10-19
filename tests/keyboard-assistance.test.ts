@@ -82,4 +82,15 @@ describe('Keyboard Assistance through SimulationSession', () => {
     expect(neutral.kart.throttleInput).toBe(0);
     expect(neutral.kart.brakeInput).toBe(0);
   });
+
+  it('keeps keyboard response consistent when a neutral gamepad is connected', () => {
+    const keyboardOnly = createSimulationSession();
+    const connectedPad = createSimulationSession();
+    for (let tick = 0; tick < 24; tick++) {
+      const keys = tick < 12 ? { up: true, right: true } : {};
+      const a = keyboardOnly.step(DT, { keys });
+      const b = connectedPad.step(DT, { keys, gamepad: { steer: 0, throttle: 0, brake: 0 } });
+      expect(b.kart).toEqual(a.kart);
+    }
+  });
 });

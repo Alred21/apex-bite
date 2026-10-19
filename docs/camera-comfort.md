@@ -1,6 +1,6 @@
 # View comfort
 
-Helmet Cam and Chase Cam share vertical field of view (50–90°, default 64°) and camera motion (0–100%, default 35%) controls in **View comfort**. Changes apply immediately and survive session restarts, practice-mode changes, and camera switches. These are session preferences; they are not added to portable performance records.
+Helmet Cam and Chase Cam share vertical field of view (50–90°, default 64°) and camera motion (0–100%, default 35%) controls in **Driving & view**. This dialog also provides Keyboard steering sensitivity. Changes apply immediately and survive session restarts, practice-mode changes, and camera switches. These are session preferences; they are not added to portable performance records.
 
 At 0%, motion feedback is fully disabled: no acceleration lag/pitch, cornering displacement/roll, or contact impulse is applied. The camera continues to follow the Kart's position and heading. At higher settings, acceleration and lateral feedback use a short exponential response; contact produces a single decaying displacement rather than repeated screen shake. Even 100% is bounded: Helmet Cam lateral/longitudinal displacement is at most 18 mm per axis, roll about 1.03°, and impact displacement 9 mm. Chase Cam allows up to 100 mm of longitudinal and 75 mm of lateral displacement with about 0.52° roll. Default feedback uses 35% of these amounts. Neither view uses speed-dependent FOV zoom or random camera shake.
 

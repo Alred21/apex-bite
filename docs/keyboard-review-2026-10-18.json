@@ -1,0 +1,558 @@
+{
+  "method": "CLI binary-key review at 100ms decision intervals through the public player Session; no hidden game auto-driving and no analog steering/pedals.",
+  "controlledSpeedScale": 0.8,
+  "caveat": "Automated driving exercises inputs and clearance; this is not a human usability study or surveyed Circuit geometry.",
+  "circuitMeters": 363.10691423814166,
+  "maximumSpeedKph": 45,
+  "revision": {
+    "handling": "kart-v2",
+    "circuit": "k1-toronto-v2"
+  },
+  "referenceLapSeconds": 45.983333333333334,
+  "fullLap": {
+    "status": "Finished",
+    "laps": [
+      {
+        "lapNumber": 1,
+        "seconds": 59.033333333330624,
+        "isClean": true,
+        "sectorSplits": [
+          15.741666666666413,
+          19.50833333333223,
+          23.78333333333198
+        ]
+      }
+    ],
+    "contacts": 0
+  },
+  "report": [
+    {
+      "target": "T1",
+      "scenario": "Controlled",
+      "completed": true,
+      "clean": true,
+      "seconds": 4.49166666666668,
+      "contacts": 0,
+      "peakSpeedKph": 35.978969167412046,
+      "steeringChanges": 29,
+      "simulatedSeconds": 4.49166666666668
+    },
+    {
+      "target": "T2",
+      "scenario": "Controlled",
+      "completed": true,
+      "clean": true,
+      "seconds": 3.5916666666666566,
+      "contacts": 0,
+      "peakSpeedKph": 40.95049476924544,
+      "steeringChanges": 22,
+      "simulatedSeconds": 3.5916666666666566
+    },
+    {
+      "target": "T3",
+      "scenario": "Controlled",
+      "completed": true,
+      "clean": true,
+      "seconds": 5.700000000000073,
+      "contacts": 0,
+      "peakSpeedKph": 35.94224205234502,
+      "steeringChanges": 39,
+      "simulatedSeconds": 5.700000000000073
+    },
+    {
+      "target": "T4",
+      "scenario": "Controlled",
+      "completed": true,
+      "clean": true,
+      "seconds": 4.866666666666698,
+      "contacts": 0,
+      "peakSpeedKph": 36.814016769731296,
+      "steeringChanges": 33,
+      "simulatedSeconds": 4.866666666666698
+    },
+    {
+      "target": "T5",
+      "scenario": "Controlled",
+      "completed": true,
+      "clean": true,
+      "seconds": 4.09166666666666,
+      "contacts": 0,
+      "peakSpeedKph": 28.835359667881715,
+      "steeringChanges": 27,
+      "simulatedSeconds": 4.09166666666666
+    },
+    {
+      "target": "T6",
+      "scenario": "Controlled",
+      "completed": true,
+      "clean": true,
+      "seconds": 4.058333333333325,
+      "contacts": 0,
+      "peakSpeedKph": 30.728410021552367,
+      "steeringChanges": 27,
+      "simulatedSeconds": 4.058333333333325
+    },
+    {
+      "target": "T7",
+      "scenario": "Controlled",
+      "completed": true,
+      "clean": true,
+      "seconds": 4.225,
+      "contacts": 0,
+      "peakSpeedKph": 38.04834648675412,
+      "steeringChanges": 30,
+      "simulatedSeconds": 4.225
+    },
+    {
+      "target": "T8",
+      "scenario": "Controlled",
+      "completed": true,
+      "clean": true,
+      "seconds": 4.7250000000000245,
+      "contacts": 0,
+      "peakSpeedKph": 32.61055669513656,
+      "steeringChanges": 30,
+      "simulatedSeconds": 4.7250000000000245
+    },
+    {
+      "target": "T9",
+      "scenario": "Controlled",
+      "completed": true,
+      "clean": true,
+      "seconds": 3.7583333333333226,
+      "contacts": 0,
+      "peakSpeedKph": 40.40842441926826,
+      "steeringChanges": 28,
+      "simulatedSeconds": 3.7583333333333226
+    },
+    {
+      "target": "T10",
+      "scenario": "Controlled",
+      "completed": true,
+      "clean": true,
+      "seconds": 5.133333333333378,
+      "contacts": 0,
+      "peakSpeedKph": 37.80230808745595,
+      "steeringChanges": 30,
+      "simulatedSeconds": 5.133333333333378
+    },
+    {
+      "target": "T11",
+      "scenario": "Controlled",
+      "completed": true,
+      "clean": true,
+      "seconds": 5.341666666666722,
+      "contacts": 0,
+      "peakSpeedKph": 27.636715595415822,
+      "steeringChanges": 26,
+      "simulatedSeconds": 5.341666666666722
+    },
+    {
+      "target": "T1-T3",
+      "scenario": "Controlled",
+      "completed": true,
+      "clean": true,
+      "seconds": 15.899999999999737,
+      "contacts": 0,
+      "peakSpeedKph": 36.28827444662113,
+      "steeringChanges": 113,
+      "simulatedSeconds": 15.899999999999737
+    },
+    {
+      "target": "T2-T3",
+      "scenario": "Controlled",
+      "completed": true,
+      "clean": true,
+      "seconds": 9.800000000000084,
+      "contacts": 0,
+      "peakSpeedKph": 40.95049476924544,
+      "steeringChanges": 60,
+      "simulatedSeconds": 9.800000000000084
+    },
+    {
+      "target": "T4-T5",
+      "scenario": "Controlled",
+      "completed": true,
+      "clean": true,
+      "seconds": 7.8333333333335124,
+      "contacts": 0,
+      "peakSpeedKph": 36.814016769731296,
+      "steeringChanges": 54,
+      "simulatedSeconds": 7.8333333333335124
+    },
+    {
+      "target": "T6-T7-T8",
+      "scenario": "Controlled",
+      "completed": true,
+      "clean": true,
+      "seconds": 9.93333333333341,
+      "contacts": 0,
+      "peakSpeedKph": 30.728410021552367,
+      "steeringChanges": 63,
+      "simulatedSeconds": 9.93333333333341
+    },
+    {
+      "target": "T9-T10-T11",
+      "scenario": "Controlled",
+      "completed": true,
+      "clean": true,
+      "seconds": 17.53333333333298,
+      "contacts": 0,
+      "peakSpeedKph": 40.40842441926826,
+      "steeringChanges": 115,
+      "simulatedSeconds": 17.53333333333298
+    },
+    {
+      "target": "T1",
+      "scenario": "Brief wrong-direction correction",
+      "completed": true,
+      "clean": true,
+      "seconds": 4.550000000000016,
+      "contacts": 0,
+      "peakSpeedKph": 35.978969167412046,
+      "steeringChanges": 25,
+      "simulatedSeconds": 4.550000000000016
+    },
+    {
+      "target": "T2",
+      "scenario": "Brief wrong-direction correction",
+      "completed": true,
+      "clean": true,
+      "seconds": 3.59999999999999,
+      "contacts": 0,
+      "peakSpeedKph": 40.95049476924544,
+      "steeringChanges": 25,
+      "simulatedSeconds": 3.59999999999999
+    },
+    {
+      "target": "T3",
+      "scenario": "Brief wrong-direction correction",
+      "completed": true,
+      "clean": true,
+      "seconds": 5.725000000000074,
+      "contacts": 0,
+      "peakSpeedKph": 35.94224205234502,
+      "steeringChanges": 36,
+      "simulatedSeconds": 5.725000000000074
+    },
+    {
+      "target": "T4",
+      "scenario": "Brief wrong-direction correction",
+      "completed": true,
+      "clean": true,
+      "seconds": 4.866666666666698,
+      "contacts": 0,
+      "peakSpeedKph": 36.814016769731296,
+      "steeringChanges": 33,
+      "simulatedSeconds": 4.866666666666698
+    },
+    {
+      "target": "T5",
+      "scenario": "Brief wrong-direction correction",
+      "completed": true,
+      "clean": true,
+      "seconds": 4.099999999999993,
+      "contacts": 0,
+      "peakSpeedKph": 28.799866290683397,
+      "steeringChanges": 26,
+      "simulatedSeconds": 4.099999999999993
+    },
+    {
+      "target": "T6",
+      "scenario": "Brief wrong-direction correction",
+      "completed": true,
+      "clean": true,
+      "seconds": 4.058333333333325,
+      "contacts": 0,
+      "peakSpeedKph": 30.751477040814493,
+      "steeringChanges": 25,
+      "simulatedSeconds": 4.058333333333325
+    },
+    {
+      "target": "T7",
+      "scenario": "Brief wrong-direction correction",
+      "completed": true,
+      "clean": true,
+      "seconds": 4.225,
+      "contacts": 0,
+      "peakSpeedKph": 38.04834648675412,
+      "steeringChanges": 30,
+      "simulatedSeconds": 4.225
+    },
+    {
+      "target": "T8",
+      "scenario": "Brief wrong-direction correction",
+      "completed": true,
+      "clean": true,
+      "seconds": 4.700000000000023,
+      "contacts": 0,
+      "peakSpeedKph": 32.61055669513656,
+      "steeringChanges": 28,
+      "simulatedSeconds": 4.700000000000023
+    },
+    {
+      "target": "T9",
+      "scenario": "Brief wrong-direction correction",
+      "completed": true,
+      "clean": true,
+      "seconds": 3.7499999999999893,
+      "contacts": 0,
+      "peakSpeedKph": 40.40842441926826,
+      "steeringChanges": 26,
+      "simulatedSeconds": 3.7499999999999893
+    },
+    {
+      "target": "T10",
+      "scenario": "Brief wrong-direction correction",
+      "completed": true,
+      "clean": true,
+      "seconds": 5.150000000000046,
+      "contacts": 0,
+      "peakSpeedKph": 37.80230808745595,
+      "steeringChanges": 30,
+      "simulatedSeconds": 5.150000000000046
+    },
+    {
+      "target": "T11",
+      "scenario": "Brief wrong-direction correction",
+      "completed": true,
+      "clean": true,
+      "seconds": 5.341666666666722,
+      "contacts": 0,
+      "peakSpeedKph": 27.757620502543624,
+      "steeringChanges": 30,
+      "simulatedSeconds": 5.341666666666722
+    },
+    {
+      "target": "T1-T3",
+      "scenario": "Brief wrong-direction correction",
+      "completed": true,
+      "clean": true,
+      "seconds": 15.933333333333069,
+      "contacts": 0,
+      "peakSpeedKph": 36.30842103515407,
+      "steeringChanges": 107,
+      "simulatedSeconds": 15.933333333333069
+    },
+    {
+      "target": "T2-T3",
+      "scenario": "Brief wrong-direction correction",
+      "completed": true,
+      "clean": true,
+      "seconds": 9.825000000000083,
+      "contacts": 0,
+      "peakSpeedKph": 40.95049476924544,
+      "steeringChanges": 63,
+      "simulatedSeconds": 9.825000000000083
+    },
+    {
+      "target": "T4-T5",
+      "scenario": "Brief wrong-direction correction",
+      "completed": true,
+      "clean": true,
+      "seconds": 7.8333333333335124,
+      "contacts": 0,
+      "peakSpeedKph": 36.814016769731296,
+      "steeringChanges": 54,
+      "simulatedSeconds": 7.8333333333335124
+    },
+    {
+      "target": "T6-T7-T8",
+      "scenario": "Brief wrong-direction correction",
+      "completed": true,
+      "clean": true,
+      "seconds": 9.941666666666743,
+      "contacts": 0,
+      "peakSpeedKph": 30.751477040814493,
+      "steeringChanges": 64,
+      "simulatedSeconds": 9.941666666666743
+    },
+    {
+      "target": "T9-T10-T11",
+      "scenario": "Brief wrong-direction correction",
+      "completed": true,
+      "clean": true,
+      "seconds": 17.633333333332974,
+      "contacts": 0,
+      "peakSpeedKph": 40.40842441926826,
+      "steeringChanges": 116,
+      "simulatedSeconds": 17.633333333332974
+    },
+    {
+      "target": "T1",
+      "scenario": "Full throttle without braking",
+      "completed": false,
+      "clean": false,
+      "seconds": null,
+      "contacts": 1,
+      "peakSpeedKph": 45,
+      "steeringChanges": 2,
+      "simulatedSeconds": 1.249999999999998
+    },
+    {
+      "target": "T2",
+      "scenario": "Full throttle without braking",
+      "completed": false,
+      "clean": false,
+      "seconds": null,
+      "contacts": 1,
+      "peakSpeedKph": 45,
+      "steeringChanges": 2,
+      "simulatedSeconds": 1.7499999999999962
+    },
+    {
+      "target": "T3",
+      "scenario": "Full throttle without braking",
+      "completed": false,
+      "clean": false,
+      "seconds": null,
+      "contacts": 1,
+      "peakSpeedKph": 45,
+      "steeringChanges": 5,
+      "simulatedSeconds": 1.3083333333333311
+    },
+    {
+      "target": "T4",
+      "scenario": "Full throttle without braking",
+      "completed": false,
+      "clean": false,
+      "seconds": null,
+      "contacts": 1,
+      "peakSpeedKph": 45,
+      "steeringChanges": 5,
+      "simulatedSeconds": 1.3749999999999976
+    },
+    {
+      "target": "T5",
+      "scenario": "Full throttle without braking",
+      "completed": true,
+      "clean": true,
+      "seconds": 2.558333333333327,
+      "contacts": 0,
+      "peakSpeedKph": 45,
+      "steeringChanges": 6,
+      "simulatedSeconds": 2.558333333333327
+    },
+    {
+      "target": "T6",
+      "scenario": "Full throttle without braking",
+      "completed": false,
+      "clean": false,
+      "seconds": null,
+      "contacts": 1,
+      "peakSpeedKph": 45,
+      "steeringChanges": 9,
+      "simulatedSeconds": 2.2166666666666615
+    },
+    {
+      "target": "T7",
+      "scenario": "Full throttle without braking",
+      "completed": false,
+      "clean": false,
+      "seconds": null,
+      "contacts": 1,
+      "peakSpeedKph": 45,
+      "steeringChanges": 3,
+      "simulatedSeconds": 1.2833333333333312
+    },
+    {
+      "target": "T8",
+      "scenario": "Full throttle without braking",
+      "completed": false,
+      "clean": false,
+      "seconds": null,
+      "contacts": 1,
+      "peakSpeedKph": 45,
+      "steeringChanges": 8,
+      "simulatedSeconds": 1.4999999999999971
+    },
+    {
+      "target": "T9",
+      "scenario": "Full throttle without braking",
+      "completed": false,
+      "clean": false,
+      "seconds": null,
+      "contacts": 1,
+      "peakSpeedKph": 45,
+      "steeringChanges": 4,
+      "simulatedSeconds": 1.6499999999999966
+    },
+    {
+      "target": "T10",
+      "scenario": "Full throttle without braking",
+      "completed": false,
+      "clean": false,
+      "seconds": null,
+      "contacts": 1,
+      "peakSpeedKph": 45,
+      "steeringChanges": 4,
+      "simulatedSeconds": 1.3749999999999976
+    },
+    {
+      "target": "T11",
+      "scenario": "Full throttle without braking",
+      "completed": false,
+      "clean": false,
+      "seconds": null,
+      "contacts": 1,
+      "peakSpeedKph": 44.485181699626665,
+      "steeringChanges": 0,
+      "simulatedSeconds": 1.2833333333333312
+    },
+    {
+      "target": "T1-T3",
+      "scenario": "Full throttle without braking",
+      "completed": false,
+      "clean": false,
+      "seconds": null,
+      "contacts": 1,
+      "peakSpeedKph": 45,
+      "steeringChanges": 2,
+      "simulatedSeconds": 1.249999999999998
+    },
+    {
+      "target": "T2-T3",
+      "scenario": "Full throttle without braking",
+      "completed": false,
+      "clean": false,
+      "seconds": null,
+      "contacts": 1,
+      "peakSpeedKph": 45,
+      "steeringChanges": 2,
+      "simulatedSeconds": 1.7499999999999962
+    },
+    {
+      "target": "T4-T5",
+      "scenario": "Full throttle without braking",
+      "completed": false,
+      "clean": false,
+      "seconds": null,
+      "contacts": 1,
+      "peakSpeedKph": 45,
+      "steeringChanges": 5,
+      "simulatedSeconds": 1.3749999999999976
+    },
+    {
+      "target": "T6-T7-T8",
+      "scenario": "Full throttle without braking",
+      "completed": false,
+      "clean": false,
+      "seconds": null,
+      "contacts": 1,
+      "peakSpeedKph": 45,
+      "steeringChanges": 9,
+      "simulatedSeconds": 2.2166666666666615
+    },
+    {
+      "target": "T9-T10-T11",
+      "scenario": "Full throttle without braking",
+      "completed": false,
+      "clean": false,
+      "seconds": null,
+      "contacts": 1,
+      "peakSpeedKph": 45,
+      "steeringChanges": 4,
+      "simulatedSeconds": 1.6499999999999966
+    }
+  ]
+}

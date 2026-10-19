@@ -2,27 +2,19 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { CircuitData } from '../simulation/types';
 import { createVenueMaterials } from './materials';
+import { buildBarrierSegments, BARRIER_HALF_THICKNESS_METERS } from '../simulation/barrier-geometry';
 
 type VenueMaterials = ReturnType<typeof createVenueMaterials>;
 
 export function buildVenueBarriers(circuit: CircuitData, materials: VenueMaterials): THREE.Group {
   const group = new THREE.Group();
-  const placements: Array<{ x: number; z: number; yaw: number; length: number; red: boolean }> = [];
-  for (const side of ['leftBarrier', 'rightBarrier'] as const) {
-    for (let i = 0; i < circuit.samples.length; i += 2) {
-      const a = circuit.samples[i][side];
-      const b = circuit.samples[(i + 2) % circuit.samples.length][side];
-      placements.push({ x: (a.x + b.x) / 2, z: (a.z + b.z) / 2,
-        yaw: Math.atan2(b.x - a.x, b.z - a.z), length: Math.max(0.2, Math.hypot(b.x - a.x, b.z - a.z)) * 1.04,
-        red: Math.floor(i / 4) % 2 === 0 });
-    }
-  }
+  const placements = buildBarrierSegments(circuit);
   const matrix = new THREE.Object3D();
   for (const red of [true, false]) {
     const matches = placements.filter((p) => p.red === red);
-    const wall = new THREE.InstancedMesh(new THREE.BoxGeometry(0.24, 0.48, 1), red ? materials.redBarrier : materials.whiteBarrier, matches.length);
+    const wall = new THREE.InstancedMesh(new THREE.BoxGeometry(BARRIER_HALF_THICKNESS_METERS * 2, 0.48, 1), red ? materials.redBarrier : materials.whiteBarrier, matches.length);
     matches.forEach((p, i) => {
-      matrix.position.set(p.x, 0.24, p.z); matrix.rotation.set(0, p.yaw, 0); matrix.scale.set(1, 1, p.length); matrix.updateMatrix();
+      matrix.position.set(p.center.x, 0.24, p.center.z); matrix.rotation.set(0, p.yaw, 0); matrix.scale.set(1, 1, p.length); matrix.updateMatrix();
       wall.setMatrixAt(i, matrix.matrix);
     });
     wall.castShadow = wall.receiveShadow = true;
@@ -30,7 +22,7 @@ export function buildVenueBarriers(circuit: CircuitData, materials: VenueMateria
   }
   const rubRail = new THREE.InstancedMesh(new THREE.BoxGeometry(0.255, 0.07, 1), materials.rubber, placements.length);
   placements.forEach((p, i) => {
-    matrix.position.set(p.x, 0.105, p.z); matrix.rotation.set(0, p.yaw, 0); matrix.scale.set(1, 1, p.length); matrix.updateMatrix();
+    matrix.position.set(p.center.x, 0.105, p.center.z); matrix.rotation.set(0, p.yaw, 0); matrix.scale.set(1, 1, p.length); matrix.updateMatrix();
     rubRail.setMatrixAt(i, matrix.matrix);
   });
   group.add(rubRail);

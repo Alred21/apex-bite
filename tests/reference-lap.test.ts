@@ -80,3 +80,33 @@ it('selects the fastest achieved complete-lap candidate while exposing compariso
   expect(snapshot.racingLine.benchmarkLapSeconds).toBeLessThan(45.983333333333334);
   expect(new Set(candidates.flatMap((candidate) => candidate.complexes?.map((complex) => complex.id) ?? [])).size).toBe(5);
 });
+
+it('waits to show lap Ghost Karts until timing starts and resets their clock with the Flying Start', () => {
+  const recorder = createSimulationSession({ referenceReplay: true });
+  const reference = recorder.getReferenceReplay();
+  for (const command of reference.commands) recorder.step(1 / 120, command);
+  const session = createSimulationSession();
+  session.importTrainingDataJson(recorder.exportTrainingDataJson());
+  session.cycleGhostMode();
+  session.cycleGhostMode();
+  for (let run = 0; run < 2; run++) {
+    let snapshot = run === 0 ? session.getSnapshot() : session.reset();
+    expect(snapshot.ghost.trackRecordPose).toBeNull();
+    expect(snapshot.ghost.personalBestPose).toBeNull();
+    const first = reference.frames.findIndex((frame) => frame.kart.position.x === snapshot.kart.position.x && frame.kart.position.z === snapshot.kart.position.z);
+    expect(first).toBeGreaterThan(0);
+    for (let i = first; i < reference.commands.length && snapshot.lap.lapNumber === 0; i++) {
+      snapshot = session.step(1 / 120, reference.commands[i]);
+      if (snapshot.lap.lapNumber === 0) {
+        expect(snapshot.ghost.trackRecordPose).toBeNull();
+        expect(snapshot.ghost.personalBestPose).toBeNull();
+      }
+    }
+    expect(snapshot.lap.lapNumber).toBe(1);
+    expect(snapshot.ghost.trackRecordPose!.position).toEqual(reference.initialState.position);
+    expect(snapshot.ghost.personalBestPose).not.toBeNull();
+    const previous = snapshot.ghost.trackRecordPose!.position;
+    snapshot = session.step(1 / 120, reference.commands[0]);
+    expect(Math.hypot(snapshot.ghost.trackRecordPose!.position.x - previous.x, snapshot.ghost.trackRecordPose!.position.z - previous.z)).toBeLessThan(0.105);
+  }
+});

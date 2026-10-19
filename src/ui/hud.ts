@@ -266,6 +266,16 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
     </dialog>
   `;
 
+  // Native dialog close restores its opener, whose focused button suppresses
+  // driving keys. Return focus to the Circuit for close, cancel and restart.
+  for (const dialog of root.querySelectorAll<HTMLDialogElement>('dialog')) {
+    dialog.addEventListener('close', () => {
+      if (!document.querySelector('dialog[open]') && document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    });
+  }
+
   const audioControls = root.querySelector<HTMLElement>('#hud-audio-controls')!;
   const audioButton = root.querySelector<HTMLButtonElement>('#hud-btn-audio')!;
   const audioVolume = root.querySelector<HTMLInputElement>('#hud-audio-volume')!;

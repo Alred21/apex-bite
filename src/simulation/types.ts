@@ -1,3 +1,5 @@
+import type { CornerComplexId } from './corner-complexes';
+
 export type TurnDirection = 'Left' | 'Right';
 
 export type TurnNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
@@ -204,23 +206,7 @@ export interface GhostState {
   personalBestPose: GhostPose | null;
 }
 
-export type DrillTargetId =
-  | 'T1'
-  | 'T2'
-  | 'T3'
-  | 'T4'
-  | 'T5'
-  | 'T6'
-  | 'T7'
-  | 'T8'
-  | 'T9'
-  | 'T10'
-  | 'T11'
-  | 'T1-T3'
-  | 'T2-T3'
-  | 'T4-T5'
-  | 'T6-T7-T8'
-  | 'T9-T10-T11';
+export type DrillTargetId = `T${TurnNumber}` | CornerComplexId;
 
 export interface DrillTargetDefinition {
   id: DrillTargetId;

@@ -16,7 +16,7 @@ const baselineData = {
 
 describe('Revision-aware portable training records', () => {
   it('loads compatible baseline Personal Bests, Sector splits, Corner Drills, and Ghost Kart without discarding them', () => {
-    const session = createSimulationSession({ trainingRevision: baselineRevision, storage: {
+    const session = createSimulationSession({ referenceReplay: true, trainingRevision: baselineRevision, storage: {
       getItem: () => JSON.stringify(baselineData),
       setItem: () => {},
     } });

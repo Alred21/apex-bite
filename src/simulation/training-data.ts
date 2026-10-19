@@ -1,3 +1,4 @@
+import { CORNER_COMPLEXES } from './corner-complexes';
 import type { DrillTargetId, GhostSampleFrame, SectorSplitsTuple } from './types';
 
 /** Advance either identifier whenever player handling or Circuit geometry becomes incompatible. */
@@ -52,7 +53,7 @@ export interface TrainingDataState {
 
 const DRILL_IDS = new Set<string>([
   'T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11',
-  'T1-T3', 'T2-T3', 'T4-T5', 'T6-T7-T8', 'T9-T10-T11',
+  ...CORNER_COMPLEXES.map((complex) => complex.id),
 ]);
 
 function invalid(): never {

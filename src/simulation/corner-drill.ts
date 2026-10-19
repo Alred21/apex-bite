@@ -1,5 +1,6 @@
+import { CORNER_COMPLEXES } from './corner-complexes';
 import { cloneKartState, type ReferenceReplay } from './reference-lap';
-import type { CircuitData, DrillTargetDefinition, DrillTargetId, KartState, TurnNumber, CoachingInsightCategory, CornerExecutionCard } from './types';
+import type { CircuitData, DrillTargetDefinition, DrillTargetId, KartState, CoachingInsightCategory, CornerExecutionCard } from './types';
 
 export interface ReferenceDrill {
   target: DrillTargetDefinition;
@@ -10,16 +11,9 @@ export interface ReferenceDrill {
 }
 
 export function buildReferenceDrills(circuit: CircuitData, reference: ReferenceReplay): ReferenceDrill[] {
-  const complexes: Array<{ id: DrillTargetId; label: string; turns: TurnNumber[] }> = [
-    { id: 'T1-T3', label: 'Complex T1–T3 (Opening Sequence)', turns: [1, 2, 3] },
-    { id: 'T2-T3', label: 'Complex T2–T3 (Sweeper into Hairpin 1)', turns: [2, 3] },
-    { id: 'T4-T5', label: 'Complex T4–T5 (North Double-Right)', turns: [4, 5] },
-    { id: 'T6-T7-T8', label: 'Complex T6–T7–T8 (Esses into Far-Right Sweeper)', turns: [6, 7, 8] },
-    { id: 'T9-T10-T11', label: 'Complex T9–T10–T11 (Final Hairpin & Carousel)', turns: [9, 10, 11] },
-  ];
   const specs = [
     ...circuit.turns.map((turn) => ({ id: `T${turn.number}` as DrillTargetId, label: turn.name, turns: [turn.number] })),
-    ...complexes,
+    ...CORNER_COMPLEXES.map((complex) => ({ ...complex, turns: [...complex.turns] })),
   ];
   const frameAtOrAfter = (distance: number) => reference.frames.find((frame) => frame.kart.lapDistanceMeters >= distance)!;
   return specs.map((spec) => {

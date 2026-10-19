@@ -23,7 +23,6 @@ export const KART_DIMENSIONS = Object.freeze({
   rearExtentMeters: 0.80,
   wheelbaseMeters: WHEELBASE_METERS,
 });
-export const BARRIER_HALF_THICKNESS_METERS = 0.12;
 
 /** Wheel centres shared by the rendered Kart and measured coaching targets. */
 export const KART_WHEEL_GEOMETRY = Object.freeze({

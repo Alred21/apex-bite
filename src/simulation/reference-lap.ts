@@ -1,6 +1,7 @@
 import { insideFrontTirePosition } from './kart-geometry';
 import type { CircuitData, KartState, RacingLinePoint, Vector2D } from './types';
-import { REFERENCE_COMPLEXES, offsetComplex } from './reference-proposals';
+import { offsetComplex } from './reference-proposals';
+import { CORNER_COMPLEXES } from './corner-complexes';
 import { buildPriorLineProposal } from './prior-line-proposal';
 import type { KartCommand } from './kart-dynamics';
 import { stepKartOnCircuit, hasKartBarrierContact } from './kart-world';
@@ -187,19 +188,19 @@ export function buildReferenceLap(circuit: CircuitData): ReferenceReplay {
   let selected = result;
   let selectedPositions = circuit.samples.map((sample) => sample.center);
   const evidence = result.evidence;
-  for (let complexIndex = 0; complexIndex < REFERENCE_COMPLEXES.length; complexIndex++) {
+  for (let complexIndex = 0; complexIndex < CORNER_COMPLEXES.length; complexIndex++) {
     const sourcePositions = selectedPositions;
     const basisName = selected.name;
     for (const [amplitude, phase] of [[-0.45, -2], [-0.45, 2], [0.45, -2], [0.45, 2]]) {
-      const name = `${REFERENCE_COMPLEXES[complexIndex].id} offset ${amplitude > 0 ? '+' : ''}${amplitude.toFixed(2)}m / phase ${phase > 0 ? '+' : ''}${phase}m`;
+      const name = `${CORNER_COMPLEXES[complexIndex].id} offset ${amplitude > 0 ? '+' : ''}${amplitude.toFixed(2)}m / phase ${phase > 0 ? '+' : ''}${phase}m`;
       const positions = offsetComplex(circuit, sourcePositions, complexIndex, amplitude, phase);
       const candidate = executeReferenceProposal(circuit, { name, positions });
       if ('frames' in candidate) {
         candidate.evidence[0].basisCandidate = basisName;
-        candidate.evidence[0].adjustment = { complexId: REFERENCE_COMPLEXES[complexIndex].id, offsetMeters: amplitude, phaseMeters: phase };
+        candidate.evidence[0].adjustment = { complexId: CORNER_COMPLEXES[complexIndex].id, offsetMeters: amplitude, phaseMeters: phase };
         evidence.push(candidate.evidence[0]);
         if (candidate.lapSeconds < selected.lapSeconds) { selected = candidate; selectedPositions = positions; }
-      } else evidence.push({ ...candidate, basisCandidate: basisName, adjustment: { complexId: REFERENCE_COMPLEXES[complexIndex].id, offsetMeters: amplitude, phaseMeters: phase } });
+      } else evidence.push({ ...candidate, basisCandidate: basisName, adjustment: { complexId: CORNER_COMPLEXES[complexIndex].id, offsetMeters: amplitude, phaseMeters: phase } });
     }
   }
   selected.evidence = evidence;
@@ -245,7 +246,7 @@ function measureComplexes(circuit: CircuitData, frames: ReferenceFrame[]): Refer
     const ratio = Math.max(0, Math.min(1, (distance - a.kart.lapDistanceMeters) / Math.max(1e-9, b.kart.lapDistanceMeters - a.kart.lapDistanceMeters)));
     return { seconds: a.lapSeconds + (b.lapSeconds - a.lapSeconds) * ratio, speedKph: a.kart.speedKph + (b.kart.speedKph - a.kart.speedKph) * ratio };
   };
-  return REFERENCE_COMPLEXES.map((complex) => {
+  return CORNER_COMPLEXES.map((complex) => {
     const first = circuit.turns[complex.turns[0] - 1], last = circuit.turns[complex.turns[complex.turns.length - 1] - 1];
     const entry = at(first.entryDistanceMeters), exit = at(last.exitDistanceMeters);
     return { id: complex.id, seconds: exit.seconds - entry.seconds, entrySpeedKph: entry.speedKph, exitSpeedKph: exit.speedKph,

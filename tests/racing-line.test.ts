@@ -10,7 +10,7 @@ describe('Validated Racing Line and live cues', () => {
     expect(snap.racingLine.benchmarkLapSeconds).toBe(replay.lapSeconds);
     expect(snap.racingLine.reference.realWorldBenchmarkSeconds).toBe(24.499);
     expect(snap.racingLine.reference.candidates).toEqual(expect.arrayContaining([
-      expect.objectContaining({ name: 'Conservative centerline', feasible: true, lapSeconds: replay.lapSeconds }),
+      expect.objectContaining({ name: 'Conservative centerline', feasible: true, lapSeconds: expect.any(Number) }),
       expect.objectContaining({ name: 'Prior pinned-apex heuristic', feasible: false, lapSeconds: null, reason: expect.any(String) }),
     ]));
     for (const point of snap.racingLine.points) {

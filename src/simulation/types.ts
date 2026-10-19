@@ -150,7 +150,7 @@ export interface RacingLineState {
   reference: {
     name: string; validated: boolean; realWorldBenchmarkSeconds: number;
     closure: { positionMeters: number; headingRad: number; speedMps: number; yawRateRadPerSecond: number };
-    candidates: { name: string; feasible: boolean; lapSeconds: number | null; reason: string | null }[];
+    candidates: { name: string; feasible: boolean; lapSeconds: number | null; reason: string | null; basisCandidate?: string; adjustment?: { complexId: string; offsetMeters: number; phaseMeters: number }; complexes?: { id: string; seconds: number; entrySpeedKph: number; exitSpeedKph: number; turns: { number: number; seconds: number }[] }[] }[];
   };
   points: (RacingLinePoint & { displayed: boolean })[];
 }

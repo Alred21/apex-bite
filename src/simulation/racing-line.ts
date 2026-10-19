@@ -1,3 +1,4 @@
+import { referenceMetadata } from './reference-metadata';
 import { buildReferenceLap } from './reference-lap';
 import { wrapAngleRad } from './planar-math';
 import { MAX_TIRE_ACCEL_MPS2 } from './kart-parameters';
@@ -49,7 +50,7 @@ export function evaluateLiveRacingLine(circuit: CircuitData, kart: KartState, di
       reason: recovering ? 'Recover alignment before accelerating' : cue === 'Red' ? `Slow for ${turnLabel} ahead` : cue === 'Yellow' ? `Prepare for ${turnLabel} ahead` : 'Room to build speed progressively',
       targetSpeedKph: allowedSpeed * 3.6,
     },
-    reference: { name: reference.name, validated: true, realWorldBenchmarkSeconds: circuit.trackRecordSeconds, closure: { ...reference.closure }, candidates: reference.evidence.map((evidence) => ({ ...evidence })) },
+    reference: referenceMetadata(circuit, reference),
     points: reference.points.map((point) => {
       const ahead = ((point.distanceMeters - kart.lapDistanceMeters) % circuit.totalLengthMeters + circuit.totalLengthMeters) % circuit.totalLengthMeters;
       const requiredDeceleration = (kart.speedMps ** 2 - (point.targetSpeedMps * poseAllowance) ** 2) / (2 * Math.max(0.5, ahead - reactionDistance));

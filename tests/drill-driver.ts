@@ -31,4 +31,3 @@ export function driveDrillVariant(session: SimulationSession, speedScale: number
   }
   throw new Error('Driver did not complete the Corner Drill.');
 }
-

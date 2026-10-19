@@ -4,4 +4,3 @@ export function wrapAngleRad(rad: number): number {
   while (a < -Math.PI) a += 2 * Math.PI;
   return a;
 }
-

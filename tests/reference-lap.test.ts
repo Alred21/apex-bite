@@ -70,3 +70,13 @@ it('repeats the retained control tape through all twelve timed laps with no Barr
   expect(snap.timeTrial.completedLaps.every((lap) => lap.isClean)).toBe(true);
   expect(snap.timeTrial.completedLaps.every((lap) => Math.abs(lap.seconds - reference.lapSeconds) < 0.05)).toBe(true);
 });
+
+it('selects the fastest achieved complete-lap candidate while exposing comparisons for all five Corner Complexes', () => {
+  const snapshot = createSimulationSession().getSnapshot();
+  const candidates = snapshot.racingLine.reference.candidates;
+  const feasible = candidates.filter((candidate) => candidate.feasible);
+  expect(feasible.length).toBeGreaterThanOrEqual(2);
+  expect(snapshot.racingLine.benchmarkLapSeconds).toBe(Math.min(...feasible.map((candidate) => candidate.lapSeconds!)));
+  expect(snapshot.racingLine.benchmarkLapSeconds).toBeLessThan(45.983333333333334);
+  expect(new Set(candidates.flatMap((candidate) => candidate.complexes?.map((complex) => complex.id) ?? [])).size).toBe(5);
+});

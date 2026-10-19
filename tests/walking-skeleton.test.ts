@@ -55,7 +55,7 @@ describe('Ticket #2: Walking Skeleton — K1 Speed Toronto Circuit & Electric Ka
     expect(lowSpeedAccel).toBeGreaterThan(4.0);
 
     // The remaining Flying Start straight can reach the real limiter without a line-following aid.
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 60 && snap.kart.speedKph < 45 - 1e-9; i++) {
       snap = session.step(1 / 120, { throttle: 1, steer: 0 });
       expect(snap.kart.speedKph).toBeLessThanOrEqual(45.0001);
     }

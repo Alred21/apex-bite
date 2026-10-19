@@ -63,6 +63,10 @@ export interface KeyboardInputState {
   space?: boolean;
 }
 
+export interface KeyboardAssistanceSettings {
+  steeringSensitivity: number; // 0.5–1.75, affects keyboard response rather than grip limits
+}
+
 export interface GamepadInputState {
   throttle?: number; // 0..1
   brake?: number; // 0..1
@@ -137,7 +141,7 @@ export interface RacingLineState {
   reference: {
     name: string; validated: boolean; realWorldBenchmarkSeconds: number;
     closure: { positionMeters: number; headingRad: number; speedMps: number; yawRateRadPerSecond: number };
-    candidates: { name: string; feasible: boolean; lapSeconds: number | null; reason: string | null }[];
+    candidates: { name: string; feasible: boolean; lapSeconds: number | null; reason: string | null; basisCandidate?: string; adjustment?: { complexId: string; offsetMeters: number; phaseMeters: number }; complexes?: { id: string; seconds: number; entrySpeedKph: number; exitSpeedKph: number; turns: { number: number; seconds: number }[] }[] }[];
   };
   points: RacingLinePoint[];
 }
@@ -273,6 +277,7 @@ export interface SessionSnapshot {
   circuit: CircuitData;
   kart: KartState;
   camera: CameraState;
+  keyboardAssistance: KeyboardAssistanceSettings;
   lap: LapSummaryState;
   timeTrial: TimeTrialState;
   racingLine: RacingLineState;

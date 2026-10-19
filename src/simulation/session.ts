@@ -1,3 +1,4 @@
+import { createKeyboardAssistance } from './keyboard-assistance';
 import { buildReferenceLap, cloneKartState, referenceStateAtDistance, referenceApexTarget, referenceTimeAtDistance, referencePoseAtTime, type ReferenceReplay } from './reference-lap';
 import { insideFrontTirePosition } from './kart-geometry';
 import { buildReferenceDrills, evaluateDrillCoaching } from './corner-drill';
@@ -25,6 +26,7 @@ import {
   GhostPose,
   GhostSampleFrame,
   GhostState,
+  KeyboardAssistanceSettings,
   LapSummaryState,
   PracticeMode,
   SectorSplitsTuple,
@@ -36,7 +38,6 @@ import {
 
 import {
   FIXED_TIMESTEP_SECONDS,
-  MAX_KART_SPEED_MPS,
   FLYING_START_APPROACH_METERS,
 } from './kart-parameters';
 import { stepKartOnCircuit } from './kart-world';
@@ -66,12 +67,14 @@ export interface SimulationSession {
   step(dtSeconds?: number, input?: DriverInput): SessionSnapshot;
   toggleCamera(): SessionSnapshot;
   setCameraSettings(settings: Partial<CameraSettings>): SessionSnapshot;
+  setKeyboardAssistance(settings: Partial<KeyboardAssistanceSettings>): SessionSnapshot;
   toggleRacingLine(): SessionSnapshot;
   cycleGhostMode(): SessionSnapshot;
   setPracticeMode(mode: PracticeMode): SessionSnapshot;
   setTimeTrialLapLimit(lapLimit: number | null): SessionSnapshot;
   selectDrillTarget(targetId: DrillTargetId): SessionSnapshot;
   reset(): SessionSnapshot;
+  releaseDriverInputs(): SessionSnapshot;
   exportTrainingDataJson(): string;
   importTrainingDataJson(json: string): SessionSnapshot;
   getSnapshot(): SessionSnapshot;
@@ -167,10 +170,7 @@ export function createSimulationSession(
   let racingLineVisible = true;
   let ghostMode: GhostMode = 'Reference Lap';
 
-  // Progressive keyboard input shaper state
-  let keyboardBrakeHoldSeconds = 0;
-  let keyboardSteerHoldSeconds = 0;
-  let smoothedSteer = 0;
+  const keyboardAssistance = createKeyboardAssistance();
 
   let personalBestGhostFrames: GhostSampleFrame[] = [];
   let activeLapGhostFrames: GhostSampleFrame[] = [];
@@ -222,9 +222,7 @@ export function createSimulationSession(
     timeTrial = { ...timeTrial, status: 'Flying Start', completedLaps: [], totalSeconds: 0, bestCleanLapSeconds: null };
     lap.lastLapSeconds = null;
     lap.lastSectorSplits = [null, null, null];
-    keyboardBrakeHoldSeconds = 0;
-    keyboardSteerHoldSeconds = 0;
-    smoothedSteer = 0;
+    keyboardAssistance.reset();
     sectorEntryLapSeconds = 0;
     activeLapGhostFrames = [];
     lap.isClean = true;
@@ -238,9 +236,7 @@ export function createSimulationSession(
   }
 
   function spawnAtDrillFlyingEntry(): void {
-    keyboardBrakeHoldSeconds = 0;
-    keyboardSteerHoldSeconds = 0;
-    smoothedSteer = 0;
+    keyboardAssistance.reset();
     drillCurrentSegmentSeconds = 0;
     drillIsClean = true;
     drillEntrySpeedKph = null;
@@ -371,74 +367,11 @@ export function createSimulationSession(
 
   function fixedStep(dtSeconds: number, input: DriverInput): void {
     if (mode === 'Time Trial' && timeTrial.status === 'Finished') return;
-    const finiteInput = (value: number | undefined): number => Number.isFinite(value) ? value! : 0;
-    const keyThrottle = input.keys?.up ? 1 : 0;
-    const gpThrottle = finiteInput(input.gamepad?.throttle);
-    const throttle = Math.max(
-      0,
-      Math.min(1, Math.max(finiteInput(input.throttle), keyThrottle, gpThrottle)),
-    );
-
-    // Two-stage progressive brake curve on keyboard S / ArrowDown vs Spacebar full lock
-    const fullBrake = Boolean(input.fullBrake || input.keys?.space);
-    let shapedKeyBrake = 0;
-    if (input.keys?.down) {
-      keyboardBrakeHoldSeconds += dtSeconds;
-      if (keyboardBrakeHoldSeconds <= 0.25) {
-        shapedKeyBrake = 0.38 + (keyboardBrakeHoldSeconds / 0.25) * 0.16;
-      } else {
-        const extra = Math.min(1, (keyboardBrakeHoldSeconds - 0.25) / 0.3);
-        shapedKeyBrake = 0.54 + extra * 0.46;
-      }
-    } else {
-      keyboardBrakeHoldSeconds = 0;
-    }
-
-    const gpBrake = finiteInput(input.gamepad?.brake);
-    const brake = fullBrake
-      ? 1.0
-      : Math.max(0, Math.min(1, Math.max(finiteInput(input.brake), shapedKeyBrake, gpBrake)));
-
-    // Slip-aware progressive steering for keyboard (with tight-hairpin hold release) vs direct analog input
-    const speedRatio = Math.min(1, kart.speedMps / MAX_KART_SPEED_MPS);
-    const keySteerTarget = (input.keys?.right ? 1 : 0) - (input.keys?.left ? 1 : 0);
-    const gpDeadzone = input.gamepad?.deadzone ?? 0.06;
-    const rawGpSteer = finiteInput(input.gamepad?.steer);
-    const gpSteer = Math.abs(rawGpSteer) > gpDeadzone ? rawGpSteer : 0;
-    const hasDirectSteer = input.steer !== undefined || Math.abs(gpSteer) > 0;
-
-    if (hasDirectSteer) {
-      keyboardSteerHoldSeconds = 0;
-      const direct = input.steer !== undefined ? finiteInput(input.steer) : gpSteer;
-      smoothedSteer = Math.max(-1, Math.min(1, direct));
-    } else if (keySteerTarget !== 0) {
-      keyboardSteerHoldSeconds += dtSeconds;
-      const hairpinRelease =
-        keyboardSteerHoldSeconds > 0.32
-          ? Math.min(1, (keyboardSteerHoldSeconds - 0.32) / 0.25)
-          : 0;
-      const baseSlipLimit = 1.0 - 0.34 * speedRatio;
-      const slipAwareLimit = baseSlipLimit + (1.0 - baseSlipLimit) * hairpinRelease;
-      const target = keySteerTarget * slipAwareLimit;
-      const rate = 3.8 * dtSeconds;
-      if (smoothedSteer < target) {
-        smoothedSteer = Math.min(target, smoothedSteer + rate);
-      } else {
-        smoothedSteer = Math.max(target, smoothedSteer - rate);
-      }
-    } else {
-      keyboardSteerHoldSeconds = 0;
-      const returnRate = 6.5 * dtSeconds;
-      if (Math.abs(smoothedSteer) <= returnRate) {
-        smoothedSteer = 0;
-      } else {
-        smoothedSteer -= Math.sign(smoothedSteer) * returnRate;
-      }
-    }
+    const command = keyboardAssistance.step(input, kart.speedMps, dtSeconds);
 
     const prevSector = kart.currentSector;
     const previousDistance = kart.lapDistanceMeters;
-    kart = stepKartOnCircuit(circuit, kart, { throttle, brake, steer: smoothedSteer }, dtSeconds);
+    kart = stepKartOnCircuit(circuit, kart, command, dtSeconds);
     const nextPosition = kart.position;
     const nextHeading = kart.headingRad;
     const nextSpeedKph = kart.speedKph;
@@ -603,6 +536,16 @@ export function createSimulationSession(
     }
 
     return;
+  }
+
+  function releaseDriverInputs(): SessionSnapshot {
+    keyboardAssistance.reset();
+    return getSnapshot();
+  }
+
+  function setKeyboardAssistance(settings: Partial<KeyboardAssistanceSettings>): SessionSnapshot {
+    keyboardAssistance.setSettings(settings);
+    return getSnapshot();
   }
 
   function setCameraSettings(settings: Partial<CameraSettings>): SessionSnapshot {
@@ -801,6 +744,7 @@ export function createSimulationSession(
         velocity: { ...kart.velocity },
       },
       camera: cameraPresentation.getState(kart, cameraMode),
+      keyboardAssistance: keyboardAssistance.getSettings(),
       lap: {
         ...lap,
         currentSectorSplits: [...lap.currentSectorSplits] as SectorSplitsTuple,
@@ -831,12 +775,14 @@ export function createSimulationSession(
     step,
     toggleCamera,
     setCameraSettings,
+    setKeyboardAssistance,
     toggleRacingLine,
     cycleGhostMode,
     setPracticeMode,
     setTimeTrialLapLimit,
     selectDrillTarget,
     reset,
+    releaseDriverInputs,
     exportTrainingDataJson,
     importTrainingDataJson,
     getSnapshot,

@@ -556,6 +556,11 @@ body,
 .results-table th, .results-table td { padding: 10px 12px; border-bottom: 1px solid var(--panel-border); text-align: right; }
 .results-table th:first-child, .results-table td:first-child { text-align: left; }
 .results-table th { position: sticky; top: 0; background: #141c28; }
+
+.hud-audio-controls { display: flex; align-items: center; gap: 8px; }
+.hud-volume-label { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-muted); }
+#hud-audio-volume { width: 64px; accent-color: #56b9d8; }
+#hud-audio-meter { width: 25px; height: 7px; }
 .camera-settings { display: grid; gap: 14px; }
 .camera-settings label { display: flex; justify-content: space-between; gap: 24px; font-weight: 600; }
 .camera-settings output { color: var(--accent-blue); font-variant-numeric: tabular-nums; }

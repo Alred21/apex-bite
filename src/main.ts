@@ -1,3 +1,4 @@
+import { createKartAudio } from './audio/kart-audio';
 import { createCircuitRenderer } from './render/scene';
 import {
   createSimulationSession,
@@ -33,13 +34,27 @@ function bootstrap(): void {
       setItem: (key, value) => window.localStorage.setItem(key, value),
     } : undefined,
   });
+  const audio = createKartAudio();
+  const reset = (): void => { session.reset(); audio.reset(); };
+  window.addEventListener('blur', () => audio.setActive(false));
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) audio.setActive(false);
+  });
+  window.addEventListener('pagehide', (event) => {
+    if (event.persisted) audio.setActive(false);
+    else audio.dispose();
+  });
   const togglePracticeMode = (): void => {
     const next =
       session.getSnapshot().mode === 'Time Trial' ? 'Corner Drill' : 'Time Trial';
     session.setPracticeMode(next);
+    audio.reset();
   };
   const renderer = createCircuitRenderer(canvas, session.getSnapshot());
   const hud = createHudView(hudRoot, {
+    getAudioState: () => audio.getState(),
+    onToggleAudio: () => { void audio.toggle(); },
+    onAudioVolume: (volume) => audio.setVolume(volume),
     initialGraphicsQuality: renderer.getGraphicsQuality(),
     onSelectGraphicsQuality: (quality) => renderer.setGraphicsQuality(quality),
     onToggleCamera: () => {
@@ -58,13 +73,13 @@ function bootstrap(): void {
     onToggleMode: togglePracticeMode,
     onSelectTimeTrialLapLimit: (lapLimit) => {
       session.setTimeTrialLapLimit(lapLimit);
+      audio.reset();
     },
     onSelectDrillTarget: (targetId) => {
       session.selectDrillTarget(targetId);
+      audio.reset();
     },
-    onReset: () => {
-      session.reset();
-    },
+    onReset: reset,
     onExportData: () => session.exportTrainingDataJson(),
     onImportData: (json) => {
       session.importTrainingDataJson(json);
@@ -76,7 +91,7 @@ function bootstrap(): void {
     else if (shortcut === 'line') session.toggleRacingLine();
     else if (shortcut === 'ghost') session.cycleGhostMode();
     else if (shortcut === 'mode') togglePracticeMode();
-    else if (shortcut === 'reset') session.reset();
+    else if (shortcut === 'reset') reset();
   }, () => session.releaseDriverInputs());
 
   let lastTimeMs = performance.now();
@@ -96,6 +111,8 @@ function bootstrap(): void {
     }
 
     const snapshot = session.getSnapshot();
+    const dialogOpen = Boolean(document.querySelector('dialog[open]'));
+    audio.update(snapshot, document.hasFocus() && !document.hidden && !dialogOpen);
     renderer.render(snapshot);
     hud.update(snapshot);
     requestAnimationFrame(frame);

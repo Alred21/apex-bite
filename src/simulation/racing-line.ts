@@ -1,12 +1,24 @@
 import { referenceMetadata } from './reference-metadata';
 import { buildReferenceLap } from './reference-lap';
 import { wrapAngleRad } from './planar-math';
-import { MAX_TIRE_ACCEL_MPS2 } from './kart-parameters';
+import { FIXED_TIMESTEP_SECONDS, MAX_TIRE_ACCEL_MPS2 } from './kart-parameters';
 import type { CircuitData, KartState, RacingLineCue, RacingLineDisplayMode, RacingLineState } from './types';
+
+const cornerMasks = new WeakMap<CircuitData, boolean[]>();
 
 /** Display cues over one immutable, physically executed Reference Lap. */
 export function evaluateLiveRacingLine(circuit: CircuitData, kart: KartState, displayMode: RacingLineDisplayMode): RacingLineState {
   const reference = buildReferenceLap(circuit);
+  let cornerMask = cornerMasks.get(circuit);
+  if (!cornerMask) {
+    cornerMask = reference.points.map((point) => circuit.turns.some((turn) => {
+      const start = turn.entryDistanceMeters - 8;
+      const span = (turn.exitDistanceMeters - turn.entryDistanceMeters + circuit.totalLengthMeters) % circuit.totalLengthMeters + 11;
+      const offset = (point.distanceMeters - start + circuit.totalLengthMeters) % circuit.totalLengthMeters;
+      return offset <= span;
+    }));
+    cornerMasks.set(circuit, cornerMask);
+  }
   const count = reference.points.length;
   const fractional = kart.lapProgress * count;
   const current = reference.points[Math.floor(fractional) % count];
@@ -39,8 +51,14 @@ export function evaluateLiveRacingLine(circuit: CircuitData, kart: KartState, di
     }
   }
   if (recovering) allowedSpeed = Math.min(allowedSpeed, 2.2);
+  const plannedCommand = reference.commands[Math.min(reference.commands.length - 1,
+    Math.floor(current.benchmarkTimeSeconds / FIXED_TIMESTEP_SECONDS))];
+  // At the achieved local speed, the retained pedal command distinguishes an
+  // accelerating straight from coasting. Pose and future braking still gate it.
+  const plannedAcceleration = plannedCommand.throttle > 0.15 && plannedCommand.brake < 0.04;
   const cue: RacingLineCue = kart.speedMps > allowedSpeed + 0.45 ? 'Red'
-    : recovering || kart.speedMps > allowedSpeed - 0.5 ? 'Yellow' : 'Green';
+    : recovering ? 'Yellow'
+    : kart.speedMps < allowedSpeed - 0.5 || (plannedAcceleration && kart.speedMps < allowedSpeed + 0.1) ? 'Green' : 'Yellow';
   const upcomingTurn = circuit.turns.find((turn) => limitingPoint.distanceMeters >= turn.entryDistanceMeters - 3 && limitingPoint.distanceMeters <= turn.exitDistanceMeters + 3);
   const turnLabel = upcomingTurn ? `Turn ${upcomingTurn.number}` : 'the Turns';
   return {
@@ -51,19 +69,13 @@ export function evaluateLiveRacingLine(circuit: CircuitData, kart: KartState, di
       targetSpeedKph: allowedSpeed * 3.6,
     },
     reference: referenceMetadata(circuit, reference),
-    points: reference.points.map((point) => {
+    points: reference.points.map((point, index) => {
       const ahead = ((point.distanceMeters - kart.lapDistanceMeters) % circuit.totalLengthMeters + circuit.totalLengthMeters) % circuit.totalLengthMeters;
       const requiredDeceleration = (kart.speedMps ** 2 - (point.targetSpeedMps * poseAllowance) ** 2) / (2 * Math.max(0.5, ahead - reactionDistance));
       const liveCue: RacingLineCue = ahead <= Math.max(7, limitingDistance + 1) || (recovering && ahead < horizon) ? cue
         : ahead < horizon && requiredDeceleration > deceleration * 0.8 ? 'Red'
         : ahead < horizon && requiredDeceleration > deceleration * 0.25 ? 'Yellow' : 'Green';
-      const inCorner = circuit.turns.some((turn) => {
-        const start = turn.entryDistanceMeters - 8;
-        const span = (turn.exitDistanceMeters - turn.entryDistanceMeters + circuit.totalLengthMeters) % circuit.totalLengthMeters + 11;
-        const offset = (point.distanceMeters - start + circuit.totalLengthMeters) % circuit.totalLengthMeters;
-        return offset <= span;
-      });
-      const displayed = displayMode === 'Full' || (displayMode === 'Corners Only' && inCorner);
+      const displayed = displayMode === 'Full' || (displayMode === 'Corners Only' && cornerMask![index]);
       return { ...point, position: { ...point.position }, liveCue, displayed };
     }),
   };

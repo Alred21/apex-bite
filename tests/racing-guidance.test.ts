@@ -58,6 +58,23 @@ describe('Pose-aware Racing Line guidance through SimulationSession', () => {
     expect(displaced.snapshot.racingLine.guidance.action).toBe('Coast');
   });
 
+  it('permits progressive acceleration in aligned Reference Lap acceleration zones and braking across connected Turns', () => {
+    const session = createSimulationSession({ referenceReplay: true });
+    const replay = session.getReferenceReplay();
+    let accelerateSamples = 0;
+    const turnsWithBraking = new Set<number>();
+    for (const command of replay.commands) {
+      const snapshot = session.step(DT, command);
+      if (command.throttle > 0.4 && snapshot.racingLine.guidance.action === 'Accelerate') accelerateSamples++;
+      if (snapshot.kart.currentTurn && snapshot.racingLine.guidance.action === 'Brake') turnsWithBraking.add(snapshot.kart.currentTurn);
+    }
+    expect(accelerateSamples).toBeGreaterThan(20);
+    expect(turnsWithBraking.has(4)).toBe(true);
+    expect(turnsWithBraking.has(5)).toBe(true);
+    expect(turnsWithBraking.has(6)).toBe(true);
+    expect(turnsWithBraking.has(8)).toBe(true);
+  });
+
   it('cycles Full, Corners Only and Off without changing geometry, guidance or reference timing', () => {
     const session = createSimulationSession();
     const full = session.getSnapshot();

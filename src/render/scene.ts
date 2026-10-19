@@ -309,7 +309,7 @@ export function createCircuitRenderer(
   });
   scene.add(kartRig.root);
 
-  const trackRecordGhostMesh = buildGhostKartMesh(0xfacc15); // Gold 24.499s Track Record Ghost
+  const trackRecordGhostMesh = buildGhostKartMesh(0xfacc15); // Gold executable Reference Lap Ghost
   const personalBestGhostMesh = buildGhostKartMesh(0x22c55e); // Emerald Personal Best Ghost
   scene.add(trackRecordGhostMesh, personalBestGhostMesh);
 

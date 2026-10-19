@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { createSimulationSession } from '../src/simulation/session';
 
 describe('Ticket #2: Walking Skeleton — K1 Speed Toronto Circuit & Electric Kart', () => {
-  it('exposes the clockwise 11-Turn K1 Speed Toronto Circuit with ~245m length and variable 4.8m–6.0m width', () => {
+  it('exposes the clockwise 11-Turn K1 Speed Toronto Circuit with a corrected estimated physical corridor and variable 4.8m–6.0m width', () => {
     const session = createSimulationSession();
     const snapshot = session.getSnapshot();
 
     expect(snapshot.circuit.name).toBe('K1 Speed Toronto');
-    expect(snapshot.circuit.totalLengthMeters).toBeGreaterThanOrEqual(238);
-    expect(snapshot.circuit.totalLengthMeters).toBeLessThanOrEqual(252);
+    expect(snapshot.circuit.totalLengthMeters).toBeGreaterThanOrEqual(350);
+    expect(snapshot.circuit.totalLengthMeters).toBeLessThanOrEqual(375);
 
     const turns = snapshot.circuit.turns;
     expect(turns).toHaveLength(11);

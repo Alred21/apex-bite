@@ -81,7 +81,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
             LINE [L]: <strong id="hud-line-label">ON</strong>
           </button>
           <button type="button" class="hud-btn" id="hud-btn-ghost" title="Cycle Ghost Kart Mode (G)">
-            GHOST [G]: <strong id="hud-ghost-label">Track Record</strong>
+            GHOST [G]: <strong id="hud-ghost-label">Reference Lap</strong>
           </button>
           <label class="hud-select-wrap" id="hud-graphics-wrap" title="Performance reduces resolution and disables shadows. Balanced uses compact shadows. High increases resolution and shadow detail.">
             <span>GRAPHICS:</span>
@@ -108,7 +108,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
             <div class="delta-bar-center-tick"></div>
             <div class="delta-bar-fill" id="hud-delta-fill"></div>
           </div>
-          <div class="delta-value" id="hud-delta-text">+0.000s vs 24.499s REC</div>
+          <div class="delta-value" id="hud-delta-text">+0.000s vs Reference Lap</div>
         </div>
 
         <div class="sector-splits-row">
@@ -120,7 +120,8 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
         <div class="records-row">
           <span>LAST: <strong id="hud-last-lap">--.---</strong></span>
           <span>PB: <strong id="hud-pb-lap">--.---</strong></span>
-          <span>REC: <strong id="hud-rec-lap">24.499s</strong></span>
+          <span>REFERENCE: <strong id="hud-rec-lap">--.---s</strong></span>
+          <span title="Reported physical Circuit time; the simulated Circuit dimensions are estimates.">REAL-WORLD BENCHMARK: <strong>24.499s</strong></span>
         </div>
       </div>
 
@@ -643,7 +644,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
       lapTimer.textContent = `${lap.currentLapSeconds.toFixed(3)}s`;
       lastLapEl.textContent = formatSeconds(lap.lastLapSeconds);
       pbLapEl.textContent = formatSeconds(lap.personalBestSeconds);
-      recLapEl.textContent = '24.499s';
+      recLapEl.textContent = `${snapshot.racingLine.benchmarkLapSeconds.toFixed(3)}s`;
     }
 
     // Time-Delta Bar: negative = ahead (green), positive = behind (red)
@@ -652,7 +653,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
     const refLabel =
       ghost.mode === 'Personal Best' && lap.personalBestSeconds !== null
         ? `vs ${lap.personalBestSeconds.toFixed(3)}s PB`
-        : 'vs 24.499s REC';
+        : `vs ${snapshot.racingLine.benchmarkLapSeconds.toFixed(3)}s REFERENCE`;
     deltaText.textContent = `${signStr}${delta.toFixed(3)}s ${refLabel}`;
     deltaText.style.color = delta <= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
 

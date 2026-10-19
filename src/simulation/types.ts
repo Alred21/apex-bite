@@ -135,15 +135,24 @@ export interface RacingLinePoint {
   liveCue: RacingLineCue;
 }
 
+export type RacingLineDisplayMode = 'Full' | 'Corners Only' | 'Off';
+
 export interface RacingLineState {
   visible: boolean;
+  displayMode: RacingLineDisplayMode;
+  guidance: {
+    cue: RacingLineCue;
+    action: 'Accelerate' | 'Coast' | 'Brake';
+    reason: string;
+    targetSpeedKph: number;
+  };
   benchmarkLapSeconds: number;
   reference: {
     name: string; validated: boolean; realWorldBenchmarkSeconds: number;
     closure: { positionMeters: number; headingRad: number; speedMps: number; yawRateRadPerSecond: number };
     candidates: { name: string; feasible: boolean; lapSeconds: number | null; reason: string | null }[];
   };
-  points: RacingLinePoint[];
+  points: (RacingLinePoint & { displayed: boolean })[];
 }
 
 export type SectorSplitsTuple = [number | null, number | null, number | null];

@@ -30,6 +30,7 @@ import {
   LapSummaryState,
   PracticeMode,
   RacingLinePoint,
+  RacingLineDisplayMode,
   SectorSplitsTuple,
   SessionSnapshot,
   TurnNumber,
@@ -39,7 +40,6 @@ import {
 
 import {
   FIXED_TIMESTEP_SECONDS,
-  FLYING_START_SPEED_MPS,
   FLYING_START_APPROACH_METERS,
   WHEELBASE_METERS,
 } from './kart-parameters';
@@ -258,7 +258,7 @@ export function createSimulationSession(
   const reference = buildReferenceLap(circuit);
   const referenceApexTargets = new Map(circuit.turns.map((turn) => [turn.number, referenceApexTarget(circuit, reference, turn.number)]));
   const flyingStartState = referenceStateAtDistance(reference, circuit.totalLengthMeters - FLYING_START_APPROACH_METERS);
-  const baseProfile = evaluateLiveRacingLine(circuit, 0, FLYING_START_SPEED_MPS, true);
+  const baseProfile = evaluateLiveRacingLine(circuit, reference.initialState, 'Full');
   const drillCatalog = buildDrillTargetCatalog(circuit, baseProfile.points);
 
   const storage: StorageLike | undefined = options.storage;
@@ -273,7 +273,7 @@ export function createSimulationSession(
   let mode: PracticeMode = 'Time Trial';
   let cameraMode: CameraMode = 'Chase Cam';
   const cameraPresentation = createCameraPresentation();
-  let racingLineVisible = true;
+  let racingLineDisplayMode: RacingLineDisplayMode = 'Full';
   let ghostMode: GhostMode = 'Reference Lap';
 
   const keyboardAssistance = createKeyboardAssistance();
@@ -707,7 +707,8 @@ export function createSimulationSession(
   }
 
   function toggleRacingLine(): SessionSnapshot {
-    racingLineVisible = !racingLineVisible;
+    const modes: RacingLineDisplayMode[] = ['Full', 'Corners Only', 'Off'];
+    racingLineDisplayMode = modes[(modes.indexOf(racingLineDisplayMode) + 1) % modes.length];
     return getSnapshot();
   }
 
@@ -827,9 +828,8 @@ export function createSimulationSession(
   function getSnapshot(): SessionSnapshot {
     const racingLine = evaluateLiveRacingLine(
       circuit,
-      kart.lapDistanceMeters,
-      kart.speedMps,
-      racingLineVisible,
+      kart,
+      racingLineDisplayMode,
     );
 
     const pbAtDist =

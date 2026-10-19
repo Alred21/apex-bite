@@ -165,7 +165,7 @@ function buildRacingLineRibbon(initialSnapshot: SessionSnapshot): {
       0.025,
       pt.position.z + nz * halfWidth,
     );
-    colors.push(0.13, 0.77, 0.37, 0.13, 0.77, 0.37);
+    colors.push(0.13, 0.77, 0.37, 1, 0.13, 0.77, 0.37, 1);
 
     if (i < n) {
       const base = i * 2;
@@ -176,7 +176,7 @@ function buildRacingLineRibbon(initialSnapshot: SessionSnapshot): {
 
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  const colorAttr = new THREE.Float32BufferAttribute(colors, 3);
+  const colorAttr = new THREE.Float32BufferAttribute(colors, 4);
   geo.setAttribute('color', colorAttr);
   geo.setIndex(indices);
 
@@ -184,6 +184,8 @@ function buildRacingLineRibbon(initialSnapshot: SessionSnapshot): {
     vertexColors: true,
     transparent: true,
     opacity: 0.88,
+    depthWrite: false,
+    alphaTest: 0.02,
     side: THREE.DoubleSide,
   });
 
@@ -209,13 +211,16 @@ function buildRacingLineRibbon(initialSnapshot: SessionSnapshot): {
         g = 0.702;
         b = 0.031;
       }
-      const offset = i * 6;
+      const alpha = pts[i % n].displayed ? 1 : 0;
+      const offset = i * 8;
       arr[offset] = r;
       arr[offset + 1] = g;
       arr[offset + 2] = b;
-      arr[offset + 3] = r;
-      arr[offset + 4] = g;
-      arr[offset + 5] = b;
+      arr[offset + 3] = alpha;
+      arr[offset + 4] = r;
+      arr[offset + 5] = g;
+      arr[offset + 6] = b;
+      arr[offset + 7] = alpha;
     }
     colorAttr.needsUpdate = true;
   }

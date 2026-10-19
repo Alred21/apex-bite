@@ -1,0 +1,20 @@
+import { createSimulationSession } from '../../src/simulation/session';
+import { createCircuitRenderer } from '../../src/render/scene';
+const session = createSimulationSession({ referenceReplay: true });
+const replay = session.getReferenceReplay();
+const output = document.querySelector<HTMLPreElement>('#result')!;
+const renderer = createCircuitRenderer(document.querySelector<HTMLCanvasElement>('#preview')!, session.getSnapshot());
+renderer.render(session.getSnapshot());
+document.querySelector<HTMLButtonElement>('#run')!.addEventListener('click', () => {
+  session.reset();
+  const finalTurn = session.getSnapshot().circuit.turns[10];
+  const targetFrame = replay.frames.findIndex((frame) => frame.kart.lapDistanceMeters >= finalTurn.apexDistanceMeters);
+  for (let tick = 0; tick < targetFrame; tick++) session.step(1 / 120, replay.commands[tick]);
+  const snapshot = session.getSnapshot();
+  renderer.render(snapshot);
+  const baseline = replay.evidence.find((candidate) => candidate.name === 'Conservative centerline')!;
+  const selected = replay.evidence.find((candidate) => candidate.name === replay.name)!;
+  const before = baseline.complexes!.find((complex) => complex.id === 'T9-T10-T11')!;
+  const after = selected.complexes!.find((complex) => complex.id === 'T9-T10-T11')!;
+  output.textContent = `${replay.lapSeconds < baseline.lapSeconds! && snapshot.kart.barrierContactCount === 0 ? 'PASS' : 'FAIL'}\n${JSON.stringify({ feasibleCandidates: replay.evidence.filter((candidate) => candidate.feasible).length, rejectedCandidates: replay.evidence.filter((candidate) => !candidate.feasible).length, baselineLapSeconds: baseline.lapSeconds, selectedLapSeconds: replay.lapSeconds, finalComplexBefore: before.seconds, finalComplexAfter: after.seconds, turns: after.turns.map((turn, index) => ({ turn: turn.number, before: before.turns[index].seconds, after: turn.seconds })), barrierContacts: snapshot.kart.barrierContactCount }, null, 2)}\nFastest validated candidate found; no claim of global optimality.`;
+});

@@ -1,3 +1,4 @@
+import { referenceMetadata } from './reference-metadata';
 import { buildReferenceLap } from './reference-lap';
 import type { CircuitData, RacingLineCue, RacingLineState } from './types';
 
@@ -6,7 +7,7 @@ export function evaluateLiveRacingLine(circuit: CircuitData, kartDistanceMeters:
   const reference = buildReferenceLap(circuit);
   return {
     visible, benchmarkLapSeconds: reference.lapSeconds,
-    reference: { name: reference.name, validated: true, realWorldBenchmarkSeconds: circuit.trackRecordSeconds, closure: { ...reference.closure }, candidates: reference.evidence.map((evidence) => ({ ...evidence })) },
+    reference: referenceMetadata(circuit, reference),
     points: reference.points.map((point) => {
       const ahead = ((point.distanceMeters - kartDistanceMeters) % circuit.totalLengthMeters + circuit.totalLengthMeters) % circuit.totalLengthMeters;
       const requiredDeceleration = (kartSpeedMps ** 2 - point.targetSpeedMps ** 2) / (2 * Math.max(1.2, ahead));

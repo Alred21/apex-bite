@@ -1,0 +1,2248 @@
+{
+  "description": "Bounded deterministic connected-Turn search; fastest validated candidate found, not a global optimum.",
+  "runtime": "v26.4.0",
+  "circuitRevision": "k1-toronto-v2",
+  "handlingRevision": "kart-v2",
+  "candidateCount": 22,
+  "selected": "T9-T10-T11 offset -0.45m / phase -2m",
+  "selectedLapSeconds": 45.791666666666664,
+  "selectedClosure": {
+    "positionMeters": 0.000034540838718156,
+    "headingRad": 0.0000011595827409394133,
+    "speedMps": 5.847661554980732e-8,
+    "yawRateRadPerSecond": 0.000001014706227264739
+  },
+  "performanceLocalOnly": {
+    "coldConstructionMs": 615.933417,
+    "meanCachedConstructionMs": 0.4075316699999996,
+    "meanSnapshotMs": 0.012845625000000041
+  },
+  "candidates": [
+    {
+      "name": "Conservative centerline",
+      "feasible": true,
+      "lapSeconds": 45.983333,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 11.048785,
+          "entrySpeedKph": 27.037185,
+          "exitSpeedKph": 20.657363,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.34325
+            },
+            {
+              "number": 2,
+              "seconds": 1.835368
+            },
+            {
+              "number": 3,
+              "seconds": 3.108325
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.425012,
+          "entrySpeedKph": 33.449811,
+          "exitSpeedKph": 20.657363,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.835368
+            },
+            {
+              "number": 3,
+              "seconds": 3.108325
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.995561,
+          "entrySpeedKph": 28.180636,
+          "exitSpeedKph": 33.857039,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.62536
+            },
+            {
+              "number": 5,
+              "seconds": 1.856519
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.429811,
+          "entrySpeedKph": 38.967992,
+          "exitSpeedKph": 23.306653,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.763056
+            },
+            {
+              "number": 7,
+              "seconds": 2.217888
+            },
+            {
+              "number": 8,
+              "seconds": 2.384623
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.62513,
+          "entrySpeedKph": 32.829975,
+          "exitSpeedKph": 29.073147,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.940137
+            },
+            {
+              "number": 10,
+              "seconds": 2.70225
+            },
+            {
+              "number": 11,
+              "seconds": 2.56815
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Prior pinned-apex heuristic",
+      "feasible": false,
+      "lapSeconds": null,
+      "reason": "Requested local curvature exceeds the Kart steering range."
+    },
+    {
+      "name": "T1-T3 offset -0.45m / phase -2m",
+      "feasible": true,
+      "lapSeconds": 46,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 11.068016,
+          "entrySpeedKph": 27.159537,
+          "exitSpeedKph": 20.595947,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.34695
+            },
+            {
+              "number": 2,
+              "seconds": 1.86224
+            },
+            {
+              "number": 3,
+              "seconds": 3.099027
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.440143,
+          "entrySpeedKph": 33.746719,
+          "exitSpeedKph": 20.595947,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.86224
+            },
+            {
+              "number": 3,
+              "seconds": 3.099027
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.995565,
+          "entrySpeedKph": 28.180907,
+          "exitSpeedKph": 33.856787,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.625359
+            },
+            {
+              "number": 5,
+              "seconds": 1.856519
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.429801,
+          "entrySpeedKph": 38.967878,
+          "exitSpeedKph": 23.306612,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.763043
+            },
+            {
+              "number": 7,
+              "seconds": 2.217888
+            },
+            {
+              "number": 8,
+              "seconds": 2.384617
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.624703,
+          "entrySpeedKph": 32.83017,
+          "exitSpeedKph": 29.066167,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.940137
+            },
+            {
+              "number": 10,
+              "seconds": 2.702239
+            },
+            {
+              "number": 11,
+              "seconds": 2.567734
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "Conservative centerline",
+      "adjustment": {
+        "complexId": "T1-T3",
+        "offsetMeters": -0.45,
+        "phaseMeters": -2
+      }
+    },
+    {
+      "name": "T1-T3 offset -0.45m / phase +2m",
+      "feasible": true,
+      "lapSeconds": 45.991667,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 11.05845,
+          "entrySpeedKph": 27.113526,
+          "exitSpeedKph": 20.539477,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.343105
+            },
+            {
+              "number": 2,
+              "seconds": 1.863642
+            },
+            {
+              "number": 3,
+              "seconds": 3.089238
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.432904,
+          "entrySpeedKph": 33.746734,
+          "exitSpeedKph": 20.539477,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.863642
+            },
+            {
+              "number": 3,
+              "seconds": 3.089238
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.99513,
+          "entrySpeedKph": 28.191276,
+          "exitSpeedKph": 33.878574,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.624693
+            },
+            {
+              "number": 5,
+              "seconds": 1.856764
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.430103,
+          "entrySpeedKph": 38.947651,
+          "exitSpeedKph": 23.308159,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.76309
+            },
+            {
+              "number": 7,
+              "seconds": 2.217402
+            },
+            {
+              "number": 8,
+              "seconds": 2.384984
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.624616,
+          "entrySpeedKph": 32.831852,
+          "exitSpeedKph": 29.077151,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.940258
+            },
+            {
+              "number": 10,
+              "seconds": 2.702014
+            },
+            {
+              "number": 11,
+              "seconds": 2.567773
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "Conservative centerline",
+      "adjustment": {
+        "complexId": "T1-T3",
+        "offsetMeters": -0.45,
+        "phaseMeters": 2
+      }
+    },
+    {
+      "name": "T1-T3 offset +0.45m / phase -2m",
+      "feasible": true,
+      "lapSeconds": 45.966667,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 11.02976,
+          "entrySpeedKph": 26.91559,
+          "exitSpeedKph": 20.718381,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.340017
+            },
+            {
+              "number": 2,
+              "seconds": 1.807416
+            },
+            {
+              "number": 3,
+              "seconds": 3.115421
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.40826,
+          "entrySpeedKph": 33.149403,
+          "exitSpeedKph": 20.718381,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.807416
+            },
+            {
+              "number": 3,
+              "seconds": 3.115421
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.995046,
+          "entrySpeedKph": 28.182988,
+          "exitSpeedKph": 33.877072,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.624578
+            },
+            {
+              "number": 5,
+              "seconds": 1.85704
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.430577,
+          "entrySpeedKph": 38.950395,
+          "exitSpeedKph": 23.302615,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.763219
+            },
+            {
+              "number": 7,
+              "seconds": 2.217685
+            },
+            {
+              "number": 8,
+              "seconds": 2.385112
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.623858,
+          "entrySpeedKph": 32.834058,
+          "exitSpeedKph": 29.03173,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.939844
+            },
+            {
+              "number": 10,
+              "seconds": 2.70199
+            },
+            {
+              "number": 11,
+              "seconds": 2.567601
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "Conservative centerline",
+      "adjustment": {
+        "complexId": "T1-T3",
+        "offsetMeters": 0.45,
+        "phaseMeters": -2
+      }
+    },
+    {
+      "name": "T1-T3 offset +0.45m / phase +2m",
+      "feasible": true,
+      "lapSeconds": 45.975,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 11.041881,
+          "entrySpeedKph": 26.956853,
+          "exitSpeedKph": 20.783497,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.344514
+            },
+            {
+              "number": 2,
+              "seconds": 1.805979
+            },
+            {
+              "number": 3,
+              "seconds": 3.126346
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.417053,
+          "entrySpeedKph": 33.144236,
+          "exitSpeedKph": 20.783497,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.805979
+            },
+            {
+              "number": 3,
+              "seconds": 3.126346
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.99484,
+          "entrySpeedKph": 28.178197,
+          "exitSpeedKph": 33.885135,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.624839
+            },
+            {
+              "number": 5,
+              "seconds": 1.856772
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.431125,
+          "entrySpeedKph": 38.954598,
+          "exitSpeedKph": 23.304387,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.763283
+            },
+            {
+              "number": 7,
+              "seconds": 2.218302
+            },
+            {
+              "number": 8,
+              "seconds": 2.385148
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.62596,
+          "entrySpeedKph": 32.82893,
+          "exitSpeedKph": 29.061438,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.94058
+            },
+            {
+              "number": 10,
+              "seconds": 2.702181
+            },
+            {
+              "number": 11,
+              "seconds": 2.568125
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "Conservative centerline",
+      "adjustment": {
+        "complexId": "T1-T3",
+        "offsetMeters": 0.45,
+        "phaseMeters": 2
+      }
+    },
+    {
+      "name": "T2-T3 offset -0.45m / phase -2m",
+      "feasible": true,
+      "lapSeconds": 45.95,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 11.008992,
+          "entrySpeedKph": 26.911947,
+          "exitSpeedKph": 20.577944,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.340179
+            },
+            {
+              "number": 2,
+              "seconds": 1.81776
+            },
+            {
+              "number": 3,
+              "seconds": 3.090006
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.393334,
+          "entrySpeedKph": 33.457468,
+          "exitSpeedKph": 20.577944,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.81776
+            },
+            {
+              "number": 3,
+              "seconds": 3.090006
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.995573,
+          "entrySpeedKph": 28.181017,
+          "exitSpeedKph": 33.856311,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.62536
+            },
+            {
+              "number": 5,
+              "seconds": 1.85652
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.429783,
+          "entrySpeedKph": 38.967662,
+          "exitSpeedKph": 23.306533,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.763019
+            },
+            {
+              "number": 7,
+              "seconds": 2.217889
+            },
+            {
+              "number": 8,
+              "seconds": 2.384606
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.624699,
+          "entrySpeedKph": 32.830538,
+          "exitSpeedKph": 29.065526,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.940138
+            },
+            {
+              "number": 10,
+              "seconds": 2.702217
+            },
+            {
+              "number": 11,
+              "seconds": 2.56775
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "T1-T3 offset +0.45m / phase -2m",
+      "adjustment": {
+        "complexId": "T2-T3",
+        "offsetMeters": -0.45,
+        "phaseMeters": -2
+      }
+    },
+    {
+      "name": "T2-T3 offset -0.45m / phase +2m",
+      "feasible": true,
+      "lapSeconds": 45.908333,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 10.963673,
+          "entrySpeedKph": 26.915674,
+          "exitSpeedKph": 20.4319,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.340018
+            },
+            {
+              "number": 2,
+              "seconds": 1.801913
+            },
+            {
+              "number": 3,
+              "seconds": 3.059737
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.350816,
+          "entrySpeedKph": 33.563589,
+          "exitSpeedKph": 20.4319,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.801913
+            },
+            {
+              "number": 3,
+              "seconds": 3.059737
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.994908,
+          "entrySpeedKph": 28.189762,
+          "exitSpeedKph": 33.879772,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.624492
+            },
+            {
+              "number": 5,
+              "seconds": 1.856763
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.43029,
+          "entrySpeedKph": 38.948276,
+          "exitSpeedKph": 23.308563,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.763156
+            },
+            {
+              "number": 7,
+              "seconds": 2.217501
+            },
+            {
+              "number": 8,
+              "seconds": 2.385045
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.624145,
+          "entrySpeedKph": 32.826474,
+          "exitSpeedKph": 29.077734,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.939853
+            },
+            {
+              "number": 10,
+              "seconds": 2.702188
+            },
+            {
+              "number": 11,
+              "seconds": 2.567758
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "T1-T3 offset +0.45m / phase -2m",
+      "adjustment": {
+        "complexId": "T2-T3",
+        "offsetMeters": -0.45,
+        "phaseMeters": 2
+      }
+    },
+    {
+      "name": "T2-T3 offset +0.45m / phase -2m",
+      "feasible": true,
+      "lapSeconds": 45.983333,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 11.051945,
+          "entrySpeedKph": 26.922314,
+          "exitSpeedKph": 20.870738,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.339445
+            },
+            {
+              "number": 2,
+              "seconds": 1.797654
+            },
+            {
+              "number": 3,
+              "seconds": 3.14096
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.424771,
+          "entrySpeedKph": 32.797479,
+          "exitSpeedKph": 20.870738,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.797654
+            },
+            {
+              "number": 3,
+              "seconds": 3.14096
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.994763,
+          "entrySpeedKph": 28.177848,
+          "exitSpeedKph": 33.88454,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.624752
+            },
+            {
+              "number": 5,
+              "seconds": 1.856773
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.4311,
+          "entrySpeedKph": 38.954288,
+          "exitSpeedKph": 23.304282,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.763251
+            },
+            {
+              "number": 7,
+              "seconds": 2.218303
+            },
+            {
+              "number": 8,
+              "seconds": 2.385133
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.626004,
+          "entrySpeedKph": 32.829276,
+          "exitSpeedKph": 29.061375,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.940582
+            },
+            {
+              "number": 10,
+              "seconds": 2.702179
+            },
+            {
+              "number": 11,
+              "seconds": 2.568127
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "T1-T3 offset +0.45m / phase -2m",
+      "adjustment": {
+        "complexId": "T2-T3",
+        "offsetMeters": 0.45,
+        "phaseMeters": -2
+      }
+    },
+    {
+      "name": "T2-T3 offset +0.45m / phase +2m",
+      "feasible": true,
+      "lapSeconds": 46.025,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 11.09815,
+          "entrySpeedKph": 26.921294,
+          "exitSpeedKph": 21.013232,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.340094
+            },
+            {
+              "number": 2,
+              "seconds": 1.814533
+            },
+            {
+              "number": 3,
+              "seconds": 3.170821
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.468228,
+          "entrySpeedKph": 32.733571,
+          "exitSpeedKph": 21.013232,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.814533
+            },
+            {
+              "number": 3,
+              "seconds": 3.170821
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.994834,
+          "entrySpeedKph": 28.176166,
+          "exitSpeedKph": 33.884482,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.624821
+            },
+            {
+              "number": 5,
+              "seconds": 1.856773
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.43051,
+          "entrySpeedKph": 38.954258,
+          "exitSpeedKph": 23.303289,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.763248
+            },
+            {
+              "number": 7,
+              "seconds": 2.217672
+            },
+            {
+              "number": 8,
+              "seconds": 2.385179
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.62417,
+          "entrySpeedKph": 32.834851,
+          "exitSpeedKph": 29.014714,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.939914
+            },
+            {
+              "number": 10,
+              "seconds": 2.702347
+            },
+            {
+              "number": 11,
+              "seconds": 2.567363
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "T1-T3 offset +0.45m / phase -2m",
+      "adjustment": {
+        "complexId": "T2-T3",
+        "offsetMeters": 0.45,
+        "phaseMeters": 2
+      }
+    },
+    {
+      "name": "T4-T5 offset -0.45m / phase -2m",
+      "feasible": true,
+      "lapSeconds": 45.95,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 10.964377,
+          "entrySpeedKph": 26.913912,
+          "exitSpeedKph": 20.431029,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.340222
+            },
+            {
+              "number": 2,
+              "seconds": 1.802064
+            },
+            {
+              "number": 3,
+              "seconds": 3.060195
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.351248,
+          "entrySpeedKph": 33.568964,
+          "exitSpeedKph": 20.431029,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.802064
+            },
+            {
+              "number": 3,
+              "seconds": 3.060195
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 5.047384,
+          "entrySpeedKph": 28.527661,
+          "exitSpeedKph": 34.195308,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.668498
+            },
+            {
+              "number": 5,
+              "seconds": 1.866104
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.430539,
+          "entrySpeedKph": 39.195788,
+          "exitSpeedKph": 23.305305,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.763381
+            },
+            {
+              "number": 7,
+              "seconds": 2.218434
+            },
+            {
+              "number": 8,
+              "seconds": 2.384663
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.625356,
+          "entrySpeedKph": 32.825551,
+          "exitSpeedKph": 29.065708,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.940219
+            },
+            {
+              "number": 10,
+              "seconds": 2.702413
+            },
+            {
+              "number": 11,
+              "seconds": 2.567916
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "T2-T3 offset -0.45m / phase +2m",
+      "adjustment": {
+        "complexId": "T4-T5",
+        "offsetMeters": -0.45,
+        "phaseMeters": -2
+      }
+    },
+    {
+      "name": "T4-T5 offset -0.45m / phase +2m",
+      "feasible": true,
+      "lapSeconds": 45.958333,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 10.964237,
+          "entrySpeedKph": 26.913408,
+          "exitSpeedKph": 20.429509,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.340233
+            },
+            {
+              "number": 2,
+              "seconds": 1.802065
+            },
+            {
+              "number": 3,
+              "seconds": 3.060048
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.351094,
+          "entrySpeedKph": 33.569248,
+          "exitSpeedKph": 20.429509,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.802065
+            },
+            {
+              "number": 3,
+              "seconds": 3.060048
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 5.051187,
+          "entrySpeedKph": 28.436143,
+          "exitSpeedKph": 34.101455,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.648618
+            },
+            {
+              "number": 5,
+              "seconds": 1.887703
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.43034,
+          "entrySpeedKph": 39.148659,
+          "exitSpeedKph": 23.304099,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.762919
+            },
+            {
+              "number": 7,
+              "seconds": 2.218163
+            },
+            {
+              "number": 8,
+              "seconds": 2.384844
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.626011,
+          "entrySpeedKph": 32.830195,
+          "exitSpeedKph": 29.060139,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.940583
+            },
+            {
+              "number": 10,
+              "seconds": 2.702154
+            },
+            {
+              "number": 11,
+              "seconds": 2.568157
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "T2-T3 offset -0.45m / phase +2m",
+      "adjustment": {
+        "complexId": "T4-T5",
+        "offsetMeters": -0.45,
+        "phaseMeters": 2
+      }
+    },
+    {
+      "name": "T4-T5 offset +0.45m / phase -2m",
+      "feasible": true,
+      "lapSeconds": 45.883333,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 10.964383,
+          "entrySpeedKph": 26.913255,
+          "exitSpeedKph": 20.431095,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.340224
+            },
+            {
+              "number": 2,
+              "seconds": 1.802064
+            },
+            {
+              "number": 3,
+              "seconds": 3.060197
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.351251,
+          "entrySpeedKph": 33.568915,
+          "exitSpeedKph": 20.431095,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.802064
+            },
+            {
+              "number": 3,
+              "seconds": 3.060197
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.949424,
+          "entrySpeedKph": 27.762052,
+          "exitSpeedKph": 33.551964,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.583619
+            },
+            {
+              "number": 5,
+              "seconds": 1.85028
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.430701,
+          "entrySpeedKph": 38.688623,
+          "exitSpeedKph": 23.305705,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.763833
+            },
+            {
+              "number": 7,
+              "seconds": 2.217967
+            },
+            {
+              "number": 8,
+              "seconds": 2.384578
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.625211,
+          "entrySpeedKph": 32.823603,
+          "exitSpeedKph": 29.066129,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.940078
+            },
+            {
+              "number": 10,
+              "seconds": 2.702319
+            },
+            {
+              "number": 11,
+              "seconds": 2.567906
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "T2-T3 offset -0.45m / phase +2m",
+      "adjustment": {
+        "complexId": "T4-T5",
+        "offsetMeters": 0.45,
+        "phaseMeters": -2
+      }
+    },
+    {
+      "name": "T4-T5 offset +0.45m / phase +2m",
+      "feasible": true,
+      "lapSeconds": 45.866667,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 10.962973,
+          "entrySpeedKph": 26.922462,
+          "exitSpeedKph": 20.436078,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.339447
+            },
+            {
+              "number": 2,
+              "seconds": 1.801809
+            },
+            {
+              "number": 3,
+              "seconds": 3.05954
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.350764,
+          "entrySpeedKph": 33.563636,
+          "exitSpeedKph": 20.436078,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.801809
+            },
+            {
+              "number": 3,
+              "seconds": 3.05954
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.942605,
+          "entrySpeedKph": 27.913902,
+          "exitSpeedKph": 33.593283,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.60274
+            },
+            {
+              "number": 5,
+              "seconds": 1.827734
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.432536,
+          "entrySpeedKph": 38.748574,
+          "exitSpeedKph": 23.301638,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.764151
+            },
+            {
+              "number": 7,
+              "seconds": 2.218584
+            },
+            {
+              "number": 8,
+              "seconds": 2.385555
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.622353,
+          "entrySpeedKph": 32.831468,
+          "exitSpeedKph": 29.015735,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.939802
+            },
+            {
+              "number": 10,
+              "seconds": 2.701645
+            },
+            {
+              "number": 11,
+              "seconds": 2.567673
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "T2-T3 offset -0.45m / phase +2m",
+      "adjustment": {
+        "complexId": "T4-T5",
+        "offsetMeters": 0.45,
+        "phaseMeters": 2
+      }
+    },
+    {
+      "name": "T6-T7-T8 offset -0.45m / phase -2m",
+      "feasible": true,
+      "lapSeconds": 45.858333,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 10.963839,
+          "entrySpeedKph": 26.916201,
+          "exitSpeedKph": 20.436296,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.33972
+            },
+            {
+              "number": 2,
+              "seconds": 1.801911
+            },
+            {
+              "number": 3,
+              "seconds": 3.06019
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.351285,
+          "entrySpeedKph": 33.562997,
+          "exitSpeedKph": 20.436296,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.801911
+            },
+            {
+              "number": 3,
+              "seconds": 3.06019
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.942633,
+          "entrySpeedKph": 27.913693,
+          "exitSpeedKph": 33.598039,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.602741
+            },
+            {
+              "number": 5,
+              "seconds": 1.827765
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.436373,
+          "entrySpeedKph": 38.720796,
+          "exitSpeedKph": 23.564666,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.782112
+            },
+            {
+              "number": 7,
+              "seconds": 2.1971
+            },
+            {
+              "number": 8,
+              "seconds": 2.389084
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.621921,
+          "entrySpeedKph": 32.831862,
+          "exitSpeedKph": 29.084656,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.939988
+            },
+            {
+              "number": 10,
+              "seconds": 2.701664
+            },
+            {
+              "number": 11,
+              "seconds": 2.566943
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "T4-T5 offset +0.45m / phase +2m",
+      "adjustment": {
+        "complexId": "T6-T7-T8",
+        "offsetMeters": -0.45,
+        "phaseMeters": -2
+      }
+    },
+    {
+      "name": "T6-T7-T8 offset -0.45m / phase +2m",
+      "feasible": true,
+      "lapSeconds": 45.875,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 10.963948,
+          "entrySpeedKph": 26.918631,
+          "exitSpeedKph": 20.432009,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.340058
+            },
+            {
+              "number": 2,
+              "seconds": 1.801922
+            },
+            {
+              "number": 3,
+              "seconds": 3.060207
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.351038,
+          "entrySpeedKph": 33.565686,
+          "exitSpeedKph": 20.432009,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.801922
+            },
+            {
+              "number": 3,
+              "seconds": 3.060207
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.942772,
+          "entrySpeedKph": 27.916464,
+          "exitSpeedKph": 33.592331,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.60289
+            },
+            {
+              "number": 5,
+              "seconds": 1.827735
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.45128,
+          "entrySpeedKph": 38.720679,
+          "exitSpeedKph": 23.580226,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.777818
+            },
+            {
+              "number": 7,
+              "seconds": 2.202213
+            },
+            {
+              "number": 8,
+              "seconds": 2.405799
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.625531,
+          "entrySpeedKph": 32.821309,
+          "exitSpeedKph": 29.075211,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.94031
+            },
+            {
+              "number": 10,
+              "seconds": 2.702185
+            },
+            {
+              "number": 11,
+              "seconds": 2.568168
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "T4-T5 offset +0.45m / phase +2m",
+      "adjustment": {
+        "complexId": "T6-T7-T8",
+        "offsetMeters": -0.45,
+        "phaseMeters": 2
+      }
+    },
+    {
+      "name": "T6-T7-T8 offset +0.45m / phase -2m",
+      "feasible": true,
+      "lapSeconds": 45.891667,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 10.963967,
+          "entrySpeedKph": 26.917646,
+          "exitSpeedKph": 20.432805,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.340047
+            },
+            {
+              "number": 2,
+              "seconds": 1.801919
+            },
+            {
+              "number": 3,
+              "seconds": 3.060225
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.351072,
+          "entrySpeedKph": 33.565057,
+          "exitSpeedKph": 20.432805,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.801919
+            },
+            {
+              "number": 3,
+              "seconds": 3.060225
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.942676,
+          "entrySpeedKph": 27.915696,
+          "exitSpeedKph": 33.587882,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.602821
+            },
+            {
+              "number": 5,
+              "seconds": 1.827708
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.440105,
+          "entrySpeedKph": 38.734806,
+          "exitSpeedKph": 23.055981,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.758281
+            },
+            {
+              "number": 7,
+              "seconds": 2.24063
+            },
+            {
+              "number": 8,
+              "seconds": 2.381874
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.624745,
+          "entrySpeedKph": 32.81959,
+          "exitSpeedKph": 29.065111,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.940187
+            },
+            {
+              "number": 10,
+              "seconds": 2.702203
+            },
+            {
+              "number": 11,
+              "seconds": 2.56776
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "T4-T5 offset +0.45m / phase +2m",
+      "adjustment": {
+        "complexId": "T6-T7-T8",
+        "offsetMeters": 0.45,
+        "phaseMeters": -2
+      }
+    },
+    {
+      "name": "T6-T7-T8 offset +0.45m / phase +2m",
+      "feasible": true,
+      "lapSeconds": 45.883333,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 10.963967,
+          "entrySpeedKph": 26.917874,
+          "exitSpeedKph": 20.432891,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.340044
+            },
+            {
+              "number": 2,
+              "seconds": 1.801919
+            },
+            {
+              "number": 3,
+              "seconds": 3.060228
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.351076,
+          "entrySpeedKph": 33.564994,
+          "exitSpeedKph": 20.432891,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.801919
+            },
+            {
+              "number": 3,
+              "seconds": 3.060228
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.942632,
+          "entrySpeedKph": 27.915613,
+          "exitSpeedKph": 33.591275,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.602734
+            },
+            {
+              "number": 5,
+              "seconds": 1.827736
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.426239,
+          "entrySpeedKph": 38.722582,
+          "exitSpeedKph": 23.02591,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.764624
+            },
+            {
+              "number": 7,
+              "seconds": 2.235699
+            },
+            {
+              "number": 8,
+              "seconds": 2.364414
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.624394,
+          "entrySpeedKph": 32.834656,
+          "exitSpeedKph": 29.014855,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.939992
+            },
+            {
+              "number": 10,
+              "seconds": 2.702309
+            },
+            {
+              "number": 11,
+              "seconds": 2.567359
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "T4-T5 offset +0.45m / phase +2m",
+      "adjustment": {
+        "complexId": "T6-T7-T8",
+        "offsetMeters": 0.45,
+        "phaseMeters": 2
+      }
+    },
+    {
+      "name": "T9-T10-T11 offset -0.45m / phase -2m",
+      "feasible": true,
+      "lapSeconds": 45.791667,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 10.964261,
+          "entrySpeedKph": 26.917875,
+          "exitSpeedKph": 20.425763,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.340416
+            },
+            {
+              "number": 2,
+              "seconds": 1.80201
+            },
+            {
+              "number": 3,
+              "seconds": 3.059934
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.351161,
+          "entrySpeedKph": 33.55638,
+          "exitSpeedKph": 20.425763,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.80201
+            },
+            {
+              "number": 3,
+              "seconds": 3.059934
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.942713,
+          "entrySpeedKph": 27.902773,
+          "exitSpeedKph": 33.613238,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.602577
+            },
+            {
+              "number": 5,
+              "seconds": 1.827564
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.437121,
+          "entrySpeedKph": 38.723618,
+          "exitSpeedKph": 23.561389,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.782242
+            },
+            {
+              "number": 7,
+              "seconds": 2.197299
+            },
+            {
+              "number": 8,
+              "seconds": 2.389513
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.557574,
+          "entrySpeedKph": 32.96145,
+          "exitSpeedKph": 29.126835,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.940281
+            },
+            {
+              "number": 10,
+              "seconds": 2.606323
+            },
+            {
+              "number": 11,
+              "seconds": 2.573311
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "T6-T7-T8 offset -0.45m / phase -2m",
+      "adjustment": {
+        "complexId": "T9-T10-T11",
+        "offsetMeters": -0.45,
+        "phaseMeters": -2
+      }
+    },
+    {
+      "name": "T9-T10-T11 offset -0.45m / phase +2m",
+      "feasible": true,
+      "lapSeconds": 45.791667,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 10.964584,
+          "entrySpeedKph": 26.912999,
+          "exitSpeedKph": 20.427111,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.340418
+            },
+            {
+              "number": 2,
+              "seconds": 1.802134
+            },
+            {
+              "number": 3,
+              "seconds": 3.06015
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.351391,
+          "entrySpeedKph": 33.56558,
+          "exitSpeedKph": 20.427111,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.802134
+            },
+            {
+              "number": 3,
+              "seconds": 3.06015
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.943485,
+          "entrySpeedKph": 27.911445,
+          "exitSpeedKph": 33.593358,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.603451
+            },
+            {
+              "number": 5,
+              "seconds": 1.827821
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.436687,
+          "entrySpeedKph": 38.718722,
+          "exitSpeedKph": 23.564727,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.782241
+            },
+            {
+              "number": 7,
+              "seconds": 2.19717
+            },
+            {
+              "number": 8,
+              "seconds": 2.389096
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.563344,
+          "entrySpeedKph": 32.934998,
+          "exitSpeedKph": 29.205682,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.937057
+            },
+            {
+              "number": 10,
+              "seconds": 2.606196
+            },
+            {
+              "number": 11,
+              "seconds": 2.579426
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "T6-T7-T8 offset -0.45m / phase -2m",
+      "adjustment": {
+        "complexId": "T9-T10-T11",
+        "offsetMeters": -0.45,
+        "phaseMeters": 2
+      }
+    },
+    {
+      "name": "T9-T10-T11 offset +0.45m / phase -2m",
+      "feasible": true,
+      "lapSeconds": 45.933333,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 10.96471,
+          "entrySpeedKph": 26.915282,
+          "exitSpeedKph": 20.42465,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.339997
+            },
+            {
+              "number": 2,
+              "seconds": 1.8021
+            },
+            {
+              "number": 3,
+              "seconds": 3.0605
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.352041,
+          "entrySpeedKph": 33.563785,
+          "exitSpeedKph": 20.42465,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.8021
+            },
+            {
+              "number": 3,
+              "seconds": 3.0605
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.943275,
+          "entrySpeedKph": 27.916661,
+          "exitSpeedKph": 33.583372,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.603025
+            },
+            {
+              "number": 5,
+              "seconds": 1.827868
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.434597,
+          "entrySpeedKph": 38.714234,
+          "exitSpeedKph": 23.562095,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.782348
+            },
+            {
+              "number": 7,
+              "seconds": 2.196279
+            },
+            {
+              "number": 8,
+              "seconds": 2.38838
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.694652,
+          "entrySpeedKph": 32.692554,
+          "exitSpeedKph": 28.967082,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.940196
+            },
+            {
+              "number": 10,
+              "seconds": 2.795571
+            },
+            {
+              "number": 11,
+              "seconds": 2.562321
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "T6-T7-T8 offset -0.45m / phase -2m",
+      "adjustment": {
+        "complexId": "T9-T10-T11",
+        "offsetMeters": 0.45,
+        "phaseMeters": -2
+      }
+    },
+    {
+      "name": "T9-T10-T11 offset +0.45m / phase +2m",
+      "feasible": true,
+      "lapSeconds": 45.933333,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 10.964173,
+          "entrySpeedKph": 26.911585,
+          "exitSpeedKph": 20.432181,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.340131
+            },
+            {
+              "number": 2,
+              "seconds": 1.802056
+            },
+            {
+              "number": 3,
+              "seconds": 3.060212
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.351181,
+          "entrySpeedKph": 33.566916,
+          "exitSpeedKph": 20.432181,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.802056
+            },
+            {
+              "number": 3,
+              "seconds": 3.060212
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.942743,
+          "entrySpeedKph": 27.916299,
+          "exitSpeedKph": 33.596129,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.602819
+            },
+            {
+              "number": 5,
+              "seconds": 1.827767
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.436534,
+          "entrySpeedKph": 38.719949,
+          "exitSpeedKph": 23.564746,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.782104
+            },
+            {
+              "number": 7,
+              "seconds": 2.197102
+            },
+            {
+              "number": 8,
+              "seconds": 2.389099
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.685705,
+          "entrySpeedKph": 32.723124,
+          "exitSpeedKph": 28.91179,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.943675
+            },
+            {
+              "number": 10,
+              "seconds": 2.794697
+            },
+            {
+              "number": 11,
+              "seconds": 2.556071
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "T6-T7-T8 offset -0.45m / phase -2m",
+      "adjustment": {
+        "complexId": "T9-T10-T11",
+        "offsetMeters": 0.45,
+        "phaseMeters": 2
+      }
+    }
+  ]
+}

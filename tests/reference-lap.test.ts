@@ -26,8 +26,7 @@ describe('Executable Reference Lap', () => {
       const state = session.step(1 / 120, replay.commands[i]);
       const observed = replay.frames[i + 1].kart;
       expect(state.kart.barrierContact).toBe(false);
-      expect(state.kart.position.x).toBeCloseTo(observed.position.x, 8);
-      expect(state.kart.position.z).toBeCloseTo(observed.position.z, 8);
+      expect(state.kart).toEqual(observed);
       expect(state.kart.speedKph).toBeLessThanOrEqual(45);
     }
     const finished = session.getSnapshot();

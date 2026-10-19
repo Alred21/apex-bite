@@ -39,6 +39,7 @@ import {
   FIXED_TIMESTEP_SECONDS,
   MAX_KART_SPEED_MPS,
   FLYING_START_SPEED_MPS,
+  FLYING_START_APPROACH_METERS,
   WHEELBASE_METERS,
 } from './kart-parameters';
 import { stepKartOnCircuit } from './kart-world';
@@ -253,7 +254,7 @@ export function createSimulationSession(
   const circuit = buildK1TorontoCircuit();
   const reference = buildReferenceLap(circuit);
   const referenceApexTargets = new Map(circuit.turns.map((turn) => [turn.number, referenceApexTarget(circuit, reference, turn.number)]));
-  const flyingStartState = referenceStateAtDistance(reference, circuit.totalLengthMeters - 13.5);
+  const flyingStartState = referenceStateAtDistance(reference, circuit.totalLengthMeters - FLYING_START_APPROACH_METERS);
   const baseProfile = evaluateLiveRacingLine(circuit, 0, FLYING_START_SPEED_MPS, true);
   const drillCatalog = buildDrillTargetCatalog(circuit, baseProfile.points);
 

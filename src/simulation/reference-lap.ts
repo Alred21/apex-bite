@@ -1,3 +1,4 @@
+import { insideFrontTirePosition } from './kart-geometry';
 import type { CircuitData, KartState, RacingLinePoint, Vector2D } from './types';
 import { buildPriorLineProposal } from './prior-line-proposal';
 import type { KartCommand } from './kart-dynamics';
@@ -206,9 +207,5 @@ export function referencePoseAtTime(reference: ReferenceReplay, seconds: number)
 export function referenceApexTarget(circuit: CircuitData, reference: ReferenceReplay, turnNumber: number): Vector2D {
   const turn = circuit.turns[turnNumber - 1];
   const kart = referenceStateAtDistance(reference, turn.apexDistanceMeters);
-  const side = turn.direction === 'Right' ? 1 : -1;
-  return {
-    x: kart.position.x + Math.cos(kart.headingRad) * WHEELBASE_METERS * 0.5 - Math.sin(kart.headingRad) * side * 0.42,
-    z: kart.position.z + Math.sin(kart.headingRad) * WHEELBASE_METERS * 0.5 + Math.cos(kart.headingRad) * side * 0.42,
-  };
+  return insideFrontTirePosition(kart, turn.direction);
 }

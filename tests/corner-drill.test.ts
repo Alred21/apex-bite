@@ -53,7 +53,7 @@ describe('Ticket #7 — Corner Drill Mode: Flying Entry, Instant Reset, Corner E
     expect(snapComplex.drill.target.turns).toEqual([6, 7, 8]);
   });
 
-  it('produces an Optimal Pass Corner Execution Card and persists Personal Best when following the Racing Line through a drill', () => {
+  it('produces a Matched Reference Corner Execution Card and persists Personal Best when following the Racing Line through a drill', () => {
     const storage = createMemoryStorage();
     const session = createSimulationSession({ storage });
     session.selectDrillTarget('T3');
@@ -78,7 +78,7 @@ describe('Ticket #7 — Corner Drill Mode: Flying Entry, Instant Reset, Corner E
       completedCard!.segmentTimeSeconds,
       3,
     );
-    expect(completedCard!.coachingCategory).toBe('Optimal Pass');
+    expect(completedCard!.coachingCategory).toBe('Matched Reference');
     expect(completedCard!.coachingInsight.length).toBeGreaterThan(15);
 
     // Verify drill personal best round-trips through JSON export/import
@@ -94,7 +94,7 @@ describe('Ticket #7 — Corner Drill Mode: Flying Entry, Instant Reset, Corner E
   it('reports low measured speed and invalidates a wide pass that physically hits a Barrier', () => {
     const session = createSimulationSession();
 
-    // 1. Over-Slowed Entry: brake heavily in the middle of Turn 1 while still hugging the inside apex
+    // 1. Below Reference Speed: brake heavily in the middle of Turn 1 while still hugging the inside apex
     session.selectDrillTarget('T1');
     let cardOverSlowed = null;
     let ticks = 0;
@@ -128,10 +128,10 @@ describe('Ticket #7 — Corner Drill Mode: Flying Entry, Instant Reset, Corner E
     }
 
     expect(cardOverSlowed).not.toBeNull();
-    expect(cardOverSlowed!.coachingCategory).toBe('Over-Slowed Entry');
-    expect(cardOverSlowed!.coachingInsight).toMatch(/Over-Slowed Entry/i);
+    expect(cardOverSlowed!.coachingCategory).toBe('Below Reference Speed');
+    expect(cardOverSlowed!.coachingInsight).toMatch(/minimum speed.*Reference Lap/i);
 
-    // 2. Late Braking Overshoot: stay wide (1.3m outside the Racing Line) with high entry speed through Turn 4
+    // 2. A wide line is not proof of a braking cause: stay wide (1.3m outside the Racing Line) with high entry speed through Turn 4
     session.selectDrillTarget('T4');
     // Clear previous card by checking when a new T4 card arrives
     let cardLateBrake = null;

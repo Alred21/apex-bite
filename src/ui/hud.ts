@@ -150,7 +150,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
             <div class="exec-card-eyebrow">CORNER EXECUTION CARD</div>
             <div class="exec-card-title" id="hud-exec-title">Turn 3 (Center Hairpin Left)</div>
           </div>
-          <span class="exec-category-badge" id="hud-exec-category">Optimal Pass</span>
+          <span class="exec-category-badge" id="hud-exec-category">Awaiting Pass</span>
         </div>
 
         <div class="exec-metrics-grid">
@@ -162,7 +162,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
           <div class="exec-metric">
             <span class="exec-metric-label">APEX PROXIMITY</span>
             <strong class="exec-metric-val" id="hud-exec-apex">-- cm</strong>
-            <span class="exec-metric-sub">Inside Front Tire</span>
+            <span class="exec-metric-sub">Inside Front Tire · Largest Offset</span>
           </div>
           <div class="exec-metric">
             <span class="exec-metric-label">ENTRY / MIN / EXIT</span>
@@ -171,6 +171,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
           </div>
         </div>
 
+        <div id="hud-exec-turn-proximities" class="exec-metric-sub"></div>
         <div class="exec-coaching-box" id="hud-exec-insight">
           Complete a pass through the selected Turn or Corner Complex to generate a Coaching Insight.
         </div>
@@ -341,6 +342,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
   const execApexEl = root.querySelector<HTMLElement>('#hud-exec-apex')!;
   const execSpeedsEl = root.querySelector<HTMLElement>('#hud-exec-speeds')!;
   const execTargetSpeedsEl = root.querySelector<HTMLElement>('#hud-exec-target-speeds')!;
+  const execTurnProximities = root.querySelector<HTMLElement>('#hud-exec-turn-proximities')!;
   const execInsightEl = root.querySelector<HTMLElement>('#hud-exec-insight')!;
 
   const turnBadge = root.querySelector<HTMLElement>('#hud-turn-badge')!;
@@ -634,7 +636,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
         execTitleEl.textContent = `${card.targetLabel} · Run #${card.runNumber}`;
         execCategoryEl.textContent = card.coachingCategory;
         execCategoryEl.className = `exec-category-badge ${
-          card.coachingCategory === 'Optimal Pass' ? 'cat-optimal' : 'cat-warn'
+          (card.coachingCategory === 'Matched Reference' || card.coachingCategory === 'Clean Faster Pass') ? 'cat-optimal' : 'cat-warn'
         }`;
         execTimeEl.textContent = `${card.segmentTimeSeconds.toFixed(3)}s`;
         const dSign = card.deltaToBenchmarkSeconds >= 0 ? '+' : '';
@@ -642,14 +644,16 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
           card.deltaToPersonalBestSeconds !== null
             ? ` · ${card.deltaToPersonalBestSeconds >= 0 ? '+' : ''}${card.deltaToPersonalBestSeconds.toFixed(3)}s vs PB`
             : '';
-        execDeltaEl.textContent = `${dSign}${card.deltaToBenchmarkSeconds.toFixed(3)}s vs REC${pbDeltaStr}`;
-        execApexEl.textContent = `${card.apexProximityCm.toFixed(0)} cm`;
+        execDeltaEl.textContent = `${dSign}${card.deltaToBenchmarkSeconds.toFixed(3)}s vs REFERENCE${pbDeltaStr}`;
+        execApexEl.textContent = card.apexProximityCm === null ? 'Not observed' : `${card.apexProximityCm.toFixed(0)} cm`;
         execApexEl.style.color =
-          card.apexProximityCm <= 50 ? 'var(--accent-green)' : 'var(--accent-amber)';
+          card.apexProximityCm !== null && card.apexProximityCm <= 50 ? 'var(--accent-green)' : 'var(--accent-amber)';
         execSpeedsEl.textContent = `${card.entrySpeedKph.toFixed(1)} / ${card.minApexSpeedKph.toFixed(1)} / ${card.exitSpeedKph.toFixed(1)}`;
         execTargetSpeedsEl.textContent = `Target: ${card.targetEntrySpeedKph.toFixed(1)} / ${card.targetMinApexSpeedKph.toFixed(1)} / ${card.targetExitSpeedKph.toFixed(1)} km/h`;
+        execTurnProximities.textContent = card.turnApexProximities.map((turn) => `T${turn.turnNumber}: ${turn.distanceCm === null ? 'not observed' : `${turn.distanceCm.toFixed(0)} cm${turn.distanceCm > 50 ? ' · target missed' : ''}`}`).join(' | ');
         execInsightEl.textContent = card.coachingInsight;
       } else {
+        execTurnProximities.textContent = '';
         execTitleEl.textContent = `${drill.target.label} (Flying Entry Ready)`;
         execCategoryEl.textContent = 'Awaiting Pass';
         execCategoryEl.className = 'exec-category-badge';

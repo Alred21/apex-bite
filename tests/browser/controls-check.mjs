@@ -7,7 +7,7 @@ const { chromium } = await import(process.env.APEX_BITE_PLAYWRIGHT_MODULE ?? "pl
 const outputDirectory = process.env.APEX_BITE_CONTROLS_EVIDENCE ?? join(tmpdir(), "apex-bite-controls-evidence");
 await mkdir(outputDirectory, { recursive: true });
 const baseUrl = process.env.APEX_BITE_TEST_URL ?? "http://127.0.0.1:5195";
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true, executablePath: process.env.APEX_BITE_CHROMIUM_EXECUTABLE });
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   const errors = [];

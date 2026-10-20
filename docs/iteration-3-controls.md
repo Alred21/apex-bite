@@ -18,7 +18,7 @@ Approved seam: actual browser controls adapter and HUD, producing inputs for the
 - Green: **31 browser checks** passed in isolated Chromium, including all four remapped actions, live hints, conflicts/current owner, reserved/unsupported/modifier rejection, Escape/Tab, removed aliases, default restoration, reset/mode retention, gamepad independence, old/new repeated holds, ordinary form typing, actual bootstrap wiring, and the existing settings/data/results close/cancel/restart focus suite.
 - Remapped F's first progressive pressure was `0.0378788`; default Space still engaged deliberate reverse at `8 km/h` (within floating-point tolerance). Holding a secondary Brake/Reverse alias after releasing the primary held the stopped Kart without reversing. No page errors.
 - Visually inspected settings screenshots at 1440 × 1000 and actual application settings at 1280 × 800. The native dialog scrolls at shorter viewport heights; controls and close action remain reachable.
-- Complete headless suite: **68 tests passed** across 14 files. Type checking and production build passed, with the existing Vite chunk-size advisory.
+- After merging integration `1830ecc` (driver and hairpin work), the complete headless suite passed **71 tests** across 15 files and all 31 browser checks remained green. Type checking and production build passed, with the existing Vite chunk-size advisory.
 
 Durable browser harness: `tests/browser/controls.html`. The portable launcher `tests/browser/controls-check.mjs` uses an existing Playwright installation and defaults to a Vite server at `http://127.0.0.1:5195`:
 
@@ -28,4 +28,4 @@ npm run dev -- --host 127.0.0.1 --port 5195 --strictPort
 node tests/browser/controls-check.mjs
 ```
 
-Optional environment settings: `APEX_BITE_PLAYWRIGHT_MODULE` for an installed module entrypoint, `APEX_BITE_TEST_URL` for the server URL, and `APEX_BITE_CONTROLS_EVIDENCE` for screenshots/JSON. Default artifacts go to the OS temp directory under `apex-bite-controls-evidence`. This session's artifacts are also retained in `/tmp/apex-bite-iteration-3-context/` for integration review.
+Optional environment settings: `APEX_BITE_PLAYWRIGHT_MODULE` for an installed module entrypoint, `APEX_BITE_CHROMIUM_EXECUTABLE` for a browser executable override, `APEX_BITE_TEST_URL` for the server URL, and `APEX_BITE_CONTROLS_EVIDENCE` for screenshots/JSON. Default artifacts go to the OS temp directory under `apex-bite-controls-evidence`. This session's artifacts are also retained in `/tmp/apex-bite-iteration-3-context/` for integration review.

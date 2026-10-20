@@ -1,0 +1,851 @@
+{
+  "selected": {
+    "name": "T3 entry/apex/exit width 0.45 / apex +1m",
+    "feasible": true,
+    "lapSeconds": 45.583333333333336,
+    "reason": null,
+    "complexes": [
+      {
+        "id": "T1-T3",
+        "seconds": 10.760989724276817,
+        "entrySpeedKph": 26.92099466220731,
+        "exitSpeedKph": 20.667313416590783,
+        "turns": [
+          {
+            "number": 1,
+            "seconds": 2.340073291929169
+          },
+          {
+            "number": 2,
+            "seconds": 1.8019205204426143
+          },
+          {
+            "number": 3,
+            "seconds": 2.845921531206262
+          }
+        ]
+      },
+      {
+        "id": "T2-T3",
+        "seconds": 6.148327034754632,
+        "entrySpeedKph": 33.55806336226908,
+        "exitSpeedKph": 20.667313416590783,
+        "turns": [
+          {
+            "number": 2,
+            "seconds": 1.8019205204426143
+          },
+          {
+            "number": 3,
+            "seconds": 2.845921531206262
+          }
+        ]
+      },
+      {
+        "id": "T4-T5",
+        "seconds": 4.942728927507233,
+        "entrySpeedKph": 27.917168889843104,
+        "exitSpeedKph": 33.59591766883414,
+        "turns": [
+          {
+            "number": 4,
+            "seconds": 2.602801029935268
+          },
+          {
+            "number": 5,
+            "seconds": 1.8277672043357178
+          }
+        ]
+      },
+      {
+        "id": "T6-T7-T8",
+        "seconds": 6.436289353541383,
+        "entrySpeedKph": 38.71985568957289,
+        "exitSpeedKph": 23.56453063424633,
+        "turns": [
+          {
+            "number": 6,
+            "seconds": 1.7821755061482634
+          },
+          {
+            "number": 7,
+            "seconds": 2.1971684664987308
+          },
+          {
+            "number": 8,
+            "seconds": 2.388906767713287
+          }
+        ]
+      },
+      {
+        "id": "T9-T10-T11",
+        "seconds": 12.555497203615118,
+        "entrySpeedKph": 32.9564838824526,
+        "exitSpeedKph": 29.130999985159203,
+        "turns": [
+          {
+            "number": 9,
+            "seconds": 1.9401048293897176
+          },
+          {
+            "number": 10,
+            "seconds": 2.6052821655059972
+          },
+          {
+            "number": 11,
+            "seconds": 2.573211149403356
+          }
+        ]
+      }
+    ],
+    "basisCandidate": "T9-T10-T11 offset -0.45m / phase -2m",
+    "turnPlacement": {
+      "turnNumber": 3,
+      "requestedApexDistanceMeters": 88.93237820739812,
+      "widthUse": 0.45,
+      "achievedApexDistanceMeters": 87.17350420832535,
+      "insideTireClearanceMeters": 1.533373276497059
+    }
+  },
+  "comparisons": [
+    {
+      "name": "T9-T10-T11 offset -0.45m / phase -2m",
+      "lapSeconds": 45.791666666666664,
+      "complexSeconds": 6.351161144437894,
+      "turnSeconds": 3.059933612938714,
+      "exitSpeedKph": 20.425763098468572,
+      "apexStationMeters": 83.15787717221926,
+      "insideTireBarrierDistanceMeters": 1.9288677712776632,
+      "sampledWholeKartSurfaceClearanceMeters": 1.6238747288031061,
+      "closure": {
+        "positionMeters": 0.000034540838718156,
+        "headingRad": 0.0000011595827409394133,
+        "speedMps": 5.847661554980732e-8,
+        "yawRateRadPerSecond": 0.000001014706227264739
+      }
+    },
+    {
+      "name": "T3 entry/apex/exit width 0.45 / apex +1m",
+      "lapSeconds": 45.583333333333336,
+      "complexSeconds": 6.148327034754632,
+      "turnSeconds": 2.845921531206262,
+      "exitSpeedKph": 20.667313416590783,
+      "apexStationMeters": 87.17350420832535,
+      "insideTireBarrierDistanceMeters": 1.533373276497059,
+      "sampledWholeKartSurfaceClearanceMeters": 1.1803707600261677,
+      "closure": {
+        "positionMeters": 0.005000748470813501,
+        "headingRad": 0.0001687116293513924,
+        "speedMps": 0.0023399837971478377,
+        "yawRateRadPerSecond": 0.00015323520774984667
+      }
+    },
+    {
+      "name": "T3 entry/apex/exit width 0.45 / apex +3m",
+      "lapSeconds": 45.6,
+      "complexSeconds": 6.118005498737068,
+      "turnSeconds": 2.8176500775524183,
+      "exitSpeedKph": 22.01758730276928,
+      "apexStationMeters": 90.5063680494447,
+      "insideTireBarrierDistanceMeters": 1.5345095989220625,
+      "sampledWholeKartSurfaceClearanceMeters": 1.1893756801297681,
+      "closure": {
+        "positionMeters": 0.00004192836578293764,
+        "headingRad": 0.0000014075972707416895,
+        "speedMps": 7.098255494497607e-8,
+        "yawRateRadPerSecond": 0.000001231703822823782
+      }
+    }
+  ],
+  "repeatedReplay": {
+    "barrierContacts": 0,
+    "completedLaps": 11,
+    "status": "Driving"
+  },
+  "candidates": [
+    {
+      "name": "T3 entry/apex/exit width 0.45 / apex -1.5m",
+      "feasible": true,
+      "lapSeconds": 45.825,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 10.983853183592707,
+          "entrySpeedKph": 26.917980381339763,
+          "exitSpeedKph": 20.284573054434617,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.3404179529873668
+            },
+            {
+              "number": 2,
+              "seconds": 1.802009812323858
+            },
+            {
+              "number": 3,
+              "seconds": 2.9667601428421335
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.370751904706831,
+          "entrySpeedKph": 33.556461774575304,
+          "exitSpeedKph": 20.284573054434617,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.802009812323858
+            },
+            {
+              "number": 3,
+              "seconds": 2.9667601428421335
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.942825282061346,
+          "entrySpeedKph": 27.900981595709666,
+          "exitSpeedKph": 33.61602792459954,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.602449032158937
+            },
+            {
+              "number": 5,
+              "seconds": 1.8278284233747932
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.436900172538522,
+          "entrySpeedKph": 38.725959773765034,
+          "exitSpeedKph": 23.561576019564786,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.7820354749860563
+            },
+            {
+              "number": 7,
+              "seconds": 2.1972361415612696
+            },
+            {
+              "number": 8,
+              "seconds": 2.389563374355692
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.557514385745058,
+          "entrySpeedKph": 32.9611366783237,
+          "exitSpeedKph": 29.12629349387291,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.9402808079163165
+            },
+            {
+              "number": 10,
+              "seconds": 2.6063428600571044
+            },
+            {
+              "number": 11,
+              "seconds": 2.573324411317955
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "T9-T10-T11 offset -0.45m / phase -2m",
+      "turnPlacement": {
+        "turnNumber": 3,
+        "requestedApexDistanceMeters": 86.43237820739812,
+        "widthUse": 0.45,
+        "achievedApexDistanceMeters": 85.31159257993826,
+        "insideTireClearanceMeters": 1.495427520882691
+      }
+    },
+    {
+      "name": "T3 entry/apex/exit width 0.45 / apex +1m",
+      "feasible": true,
+      "lapSeconds": 45.583333333333336,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 10.760989724276817,
+          "entrySpeedKph": 26.92099466220731,
+          "exitSpeedKph": 20.667313416590783,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.340073291929169
+            },
+            {
+              "number": 2,
+              "seconds": 1.8019205204426143
+            },
+            {
+              "number": 3,
+              "seconds": 2.845921531206262
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.148327034754632,
+          "entrySpeedKph": 33.55806336226908,
+          "exitSpeedKph": 20.667313416590783,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.8019205204426143
+            },
+            {
+              "number": 3,
+              "seconds": 2.845921531206262
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.942728927507233,
+          "entrySpeedKph": 27.917168889843104,
+          "exitSpeedKph": 33.59591766883414,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.602801029935268
+            },
+            {
+              "number": 5,
+              "seconds": 1.8277672043357178
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.436289353541383,
+          "entrySpeedKph": 38.71985568957289,
+          "exitSpeedKph": 23.56453063424633,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.7821755061482634
+            },
+            {
+              "number": 7,
+              "seconds": 2.1971684664987308
+            },
+            {
+              "number": 8,
+              "seconds": 2.388906767713287
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.555497203615118,
+          "entrySpeedKph": 32.9564838824526,
+          "exitSpeedKph": 29.130999985159203,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.9401048293897176
+            },
+            {
+              "number": 10,
+              "seconds": 2.6052821655059972
+            },
+            {
+              "number": 11,
+              "seconds": 2.573211149403356
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "T9-T10-T11 offset -0.45m / phase -2m",
+      "turnPlacement": {
+        "turnNumber": 3,
+        "requestedApexDistanceMeters": 88.93237820739812,
+        "widthUse": 0.45,
+        "achievedApexDistanceMeters": 87.17350420832535,
+        "insideTireClearanceMeters": 1.533373276497059
+      }
+    },
+    {
+      "name": "T3 entry/apex/exit width 0.45 / apex +3m",
+      "feasible": true,
+      "lapSeconds": 45.6,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 10.731110295209652,
+          "entrySpeedKph": 26.91818419962309,
+          "exitSpeedKph": 22.01758730276928,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.340420794596519
+            },
+            {
+              "number": 2,
+              "seconds": 1.8020103678707882
+            },
+            {
+              "number": 3,
+              "seconds": 2.8176500775524183
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.118005498737068,
+          "entrySpeedKph": 33.55661924291892,
+          "exitSpeedKph": 22.01758730276928,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.8020103678707882
+            },
+            {
+              "number": 3,
+              "seconds": 2.8176500775524183
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.942705485381392,
+          "entrySpeedKph": 27.909429356414385,
+          "exitSpeedKph": 33.61702876013258,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.6023470087685467
+            },
+            {
+              "number": 5,
+              "seconds": 1.8278273512727452
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.436708522297028,
+          "entrySpeedKph": 38.72641133979758,
+          "exitSpeedKph": 23.561356924759338,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.7820910722372538
+            },
+            {
+              "number": 7,
+              "seconds": 2.197234158336059
+            },
+            {
+              "number": 8,
+              "seconds": 2.3894825943693725
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.55757243556858,
+          "entrySpeedKph": 32.961606892291584,
+          "exitSpeedKph": 29.12657009332783,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.9402817076956893
+            },
+            {
+              "number": 10,
+              "seconds": 2.606312848095847
+            },
+            {
+              "number": 11,
+              "seconds": 2.5733177501708226
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "T9-T10-T11 offset -0.45m / phase -2m",
+      "turnPlacement": {
+        "turnNumber": 3,
+        "requestedApexDistanceMeters": 90.93237820739812,
+        "widthUse": 0.45,
+        "achievedApexDistanceMeters": 90.5063680494447,
+        "insideTireClearanceMeters": 1.5345095989220625
+      }
+    },
+    {
+      "name": "T3 entry/apex/exit width 0.7 / apex -1.5m",
+      "feasible": true,
+      "lapSeconds": 46.00833333333333,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 11.145263006532723,
+          "entrySpeedKph": 26.921006903605836,
+          "exitSpeedKph": 19.976147816500642,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.3400734602032243
+            },
+            {
+              "number": 2,
+              "seconds": 1.801920553001188
+            },
+            {
+              "number": 3,
+              "seconds": 2.9376768360898318
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.532600108297626,
+          "entrySpeedKph": 33.558072796158875,
+          "exitSpeedKph": 19.976147816500642,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.801920553001188
+            },
+            {
+              "number": 3,
+              "seconds": 2.9376768360898318
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.942308665018958,
+          "entrySpeedKph": 27.91477500273993,
+          "exitSpeedKph": 33.59913031843648,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.60243492450139
+            },
+            {
+              "number": 5,
+              "seconds": 1.8277634974131836
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.436446030960305,
+          "entrySpeedKph": 38.72127919974398,
+          "exitSpeedKph": 23.562098418884748,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.7821680702181872
+            },
+            {
+              "number": 7,
+              "seconds": 2.197098199728252
+            },
+            {
+              "number": 8,
+              "seconds": 2.3891392801483384
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.555752997607943,
+          "entrySpeedKph": 32.95320124119867,
+          "exitSpeedKph": 29.141790916232065,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.939982248752532
+            },
+            {
+              "number": 10,
+              "seconds": 2.6053569017248464
+            },
+            {
+              "number": 11,
+              "seconds": 2.5734357118119107
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "T9-T10-T11 offset -0.45m / phase -2m",
+      "turnPlacement": {
+        "turnNumber": 3,
+        "requestedApexDistanceMeters": 86.43237820739812,
+        "widthUse": 0.7,
+        "achievedApexDistanceMeters": 85.30876301006445,
+        "insideTireClearanceMeters": 1.1220482609642142
+      }
+    },
+    {
+      "name": "T3 entry/apex/exit width 0.7 / apex +1m",
+      "feasible": false,
+      "lapSeconds": null,
+      "reason": "Requested local curvature exceeds the Kart steering range.",
+      "basisCandidate": "T9-T10-T11 offset -0.45m / phase -2m",
+      "turnPlacement": {
+        "turnNumber": 3,
+        "requestedApexDistanceMeters": 88.93237820739812,
+        "widthUse": 0.7
+      }
+    },
+    {
+      "name": "T3 entry/apex/exit width 0.7 / apex +3m",
+      "feasible": true,
+      "lapSeconds": 45.81666666666666,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 10.754433927253277,
+          "entrySpeedKph": 26.912632884731632,
+          "exitSpeedKph": 21.380894490803527,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.3404130806642645
+            },
+            {
+              "number": 2,
+              "seconds": 1.8021328864400266
+            },
+            {
+              "number": 3,
+              "seconds": 2.7272192087679894
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.141246305871845,
+          "entrySpeedKph": 33.56531695800279,
+          "exitSpeedKph": 21.380894490803527,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.8021328864400266
+            },
+            {
+              "number": 3,
+              "seconds": 2.7272192087679894
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.942563551213169,
+          "entrySpeedKph": 27.904785952491505,
+          "exitSpeedKph": 33.61949036243685,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.60249739798002
+            },
+            {
+              "number": 5,
+              "seconds": 1.8274179232901098
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.437674519247349,
+          "entrySpeedKph": 38.72059032525711,
+          "exitSpeedKph": 23.56156895754085,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.7823346490617595
+            },
+            {
+              "number": 7,
+              "seconds": 2.1973939757838004
+            },
+            {
+              "number": 8,
+              "seconds": 2.3896843575595135
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.557587381558324,
+          "entrySpeedKph": 32.96117174609557,
+          "exitSpeedKph": 29.12747454902725,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.940280872263397
+            },
+            {
+              "number": 10,
+              "seconds": 2.6063406429819267
+            },
+            {
+              "number": 11,
+              "seconds": 2.5732959811283678
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "T9-T10-T11 offset -0.45m / phase -2m",
+      "turnPlacement": {
+        "turnNumber": 3,
+        "requestedApexDistanceMeters": 90.93237820739812,
+        "widthUse": 0.7,
+        "achievedApexDistanceMeters": 90.19246304137774,
+        "insideTireClearanceMeters": 1.1704725616557878
+      }
+    },
+    {
+      "name": "T3 entry/apex/exit width 0.9 / apex -1.5m",
+      "feasible": false,
+      "lapSeconds": null,
+      "reason": "Requested local curvature exceeds the Kart steering range.",
+      "basisCandidate": "T9-T10-T11 offset -0.45m / phase -2m",
+      "turnPlacement": {
+        "turnNumber": 3,
+        "requestedApexDistanceMeters": 86.43237820739812,
+        "widthUse": 0.9
+      }
+    },
+    {
+      "name": "T3 entry/apex/exit width 0.9 / apex +1m",
+      "feasible": false,
+      "lapSeconds": null,
+      "reason": "Requested local curvature exceeds the Kart steering range.",
+      "basisCandidate": "T9-T10-T11 offset -0.45m / phase -2m",
+      "turnPlacement": {
+        "turnNumber": 3,
+        "requestedApexDistanceMeters": 88.93237820739812,
+        "widthUse": 0.9
+      }
+    },
+    {
+      "name": "T3 entry/apex/exit width 0.9 / apex +3m",
+      "feasible": true,
+      "lapSeconds": 46.05,
+      "reason": null,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 10.86369482816207,
+          "entrySpeedKph": 26.921234417827968,
+          "exitSpeedKph": 21.00137527568921,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.340076587976903
+            },
+            {
+              "number": 2,
+              "seconds": 1.8036750907105228
+            },
+            {
+              "number": 3,
+              "seconds": 2.675901585049832
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.251028050575159,
+          "entrySpeedKph": 33.558248128224704,
+          "exitSpeedKph": 21.00137527568921,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.8036750907105228
+            },
+            {
+              "number": 3,
+              "seconds": 2.675901585049832
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.942166316993697,
+          "entrySpeedKph": 27.911205428611698,
+          "exitSpeedKph": 33.60161601044856,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.6023932295846652
+            },
+            {
+              "number": 5,
+              "seconds": 1.8277126710957887
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.436953379763054,
+          "entrySpeedKph": 38.71386469020677,
+          "exitSpeedKph": 23.563750782489475,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.7824205334808312
+            },
+            {
+              "number": 7,
+              "seconds": 2.1973390882152586
+            },
+            {
+              "number": 8,
+              "seconds": 2.3892557120094757
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.55548016663722,
+          "entrySpeedKph": 32.963094297073056,
+          "exitSpeedKph": 29.150407091764727,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.9395578955208101
+            },
+            {
+              "number": 10,
+              "seconds": 2.6054669839520486
+            },
+            {
+              "number": 11,
+              "seconds": 2.573123962360782
+            }
+          ]
+        }
+      ],
+      "basisCandidate": "T9-T10-T11 offset -0.45m / phase -2m",
+      "turnPlacement": {
+        "turnNumber": 3,
+        "requestedApexDistanceMeters": 90.93237820739812,
+        "widthUse": 0.9,
+        "achievedApexDistanceMeters": 90.12062284130893,
+        "insideTireClearanceMeters": 0.8855362440745442
+      }
+    }
+  ]
+}

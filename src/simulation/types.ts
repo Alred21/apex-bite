@@ -162,6 +162,10 @@ export interface ReferenceCandidateEvidence {
   complexes?: ReferenceComplexEvidence[];
   basisCandidate?: string;
   adjustment?: { complexId: string; offsetMeters: number; phaseMeters: number };
+  turnPlacement?: {
+    turnNumber: number; requestedApexDistanceMeters: number; widthUse: number;
+    achievedApexDistanceMeters?: number; insideTireClearanceMeters?: number;
+  };
 }
 
 export interface RacingLineState {

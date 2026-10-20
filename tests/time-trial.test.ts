@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { driveReference } from './reference-driver';
 import { createSimulationSession, SimulationSession } from '../src/simulation/session';
 
 /**
@@ -6,47 +7,9 @@ import { createSimulationSession, SimulationSession } from '../src/simulation/se
  * without touching Barriers.
  */
 function driveAlongRacingLine(
-  session: SimulationSession,
-  maxSteps: number,
-  speedScale = 0.9,
-  stopOnLapNumber?: number,
+  session: SimulationSession, maxSteps: number, speedScale = 1, stopOnLapNumber?: number,
 ): ReturnType<SimulationSession['getSnapshot']> {
-  let snap = session.getSnapshot();
-  for (let i = 0; i < maxSteps; i++) {
-    const pts = snap.racingLine.points;
-    const samples = snap.circuit.samples;
-    const n = pts.length;
-    const curIdx = Math.floor(snap.kart.lapProgress * n) % n;
-    const curPt = pts[curIdx];
-    const lookPt = pts[(curIdx + 2) % n];
-    const lookSample = samples[(curIdx + 2) % n];
-    const futurePt = pts[(curIdx + 8) % n];
-
-    // Blend racing line point with slight safety margin from inside barrier on tight hairpins
-    const targetX = lookPt.position.x * 0.75 + lookSample.center.x * 0.25;
-    const targetZ = lookPt.position.z * 0.75 + lookSample.center.z * 0.25;
-
-    const dx = targetX - snap.kart.position.x;
-    const dz = targetZ - snap.kart.position.z;
-    const desiredHeading = Math.atan2(dz, dx);
-    let headingErr = desiredHeading - snap.kart.headingRad;
-    while (headingErr > Math.PI) headingErr -= 2 * Math.PI;
-    while (headingErr < -Math.PI) headingErr += 2 * Math.PI;
-
-    const steer = Math.max(-1, Math.min(1, headingErr * 3.2));
-    const targetSpeed =
-      Math.min(curPt.targetSpeedMps, lookPt.targetSpeedMps, futurePt.targetSpeedMps) *
-      speedScale;
-    const speedErr = targetSpeed - snap.kart.speedMps;
-    const throttle = speedErr > -0.1 ? 1.0 : 0.0;
-    const brake = speedErr < -0.25 ? Math.min(0.85, -speedErr * 0.55) : 0.0;
-
-    snap = session.step(1 / 120, { throttle, brake, steer });
-    if (stopOnLapNumber !== undefined && snap.lap.lapNumber >= stopOnLapNumber) {
-      break;
-    }
-  }
-  return snap;
+  return driveReference(session, maxSteps, speedScale, stopOnLapNumber);
 }
 
 describe('Ticket #6: Time Trial Mode — Flying Start, Sector Splits, Time-Delta Bar, Ghost Kart & Persistence', () => {
@@ -57,8 +20,8 @@ describe('Ticket #6: Time Trial Mode — Flying Start, Sector Splits, Time-Delta
     expect(initial.mode).toBe('Time Trial');
     expect(initial.kart.speedKph).toBeGreaterThanOrEqual(34.0);
     expect(initial.kart.speedKph).toBeLessThanOrEqual(38.0);
-    expect(initial.kart.lapDistanceMeters).toBeGreaterThan(230);
-    expect(initial.kart.lapDistanceMeters).toBeLessThan(244);
+    expect(initial.kart.lapDistanceMeters).toBeGreaterThan(initial.circuit.totalLengthMeters - 18);
+    expect(initial.kart.lapDistanceMeters).toBeLessThan(initial.circuit.totalLengthMeters - 8);
 
     // Drive across the checkered Start/Finish line into timed Lap 1
     const afterStart = driveAlongRacingLine(session, 240, 1.0, 1);
@@ -71,12 +34,12 @@ describe('Ticket #6: Time Trial Mode — Flying Start, Sector Splits, Time-Delta
 
     // Cross start/finish into Lap 1, then complete full Lap 1 into Lap 2
     driveAlongRacingLine(session, 240, 0.96, 1);
-    const completedSnap = driveAlongRacingLine(session, 4500, 0.96, 2);
+    const completedSnap = driveAlongRacingLine(session, 9000, 0.96, 2);
 
     expect(completedSnap.lap.lapNumber).toBe(2);
     expect(completedSnap.lap.lastLapSeconds).not.toBeNull();
     expect(completedSnap.lap.lastLapSeconds!).toBeGreaterThan(23.5);
-    expect(completedSnap.lap.lastLapSeconds!).toBeLessThan(32.0);
+    expect(completedSnap.lap.lastLapSeconds!).toBeLessThan(65.0);
 
     // All 3 Sector splits must be populated and sum close to lastLapSeconds
     const splits = completedSnap.lap.lastSectorSplits;
@@ -97,7 +60,7 @@ describe('Ticket #6: Time Trial Mode — Flying Start, Sector Splits, Time-Delta
   it('prevents Dirty laps (with Barrier contact) from overwriting a saved Clean Lap Personal Best', () => {
     const session = createSimulationSession();
     driveAlongRacingLine(session, 240, 0.9, 1);
-    const lap1End = driveAlongRacingLine(session, 4800, 0.9, 2);
+    const lap1End = driveAlongRacingLine(session, 9500, 0.9, 2);
     const savedPb = lap1End.lap.personalBestSeconds!;
     expect(savedPb).toBeGreaterThan(24.0);
 
@@ -108,7 +71,7 @@ describe('Ticket #6: Time Trial Mode — Flying Start, Sector Splits, Time-Delta
     }
     expect(session.getSnapshot().lap.isClean).toBe(false);
 
-    const lap2End = driveAlongRacingLine(session, 4800, 1.02, 3);
+    const lap2End = driveAlongRacingLine(session, 9500, 1.02, 3);
     expect(lap2End.lap.lastLapSeconds).not.toBeNull();
     // Personal Best must remain the Clean Lap 1 time
     expect(lap2End.lap.personalBestSeconds).toBe(savedPb);
@@ -116,17 +79,17 @@ describe('Ticket #6: Time Trial Mode — Flying Start, Sector Splits, Time-Delta
 
   it('cycles Ghost Kart visibility modes and exports/imports training data via JSON', () => {
     const session = createSimulationSession();
-    expect(session.getSnapshot().ghost.mode).toBe('Track Record');
-    expect(session.getSnapshot().ghost.trackRecordPose).not.toBeNull();
+    expect(session.getSnapshot().ghost.mode).toBe('Reference Lap');
+    expect(session.getSnapshot().ghost.trackRecordPose).toBeNull();
 
     expect(session.cycleGhostMode().ghost.mode).toBe('Personal Best');
     expect(session.cycleGhostMode().ghost.mode).toBe('Both');
     expect(session.cycleGhostMode().ghost.mode).toBe('Off');
-    expect(session.cycleGhostMode().ghost.mode).toBe('Track Record');
+    expect(session.cycleGhostMode().ghost.mode).toBe('Reference Lap');
 
     // Record a Clean Personal Best, export to JSON, and import into a fresh session
     driveAlongRacingLine(session, 240, 0.95, 1);
-    const done = driveAlongRacingLine(session, 4500, 0.95, 2);
+    const done = driveAlongRacingLine(session, 9000, 0.95, 2);
     const pb = done.lap.personalBestSeconds!;
     expect(pb).toBeGreaterThan(23.5);
 
@@ -137,4 +100,122 @@ describe('Ticket #6: Time Trial Mode — Flying Start, Sector Splits, Time-Delta
     expect(importedSnap.lap.personalBestSeconds).toBeCloseTo(pb, 3);
     expect(importedSnap.lap.bestSectorSplits).toEqual(done.lap.bestSectorSplits);
   });
+});
+
+describe('Time Trial session lifecycle', () => {
+  it('keeps timing the same lap through local Start/Finish loops until a complete Circuit traversal', () => {
+    const session = createSimulationSession();
+    session.setTimeTrialLapLimit(1);
+    let snap = session.getSnapshot();
+    const center = snap.circuit.samples[0].center;
+    for (let i = 0; i < 600 && snap.kart.speedMps > 0.1; i++) {
+      snap = session.step(1 / 120, { brake: 1, steer: 0 });
+    }
+    let forwardCrossings = 0;
+    let previousTimedSeconds = 0;
+    for (let i = 0; i < 3600; i++) {
+      const previous = snap;
+      const kart = snap.kart;
+      const angle = Math.atan2(kart.position.z - center.z, kart.position.x - center.x) + 0.5;
+      const dx = center.x + 2.15 * Math.cos(angle) - kart.position.x;
+      const dz = center.z + 2.15 * Math.sin(angle) - kart.position.z;
+      const alpha = Math.atan2(Math.sin(Math.atan2(dz, dx) - kart.headingRad), Math.cos(Math.atan2(dz, dx) - kart.headingRad));
+      const error = 1.5 - kart.speedMps;
+      snap = session.step(1 / 120, {
+        steer: Math.max(-1, Math.min(1, Math.atan2(2 * 1.06 * Math.sin(alpha), Math.hypot(dx, dz)) / 0.46)),
+        throttle: error > 0 ? Math.min(1, 0.34 + error) : 0,
+        brake: error < -0.05 ? Math.min(1, -error) : 0,
+      });
+      if (previous.kart.lapProgress > 0.8 && snap.kart.lapProgress < 0.2) forwardCrossings++;
+      expect(snap.lap.currentLapSeconds).toBeGreaterThanOrEqual(previousTimedSeconds);
+      previousTimedSeconds = snap.lap.currentLapSeconds;
+    }
+    expect(forwardCrossings).toBeGreaterThanOrEqual(2);
+    expect(snap.lap.lapNumber).toBe(1);
+    expect(snap.timeTrial.completedLaps).toEqual([]);
+    expect(snap.lap.currentSectorSplits).toEqual([null, null, null]);
+    expect(snap.timeTrial.status).toBe('Driving');
+    expect(snap.lap.currentLapSeconds).toBeGreaterThan(20);
+  });
+
+  it('excludes the Flying Start and finishes exactly once after twelve timed laps with complete results', () => {
+    const session = createSimulationSession();
+    expect(session.getSnapshot().timeTrial.lapLimit).toBe(12);
+    expect(session.getSnapshot().timeTrial.completedLaps).toEqual([]);
+    driveAlongRacingLine(session, 240, 0.96, 1);
+    expect(session.getSnapshot().timeTrial.completedLaps).toEqual([]);
+
+    for (let lapNumber = 2; lapNumber <= 12; lapNumber++) {
+      const snap = driveAlongRacingLine(session, 9000, 0.96, lapNumber);
+      expect(snap.lap.lapNumber).toBe(lapNumber);
+      expect(snap.timeTrial.status).toBe('Driving');
+      expect(snap.timeTrial.completedLaps).toHaveLength(lapNumber - 1);
+    }
+    driveAlongRacingLine(session, 9000, 0.96, 13);
+    const finished = session.getSnapshot();
+    expect(finished.timeTrial.status).toBe('Finished');
+    expect(finished.timeTrial.completedLaps).toHaveLength(12);
+    expect(finished.lap.lapNumber).toBe(12);
+    expect(finished.timeTrial.totalSeconds).toBeCloseTo(
+      finished.timeTrial.completedLaps.reduce((sum, lap) => sum + lap.seconds, 0), 6,
+    );
+    expect(finished.timeTrial.bestCleanLapSeconds).toBe(finished.lap.personalBestSeconds);
+    expect(finished.timeTrial.completedLaps.every((lap) =>
+      lap.isClean && lap.sectorSplits.every((seconds) => seconds !== null && seconds > 0),
+    )).toBe(true);
+    const frozen = JSON.stringify(finished);
+    for (let i = 0; i < 100; i++) session.step(1 / 120, { throttle: 1, steer: 1 });
+    expect(JSON.stringify(session.getSnapshot())).toBe(frozen);
+  });
+
+  it('counts a contact lap toward a selected limit without awarding a Clean Lap Personal Best, and restarts consistently', () => {
+    const session = createSimulationSession();
+    session.setTimeTrialLapLimit(1);
+    driveAlongRacingLine(session, 240, 0.9, 1);
+    for (let i = 0; i < 120 && session.getSnapshot().lap.isClean; i++) {
+      session.step(1 / 120, { throttle: 1, steer: -1 });
+    }
+    expect(session.getSnapshot().lap.isClean).toBe(false);
+    driveAlongRacingLine(session, 9000, 0.9, 2);
+    const finished = session.getSnapshot();
+    expect(finished.timeTrial.status).toBe('Finished');
+    expect(finished.timeTrial.completedLaps).toHaveLength(1);
+    expect(finished.timeTrial.completedLaps[0].isClean).toBe(false);
+    expect(finished.timeTrial.bestCleanLapSeconds).toBeNull();
+    expect(finished.lap.personalBestSeconds).toBeNull();
+    expect(finished.timeTrial.totalSeconds).toBe(finished.lap.lastLapSeconds);
+
+    const restarted = session.reset();
+    expect(restarted.timeTrial.status).toBe('Flying Start');
+    expect(restarted.timeTrial.lapLimit).toBe(1);
+    expect(restarted.timeTrial.completedLaps).toEqual([]);
+    expect(restarted.timeTrial.totalSeconds).toBe(0);
+    expect(restarted.lap.currentLapSeconds).toBe(0);
+    expect(restarted.lap.lastLapSeconds).toBeNull();
+    session.step();
+    expect(session.getSnapshot().lap.currentLapSeconds).toBe(0);
+    session.setPracticeMode('Corner Drill');
+    const reentered = session.setPracticeMode('Time Trial');
+    expect(reentered.timeTrial).toEqual(restarted.timeTrial);
+    expect(reentered.lap.lapNumber).toBe(0);
+  });
+
+  it('continues beyond twelve completed laps only when unlimited practice was explicitly selected', () => {
+    const session = createSimulationSession();
+    session.setTimeTrialLapLimit(null);
+    driveAlongRacingLine(session, 240, 0.96, 1);
+    for (let lapNumber = 2; lapNumber <= 14; lapNumber++) {
+      driveAlongRacingLine(session, 9000, 0.96, lapNumber);
+    }
+    const unlimited = session.getSnapshot();
+    expect(unlimited.timeTrial.lapLimit).toBeNull();
+    expect(unlimited.timeTrial.status).toBe('Driving');
+    expect(unlimited.timeTrial.completedLaps).toHaveLength(13);
+    expect(unlimited.lap.lapNumber).toBe(14);
+    const selected = session.setTimeTrialLapLimit(12);
+    expect(selected.timeTrial.status).toBe('Flying Start');
+    expect(selected.timeTrial.completedLaps).toEqual([]);
+    expect(selected.lap.personalBestSeconds).toBe(unlimited.lap.personalBestSeconds);
+  });
+
 });

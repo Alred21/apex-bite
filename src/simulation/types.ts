@@ -1,3 +1,5 @@
+import type { CornerComplexId } from './corner-complexes';
+
 export type TurnDirection = 'Left' | 'Right';
 
 export type TurnNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
@@ -8,7 +10,7 @@ export type CameraMode = 'Chase Cam' | 'Helmet Cam';
 
 export type PracticeMode = 'Time Trial' | 'Corner Drill';
 
-export type GhostMode = 'Track Record' | 'Personal Best' | 'Both' | 'Off';
+export type GhostMode = 'Reference Lap' | 'Personal Best' | 'Both' | 'Off';
 
 export interface Vector2D {
   x: number;
@@ -63,6 +65,10 @@ export interface KeyboardInputState {
   space?: boolean;
 }
 
+export interface KeyboardAssistanceSettings {
+  steeringSensitivity: number; // 0.5–1.75, affects keyboard response rather than grip limits
+}
+
 export interface GamepadInputState {
   throttle?: number; // 0..1
   brake?: number; // 0..1
@@ -80,6 +86,8 @@ export interface DriverInput {
 }
 
 export interface KartState {
+  velocity: Vector2D;
+  yawRateRadPerSecond: number;
   position: Vector2D;
   headingRad: number; // 0 = +x, PI/2 = +z, clockwise in top-down (x, z)
   speedMps: number;
@@ -96,13 +104,21 @@ export interface KartState {
   barrierContact: boolean;
   barrierContactCount: number;
   lapDistanceMeters: number;
+  unwrappedDistanceMeters: number;
   lapProgress: number;
   currentTurn: TurnNumber | null;
   currentSector: SectorNumber;
 }
 
+export interface CameraSettings {
+  fieldOfViewDegrees: number;
+  motionStrength: number; // 0 fully disables acceleration, cornering and impact feedback
+}
+
 export interface CameraState {
   mode: CameraMode;
+  settings: CameraSettings;
+  rollRad: number;
   position: Vector3D;
   lookAt: Vector3D;
 }
@@ -121,13 +137,67 @@ export interface RacingLinePoint {
   liveCue: RacingLineCue;
 }
 
+export type RacingLineDisplayMode = 'Full' | 'Corners Only' | 'Off';
+
+export interface ReferenceClosure {
+  positionMeters: number;
+  headingRad: number;
+  speedMps: number;
+  yawRateRadPerSecond: number;
+}
+
+export interface ReferenceComplexEvidence {
+  id: string;
+  seconds: number;
+  entrySpeedKph: number;
+  exitSpeedKph: number;
+  turns: { number: number; seconds: number }[];
+}
+
+export interface ReferenceCandidateEvidence {
+  name: string;
+  feasible: boolean;
+  lapSeconds: number | null;
+  reason: string | null;
+  complexes?: ReferenceComplexEvidence[];
+  basisCandidate?: string;
+  adjustment?: { complexId: string; offsetMeters: number; phaseMeters: number };
+}
+
 export interface RacingLineState {
   visible: boolean;
+  displayMode: RacingLineDisplayMode;
+  guidance: {
+    cue: RacingLineCue;
+    action: 'Accelerate' | 'Coast' | 'Brake';
+    reason: string;
+    targetSpeedKph: number;
+  };
   benchmarkLapSeconds: number;
-  points: RacingLinePoint[];
+  reference: {
+    name: string; validated: boolean; realWorldBenchmarkSeconds: number;
+    closure: ReferenceClosure;
+    candidates: ReferenceCandidateEvidence[];
+  };
+  points: (RacingLinePoint & { displayed: boolean })[];
 }
 
 export type SectorSplitsTuple = [number | null, number | null, number | null];
+
+export interface CompletedTimeTrialLap {
+  lapNumber: number;
+  seconds: number;
+  isClean: boolean;
+  sectorSplits: SectorSplitsTuple;
+}
+
+export interface TimeTrialState {
+  lapLimit: number | null; // null explicitly selects unlimited practice
+  status: 'Flying Start' | 'Driving' | 'Finished';
+  completedLaps: CompletedTimeTrialLap[];
+  totalSeconds: number;
+  bestCleanLapSeconds: number | null;
+}
 
 export interface LapSummaryState {
   isClean: boolean;
@@ -161,23 +231,7 @@ export interface GhostState {
   personalBestPose: GhostPose | null;
 }
 
-export type DrillTargetId =
-  | 'T1'
-  | 'T2'
-  | 'T3'
-  | 'T4'
-  | 'T5'
-  | 'T6'
-  | 'T7'
-  | 'T8'
-  | 'T9'
-  | 'T10'
-  | 'T11'
-  | 'T1-T3'
-  | 'T2-T3'
-  | 'T4-T5'
-  | 'T6-T7-T8'
-  | 'T9-T10-T11';
+export type DrillTargetId = `T${TurnNumber}` | CornerComplexId;
 
 export interface DrillTargetDefinition {
   id: DrillTargetId;
@@ -193,10 +247,12 @@ export interface DrillTargetDefinition {
 }
 
 export type CoachingInsightCategory =
-  | 'Optimal Pass'
+  | 'Matched Reference'
+  | 'Clean Faster Pass'
   | 'Barrier Contact'
-  | 'Late Braking Overshoot'
-  | 'Over-Slowed Entry'
+  | 'Missed Reference Target'
+  | 'Below Reference Speed'
+  | 'Measured Time Loss'
   | 'Excessive Axle Scrub';
 
 export interface CornerExecutionCard {
@@ -215,7 +271,11 @@ export interface CornerExecutionCard {
   targetEntrySpeedKph: number;
   targetMinApexSpeedKph: number;
   targetExitSpeedKph: number;
-  apexProximityCm: number;
+  apexProximityCm: number | null;
+  turnApexProximities: Array<{ turnNumber: TurnNumber; distanceCm: number | null; referenceTarget: Vector2D }>;
+  peakAxleScrub: number;
+  referencePeakAxleScrub: number;
+  excessScrubSeconds: number;
   coachingCategory: CoachingInsightCategory;
   coachingInsight: string;
 }
@@ -237,8 +297,11 @@ export interface SessionSnapshot {
   circuit: CircuitData;
   kart: KartState;
   camera: CameraState;
+  keyboardAssistance: KeyboardAssistanceSettings;
   lap: LapSummaryState;
+  timeTrial: TimeTrialState;
   racingLine: RacingLineState;
   ghost: GhostState;
   drill: DrillState;
+  trainingData: import('./training-data').TrainingDataState;
 }

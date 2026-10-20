@@ -1,0 +1,110 @@
+{
+  "date": "2026-10-19",
+  "browser": "Chrome on macOS",
+  "seam": "Actual createHudView + bindDriverControls + SimulationSession; native HTML dialogs, browser DOM KeyboardEvents dispatched to the focused element. No mocked collaborators or WebGL renderer.",
+  "entryPoint": "tests/browser/dialog-focus.html",
+  "before": {
+    "passed": false,
+    "failedFocusReturnedTo": [
+      "hud-btn-camera-settings",
+      "hud-btn-data"
+    ],
+    "freshDrivingKeysObserved": {},
+    "checks": [
+      {
+        "scenario": "sensitivity applies",
+        "passed": true
+      },
+      {
+        "scenario": "settings pauses keys",
+        "passed": true
+      },
+      {
+        "scenario": "Driving & View close resumes W/A/D",
+        "passed": false
+      },
+      {
+        "scenario": "data typing pauses keys",
+        "passed": true
+      },
+      {
+        "scenario": "Data close resumes W/A/D",
+        "passed": false
+      },
+      {
+        "scenario": "settings cancel resumes W/A/D",
+        "passed": false
+      },
+      {
+        "scenario": "genuine results pauses keys",
+        "passed": true
+      },
+      {
+        "scenario": "results View Circuit resumes keys",
+        "passed": false
+      },
+      {
+        "scenario": "results restart resumes keys",
+        "passed": true
+      },
+      {
+        "scenario": "restart resets results",
+        "passed": true
+      }
+    ]
+  },
+  "after": {
+    "passed": true,
+    "dialogExitFocus": "BODY",
+    "freshDrivingKeysObserved": {
+      "up": true,
+      "down": false,
+      "left": true,
+      "right": true,
+      "space": false
+    },
+    "checks": [
+      {
+        "scenario": "sensitivity applies",
+        "passed": true
+      },
+      {
+        "scenario": "settings pauses keys",
+        "passed": true
+      },
+      {
+        "scenario": "Driving & View close resumes W/A/D",
+        "passed": true
+      },
+      {
+        "scenario": "data typing pauses keys",
+        "passed": true
+      },
+      {
+        "scenario": "Data close resumes W/A/D",
+        "passed": true
+      },
+      {
+        "scenario": "settings cancel resumes W/A/D",
+        "passed": true
+      },
+      {
+        "scenario": "genuine results pauses keys",
+        "passed": true
+      },
+      {
+        "scenario": "results View Circuit resumes keys",
+        "passed": true
+      },
+      {
+        "scenario": "results restart resumes keys",
+        "passed": true
+      },
+      {
+        "scenario": "restart resets results",
+        "passed": true
+      }
+    ]
+  },
+  "limits": "This focused browser regression verifies native focus restoration and the actual event adapter with DOM KeyboardEvents. It is not a new human keyboard usability, visual or performance study."
+}

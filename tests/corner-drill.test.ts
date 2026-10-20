@@ -53,65 +53,32 @@ describe('Ticket #7 — Corner Drill Mode: Flying Entry, Instant Reset, Corner E
     expect(snapComplex.drill.target.turns).toEqual([6, 7, 8]);
   });
 
-  it('produces an Optimal Pass Corner Execution Card and persists Personal Best when following the Racing Line through a drill', () => {
+  it('produces a Matched Reference Corner Execution Card and persists Personal Best when following the Racing Line through a drill', () => {
     const storage = createMemoryStorage();
     const session = createSimulationSession({ storage });
     session.selectDrillTarget('T3');
 
+    const replay = session.getReferenceReplay();
+    const initial = session.getSnapshot().kart;
+    const firstFrame = replay.frames.findIndex((frame) => frame.kart.position.x === initial.position.x && frame.kart.position.z === initial.position.z);
+    expect(firstFrame).toBeGreaterThanOrEqual(0);
     let completedCard = session.getSnapshot().drill.lastExecutionCard;
-    let safetyTicks = 0;
-
-    while (!completedCard && safetyTicks < 2400) {
-      const snap = session.getSnapshot();
-      const pts = snap.racingLine.points;
-      const samples = snap.circuit.samples;
-      const n = pts.length;
-      const curIdx = Math.floor(snap.kart.lapProgress * n) % n;
-      const curPt = pts[curIdx];
-      const lookPt = pts[(curIdx + 2) % n];
-      const lookSample = samples[(curIdx + 2) % n];
-      const futurePt = pts[(curIdx + 8) % n];
-
-      const targetX = lookPt.position.x * 0.8 + lookSample.center.x * 0.2;
-      const targetZ = lookPt.position.z * 0.8 + lookSample.center.z * 0.2;
-
-      const desiredHeading = Math.atan2(
-        targetZ - snap.kart.position.z,
-        targetX - snap.kart.position.x,
-      );
-      let headingErr = desiredHeading - snap.kart.headingRad;
-      while (headingErr > Math.PI) headingErr -= 2 * Math.PI;
-      while (headingErr < -Math.PI) headingErr += 2 * Math.PI;
-
-      const steer = Math.max(-1, Math.min(1, headingErr * 3.2));
-      const targetSpeed =
-        Math.min(
-          curPt.targetSpeedMps,
-          lookPt.targetSpeedMps,
-          futurePt.targetSpeedMps,
-        ) * 0.92;
-      const speedErr = targetSpeed - snap.kart.speedMps;
-      const throttle = speedErr >= -0.15 ? 1 : 0;
-      const brake =
-        speedErr < -0.25 ? Math.min(0.65, Math.max(0.25, -speedErr * 0.5)) : 0;
-
-      const after = session.step(FIXED_TIMESTEP_SECONDS, { throttle, brake, steer });
-      completedCard = after.drill.lastExecutionCard;
-      safetyTicks++;
+    for (let i = firstFrame; !completedCard && i < replay.commands.length; i++) {
+      completedCard = session.step(FIXED_TIMESTEP_SECONDS, replay.commands[i]).drill.lastExecutionCard;
     }
 
     expect(completedCard).not.toBeNull();
     expect(completedCard!.targetId).toBe('T3');
     expect(completedCard!.isClean).toBe(true);
     expect(completedCard!.apexProximityCm).toBeLessThan(50);
-    expect(completedCard!.entrySpeedKph).toBeGreaterThan(20);
-    expect(completedCard!.minApexSpeedKph).toBeGreaterThan(15);
-    expect(completedCard!.exitSpeedKph).toBeGreaterThan(20);
+    expect(completedCard!.entrySpeedKph).toBeGreaterThan(completedCard!.targetEntrySpeedKph - 5);
+    expect(completedCard!.minApexSpeedKph).toBeGreaterThan(completedCard!.targetMinApexSpeedKph - 3);
+    expect(completedCard!.exitSpeedKph).toBeGreaterThan(completedCard!.targetExitSpeedKph - 5);
     expect(completedCard!.personalBestSeconds).toBeCloseTo(
       completedCard!.segmentTimeSeconds,
       3,
     );
-    expect(completedCard!.coachingCategory).toBe('Optimal Pass');
+    expect(completedCard!.coachingCategory).toBe('Matched Reference');
     expect(completedCard!.coachingInsight.length).toBeGreaterThan(15);
 
     // Verify drill personal best round-trips through JSON export/import
@@ -124,10 +91,10 @@ describe('Ticket #7 — Corner Drill Mode: Flying Entry, Instant Reset, Corner E
     );
   });
 
-  it('diagnoses Late Braking Overshoot and Over-Slowed Entry in the Corner Execution Card Coaching Insight', () => {
+  it('reports low measured speed and invalidates a wide pass that physically hits a Barrier', () => {
     const session = createSimulationSession();
 
-    // 1. Over-Slowed Entry: brake heavily in the middle of Turn 1 while still hugging the inside apex
+    // 1. Below Reference Speed: brake heavily in the middle of Turn 1 while still hugging the inside apex
     session.selectDrillTarget('T1');
     let cardOverSlowed = null;
     let ticks = 0;
@@ -161,10 +128,10 @@ describe('Ticket #7 — Corner Drill Mode: Flying Entry, Instant Reset, Corner E
     }
 
     expect(cardOverSlowed).not.toBeNull();
-    expect(cardOverSlowed!.coachingCategory).toBe('Over-Slowed Entry');
-    expect(cardOverSlowed!.coachingInsight).toMatch(/Over-Slowed Entry/i);
+    expect(cardOverSlowed!.coachingCategory).toBe('Below Reference Speed');
+    expect(cardOverSlowed!.coachingInsight).toMatch(/minimum speed.*Reference Lap/i);
 
-    // 2. Late Braking Overshoot: stay wide (1.3m outside the Racing Line) with high entry speed through Turn 4
+    // 2. A wide line is not proof of a braking cause: stay wide (1.3m outside the Racing Line) with high entry speed through Turn 4
     session.selectDrillTarget('T4');
     // Clear previous card by checking when a new T4 card arrives
     let cardLateBrake = null;
@@ -198,7 +165,8 @@ describe('Ticket #7 — Corner Drill Mode: Flying Entry, Instant Reset, Corner E
     expect(cardLateBrake).not.toBeNull();
     expect(cardLateBrake!.targetId).toBe('T4');
     expect(cardLateBrake!.apexProximityCm).toBeGreaterThan(50);
-    expect(cardLateBrake!.coachingCategory).toBe('Late Braking Overshoot');
-    expect(cardLateBrake!.coachingInsight).toMatch(/Late Braking Overshoot/i);
+    expect(cardLateBrake!.isClean).toBe(false);
+    expect(cardLateBrake!.coachingCategory).toBe('Barrier Contact');
+    expect(cardLateBrake!.coachingInsight).toMatch(/Barrier Contact/i);
   });
 });

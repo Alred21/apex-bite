@@ -1,3 +1,4 @@
+export { wrapAngleRad } from './planar-math';
 import {
   CircuitData,
   CircuitSample,
@@ -17,7 +18,7 @@ interface ControlWaypoint {
 
 /**
  * Control waypoints traced from the K1 Speed Toronto 11-turn clockwise circuit layout.
- * Coordinates are in unscaled meters (normalized to exactly 245.0m total centerline length).
+ * Coordinates are in unscaled meters (initially normalized to 245m before correcting the unsurveyed corridor geometry).
  * Top-down plane: +x is East (right), +z is South (down), -z is North (up).
  */
 const RAW_WAYPOINTS: ControlWaypoint[] = [
@@ -77,13 +78,6 @@ const RAW_WAYPOINTS: ControlWaypoint[] = [
 const TARGET_CIRCUIT_LENGTH_METERS = 245.0;
 const TRACK_RECORD_SECONDS = 24.499;
 const SAMPLE_COUNT = 490; // ~0.5m per sample
-
-export function wrapAngleRad(rad: number): number {
-  let a = rad;
-  while (a > Math.PI) a -= 2 * Math.PI;
-  while (a < -Math.PI) a += 2 * Math.PI;
-  return a;
-}
 
 function catmullRom(p0: number, p1: number, p2: number, p3: number, t: number): number {
   const t2 = t * t;
@@ -198,6 +192,36 @@ export function buildK1TorontoCircuit(): CircuitData {
     });
   }
 
+  // The source diagram is not a survey. Its original normalization folded four
+  // physical Barriers. Smooth the traced centerline locally and enlarge geometry
+  // alone; widths and the realistic Kart limiter remain unchanged.
+  let corrected = rawSamples.map((sample) => ({ ...sample.center }));
+  for (let pass = 0; pass < 10; pass++) {
+    corrected = corrected.map((point, i) => ({
+      x: 0.25 * corrected[(i - 1 + SAMPLE_COUNT) % SAMPLE_COUNT].x + 0.5 * point.x + 0.25 * corrected[(i + 1) % SAMPLE_COUNT].x,
+      z: 0.25 * corrected[(i - 1 + SAMPLE_COUNT) % SAMPLE_COUNT].z + 0.5 * point.z + 0.25 * corrected[(i + 1) % SAMPLE_COUNT].z,
+    }));
+  }
+  corrected = corrected.map((point) => ({ x: point.x * 1.5, z: point.z * 1.5 }));
+  const correctedArcs = [0];
+  for (let i = 0; i < SAMPLE_COUNT; i++) {
+    correctedArcs.push(correctedArcs[i] + Math.hypot(corrected[(i + 1) % SAMPLE_COUNT].x - corrected[i].x, corrected[(i + 1) % SAMPLE_COUNT].z - corrected[i].z));
+  }
+  const totalLengthMeters = correctedArcs[SAMPLE_COUNT];
+  const originalWidths = rawSamples.map((sample) => sample.widthMeters);
+  let correctedIndex = 0;
+  for (let i = 0; i < SAMPLE_COUNT; i++) {
+    const distance = i / SAMPLE_COUNT * totalLengthMeters;
+    while (correctedIndex < SAMPLE_COUNT - 1 && correctedArcs[correctedIndex + 1] < distance) correctedIndex++;
+    const ratio = (distance - correctedArcs[correctedIndex]) / (correctedArcs[correctedIndex + 1] - correctedArcs[correctedIndex]);
+    const a = corrected[correctedIndex], b = corrected[(correctedIndex + 1) % SAMPLE_COUNT];
+    rawSamples[i] = {
+      distanceMeters: distance, progress: distance / totalLengthMeters,
+      center: { x: a.x + (b.x - a.x) * ratio, z: a.z + (b.z - a.z) * ratio },
+      widthMeters: originalWidths[correctedIndex] + (originalWidths[(correctedIndex + 1) % SAMPLE_COUNT] - originalWidths[correctedIndex]) * ratio,
+    };
+  }
+
   // 3. Compute tangent, right-hand normal, barriers, and signed curvature
   const samples: CircuitSample[] = rawSamples.map((s, idx) => {
     const prevSample = rawSamples[(idx - 1 + SAMPLE_COUNT) % SAMPLE_COUNT];
@@ -209,13 +233,9 @@ export function buildK1TorontoCircuit(): CircuitData {
     // In top-down (x right, z down), rotating tangent 90° clockwise gives right-hand normal: (-dz, dx)
     const normal: Vector2D = { x: -tangent.z, z: tangent.x };
 
-    const prev2 = rawSamples[(idx - 2 + SAMPLE_COUNT) % SAMPLE_COUNT];
-    const next2 = rawSamples[(idx + 2) % SAMPLE_COUNT];
-    const h1 = Math.atan2(s.center.z - prev2.center.z, s.center.x - prev2.center.x);
-    const h2 = Math.atan2(next2.center.z - s.center.z, next2.center.x - s.center.x);
-    const dHeading = wrapAngleRad(h2 - h1);
-    const ds = (4 * TARGET_CIRCUIT_LENGTH_METERS) / SAMPLE_COUNT;
-    const curvature = dHeading / ds; // positive = clockwise right turn, negative = left turn
+    const ax = s.center.x - prevSample.center.x, az = s.center.z - prevSample.center.z;
+    const bx = nextSample.center.x - s.center.x, bz = nextSample.center.z - s.center.z;
+    const curvature = 2 * (ax * bz - az * bx) / Math.max(1e-9, Math.hypot(ax, az) * Math.hypot(bx, bz) * len);
 
     const halfW = s.widthMeters * 0.5;
     const leftBarrier: Vector2D = {
@@ -249,9 +269,11 @@ export function buildK1TorontoCircuit(): CircuitData {
     // Find arc distance corresponding to uAnchor
     const fineMatch =
       finePts.find((p) => p.u >= uAnchor) ?? finePts[finePts.length - 1];
-    const apexDist = (fineMatch.arc / rawTotalLength) * TARGET_CIRCUIT_LENGTH_METERS;
+    const originalIndex = (fineMatch.arc / rawTotalLength) * SAMPLE_COUNT;
+    const anchorIndex = Math.floor(originalIndex) % SAMPLE_COUNT;
+    const apexDist = correctedArcs[anchorIndex] + (originalIndex - Math.floor(originalIndex)) * (correctedArcs[anchorIndex + 1] - correctedArcs[anchorIndex]);
     const sampleIdx =
-      Math.round((apexDist / TARGET_CIRCUIT_LENGTH_METERS) * SAMPLE_COUNT) % SAMPLE_COUNT;
+      Math.round((apexDist / totalLengthMeters) * SAMPLE_COUNT) % SAMPLE_COUNT;
     const apexSample = samples[sampleIdx];
     const insideSign = def.direction === 'Right' ? 1 : -1;
     const insideOffset = apexSample.widthMeters * 0.5 - 0.26; // Inside front tire clipping point (26cm off inside barrier)
@@ -267,7 +289,7 @@ export function buildK1TorontoCircuit(): CircuitData {
       sector: def.sector,
       entryDistanceMeters: Math.max(0, apexDist - 7.5),
       apexDistanceMeters: apexDist,
-      exitDistanceMeters: Math.min(TARGET_CIRCUIT_LENGTH_METERS, apexDist + 7.5),
+      exitDistanceMeters: Math.min(totalLengthMeters, apexDist + 7.5),
       apexPoint,
       typicalWidthMeters: apexSample.widthMeters,
     };
@@ -288,7 +310,7 @@ export function buildK1TorontoCircuit(): CircuitData {
 
   cachedCircuit = {
     name: 'K1 Speed Toronto',
-    totalLengthMeters: TARGET_CIRCUIT_LENGTH_METERS,
+    totalLengthMeters,
     trackRecordSeconds: TRACK_RECORD_SECONDS,
     samples,
     turns,

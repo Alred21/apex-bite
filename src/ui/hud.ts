@@ -1,10 +1,20 @@
-import { DrillTargetId, PracticeMode, SessionSnapshot } from '../simulation/types';
+import { CameraSettings, DrillTargetId, KeyboardAssistanceSettings, PracticeMode, SessionSnapshot } from '../simulation/types';
+import { GraphicsQuality } from '../render/graphics';
+import type { KartAudioState } from '../audio/kart-audio';
 
 export interface HudCallbacks {
+  getAudioState?: () => KartAudioState;
+  onToggleAudio?: () => void;
+  onAudioVolume?: (volume: number) => void;
+  initialGraphicsQuality?: GraphicsQuality;
+  onSelectGraphicsQuality?: (quality: GraphicsQuality) => void;
   onToggleCamera?: () => void;
+  onSetCameraSettings?: (settings: Partial<CameraSettings>) => void;
+  onSetKeyboardAssistance?: (settings: Partial<KeyboardAssistanceSettings>) => void;
   onToggleRacingLine?: () => void;
   onCycleGhostMode?: () => void;
   onToggleMode?: () => void;
+  onSelectTimeTrialLapLimit?: (lapLimit: number | null) => void;
   onSelectDrillTarget?: (targetId: DrillTargetId) => void;
   onReset?: () => void;
   onExportData?: () => string;
@@ -54,18 +64,41 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
               </optgroup>
             </select>
           </label>
+          <label class="hud-select-wrap" id="hud-lap-limit-wrap" title="Changing session length restarts Time Trial from the Flying Start">
+            <span>TIMED LAPS:</span>
+            <select id="hud-lap-limit" class="hud-select" aria-label="Time Trial length">
+              <option value="1">1 lap</option>
+              <option value="6">6 laps</option>
+              <option value="12" selected>12 laps</option>
+              <option value="24">24 laps</option>
+              <option value="unlimited">Unlimited practice</option>
+            </select>
+          </label>
+          <button type="button" class="hud-btn" id="hud-btn-results" disabled>RESULTS</button>
           <button type="button" class="hud-btn" id="hud-btn-reset" title="Instant Reset to Flying Entry / Flying Start (R)">
             RESET [R]
           </button>
           <button type="button" class="hud-btn" id="hud-btn-camera" title="Switch Camera View (C or V)">
             CAM [C]: <strong id="hud-camera-label">Chase Cam</strong>
           </button>
-          <button type="button" class="hud-btn" id="hud-btn-line" title="Toggle Dynamic Racing Line (L)">
-            LINE [L]: <strong id="hud-line-label">ON</strong>
+          <button type="button" class="hud-btn" id="hud-btn-camera-settings">DRIVING &amp; VIEW</button>
+          <button type="button" class="hud-btn" id="hud-btn-line" title="Cycle Racing Line display: Full / Corners Only / Off (L)">
+            LINE [L]: <strong id="hud-line-label">Full</strong>
           </button>
           <button type="button" class="hud-btn" id="hud-btn-ghost" title="Cycle Ghost Kart Mode (G)">
-            GHOST [G]: <strong id="hud-ghost-label">Track Record</strong>
+            GHOST [G]: <strong id="hud-ghost-label">Reference Lap</strong>
           </button>
+          <label class="hud-select-wrap" id="hud-graphics-wrap" title="Performance reduces resolution and disables shadows. Balanced uses compact shadows. High increases resolution and shadow detail.">
+            <span>GRAPHICS:</span>
+            <select id="hud-graphics-quality" class="hud-select" aria-label="Graphics quality">
+              <option>Performance</option><option selected>Balanced</option><option>High</option>
+            </select>
+          </label>
+          <div class="hud-audio-controls" id="hud-audio-controls">
+            <button type="button" class="hud-btn" id="hud-btn-audio" title="Enable sound after a click, then toggle mute">SOUND: ENABLE</button>
+            <label class="hud-volume-label">VOL <input type="range" id="hud-audio-volume" aria-label="Sound volume" min="0" max="100" step="1" value="35"></label>
+            <meter id="hud-audio-meter" min="0" max="1" value="0" aria-label="Audio output level"></meter>
+          </div>
           <button type="button" class="hud-btn" id="hud-btn-data" title="Export or Import Training Data JSON">
             DATA JSON
           </button>
@@ -85,7 +118,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
             <div class="delta-bar-center-tick"></div>
             <div class="delta-bar-fill" id="hud-delta-fill"></div>
           </div>
-          <div class="delta-value" id="hud-delta-text">+0.000s vs 24.499s REC</div>
+          <div class="delta-value" id="hud-delta-text">+0.000s vs Reference Lap</div>
         </div>
 
         <div class="sector-splits-row">
@@ -97,7 +130,8 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
         <div class="records-row">
           <span>LAST: <strong id="hud-last-lap">--.---</strong></span>
           <span>PB: <strong id="hud-pb-lap">--.---</strong></span>
-          <span>REC: <strong id="hud-rec-lap">24.499s</strong></span>
+          <span>REFERENCE: <strong id="hud-rec-lap">--.---s</strong></span>
+          <span title="Reported physical Circuit time; the simulated Circuit dimensions are estimates.">REAL-WORLD BENCHMARK: <strong>24.499s</strong></span>
         </div>
       </div>
 
@@ -117,7 +151,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
             <div class="exec-card-eyebrow">CORNER EXECUTION CARD</div>
             <div class="exec-card-title" id="hud-exec-title">Turn 3 (Center Hairpin Left)</div>
           </div>
-          <span class="exec-category-badge" id="hud-exec-category">Optimal Pass</span>
+          <span class="exec-category-badge" id="hud-exec-category">Awaiting Pass</span>
         </div>
 
         <div class="exec-metrics-grid">
@@ -129,7 +163,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
           <div class="exec-metric">
             <span class="exec-metric-label">APEX PROXIMITY</span>
             <strong class="exec-metric-val" id="hud-exec-apex">-- cm</strong>
-            <span class="exec-metric-sub">Inside Front Tire</span>
+            <span class="exec-metric-sub">Inside Front Tire · Largest Offset</span>
           </div>
           <div class="exec-metric">
             <span class="exec-metric-label">ENTRY / MIN / EXIT</span>
@@ -138,6 +172,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
           </div>
         </div>
 
+        <div id="hud-exec-turn-proximities" class="exec-metric-sub"></div>
         <div class="exec-coaching-box" id="hud-exec-insight">
           Complete a pass through the selected Turn or Corner Complex to generate a Coaching Insight.
         </div>
@@ -166,6 +201,11 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
         <div class="speed-unit">km/h</div>
       </div>
 
+      <div class="line-guidance" id="hud-line-guidance" aria-label="Racing Line guidance">
+        <strong id="hud-guidance-action">Coast</strong>
+        <span id="hud-guidance-reason">Prepare for the Turns ahead</span>
+      </div>
+
       <div class="dynamics-indicators">
         <div class="status-pill" id="hud-trail-pill">TRAIL BRAKE</div>
         <div class="scrub-meter-row">
@@ -177,12 +217,48 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
       </div>
     </div>
 
+    <dialog id="hud-camera-dialog" class="hud-dialog" aria-labelledby="hud-camera-settings-title">
+      <form method="dialog" class="camera-settings">
+        <h2 id="hud-camera-settings-title">Driving and view settings</h2>
+        <label for="hud-steering-sensitivity">Keyboard steering sensitivity <output id="hud-steering-sensitivity-value" for="hud-steering-sensitivity">100%</output></label>
+        <input id="hud-steering-sensitivity" type="range" min="50" max="175" step="5" value="100" />
+        <p class="dialog-desc">Short taps make small corrections. Hold progressively and brake for tight Turns. Sensitivity changes response speed; the steering limit still adapts to speed.</p>
+        <p>Adjust both Helmet Cam and Chase Cam. Camera motion adds gentle acceleration, cornering and contact feedback.</p>
+        <label for="hud-camera-fov">Vertical field of view <output id="hud-camera-fov-value" for="hud-camera-fov">64°</output></label>
+        <input id="hud-camera-fov" type="range" min="50" max="90" step="1" value="64" />
+        <label for="hud-camera-motion">Camera motion <output id="hud-camera-motion-value" for="hud-camera-motion">35%</output></label>
+        <input id="hud-camera-motion" type="range" min="0" max="100" step="5" value="35" />
+        <p class="dialog-desc">Set motion to 0% to fully disable feedback. Your view still follows the Kart. Changes apply immediately and remain when you restart.</p>
+        <div class="dialog-actions"><button type="submit" class="hud-btn">Close view settings</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="hud-results-dialog" class="hud-dialog time-trial-results" aria-labelledby="hud-results-title">
+      <h2 id="hud-results-title">Time Trial complete</h2>
+      <p id="hud-results-summary"></p>
+      <p id="hud-results-best"></p>
+      <div class="results-table-wrap" tabindex="0" aria-label="Lap and Sector results">
+        <table class="results-table">
+          <thead><tr><th scope="col">Lap</th><th scope="col">Time</th><th scope="col">Status</th><th scope="col">S1</th><th scope="col">S2</th><th scope="col">S3</th></tr></thead>
+          <tbody id="hud-results-laps"></tbody>
+        </table>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="hud-btn" id="hud-results-restart">Restart Time Trial [R]</button>
+        <button type="button" class="hud-btn" id="hud-results-close">View Circuit</button>
+      </div>
+    </dialog>
+
     <dialog id="hud-data-dialog" class="hud-dialog" closedby="any" aria-labelledby="hud-dialog-title">
       <form method="dialog" class="dialog-content">
         <h2 id="hud-dialog-title">Portable Training Data (JSON)</h2>
-        <p class="dialog-desc">Copy your Personal Bests & Ghost replays, or paste exported JSON below to restore:</p>
-        <textarea id="hud-data-textarea" rows="8" spellcheck="false"></textarea>
+        <p class="dialog-desc">Inspect current and legacy records below. Copy the JSON to back up every revision, or paste a backup to import. Imported revisions replace matching revisions; other saved revisions are retained.</p>
+        <div id="hud-data-records" class="training-records" aria-label="Current and legacy records"></div>
+        <label for="hud-data-textarea">Training data JSON</label>
+        <textarea id="hud-data-textarea" rows="6" spellcheck="false"></textarea>
+        <p id="hud-data-feedback" class="dialog-desc" role="status" aria-live="polite"></p>
         <div class="dialog-actions">
+          <button type="button" class="hud-btn" id="hud-btn-export-refresh">Refresh export</button>
           <button type="button" class="hud-btn" id="hud-btn-import-apply">Import JSON</button>
           <button type="submit" class="hud-btn">Close</button>
         </div>
@@ -190,7 +266,70 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
     </dialog>
   `;
 
+  // Native dialog close restores its opener, whose focused button suppresses
+  // driving keys. Return focus to the Circuit for close, cancel and restart.
+  for (const dialog of root.querySelectorAll<HTMLDialogElement>('dialog')) {
+    dialog.addEventListener('close', () => {
+      if (!document.querySelector('dialog[open]') && document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    });
+  }
+
+  const audioControls = root.querySelector<HTMLElement>('#hud-audio-controls')!;
+  const audioButton = root.querySelector<HTMLButtonElement>('#hud-btn-audio')!;
+  const audioVolume = root.querySelector<HTMLInputElement>('#hud-audio-volume')!;
+  const audioMeter = root.querySelector<HTMLMeterElement>('#hud-audio-meter')!;
+  audioControls.hidden = !callbacks.getAudioState;
+  audioButton.addEventListener('click', () => { callbacks.onToggleAudio?.(); audioButton.blur(); });
+  audioVolume.addEventListener('input', () => callbacks.onAudioVolume?.(Number(audioVolume.value) / 100));
+  audioVolume.addEventListener('keydown', (event) => event.stopPropagation());
+  audioVolume.addEventListener('keyup', (event) => event.stopPropagation());
+
+  const cameraDialog = root.querySelector<HTMLDialogElement>('#hud-camera-dialog')!;
+  const steeringSensitivity = root.querySelector<HTMLInputElement>('#hud-steering-sensitivity')!;
+  const steeringSensitivityValue = root.querySelector<HTMLOutputElement>('#hud-steering-sensitivity-value')!;
+  steeringSensitivity.addEventListener('input', () => callbacks.onSetKeyboardAssistance?.({ steeringSensitivity: Number(steeringSensitivity.value) / 100 }));
+  const cameraFov = root.querySelector<HTMLInputElement>('#hud-camera-fov')!;
+  const cameraMotion = root.querySelector<HTMLInputElement>('#hud-camera-motion')!;
+  const cameraFovValue = root.querySelector<HTMLOutputElement>('#hud-camera-fov-value')!;
+  const cameraMotionValue = root.querySelector<HTMLOutputElement>('#hud-camera-motion-value')!;
+  root.querySelector('#hud-btn-camera-settings')!.addEventListener('click', () => cameraDialog.showModal());
+  cameraDialog.addEventListener('keydown', (event) => event.stopPropagation());
+  cameraFov.addEventListener('input', () => callbacks.onSetCameraSettings?.({ fieldOfViewDegrees: Number(cameraFov.value) }));
+  cameraMotion.addEventListener('input', () => callbacks.onSetCameraSettings?.({ motionStrength: Number(cameraMotion.value) / 100 }));
+  const graphicsWrap = root.querySelector<HTMLElement>('#hud-graphics-wrap')!;
+  const graphicsSelect = root.querySelector<HTMLSelectElement>('#hud-graphics-quality')!;
+  graphicsWrap.hidden = !callbacks.onSelectGraphicsQuality;
+  graphicsSelect.value = callbacks.initialGraphicsQuality ?? 'Balanced';
+  graphicsSelect.addEventListener('change', () => {
+    callbacks.onSelectGraphicsQuality?.(graphicsSelect.value as GraphicsQuality);
+    graphicsSelect.blur();
+  });
+
+  const lapLimitWrap = root.querySelector<HTMLElement>('#hud-lap-limit-wrap')!;
+  const lapLimitSelect = root.querySelector<HTMLSelectElement>('#hud-lap-limit')!;
+  const resultsBtn = root.querySelector<HTMLButtonElement>('#hud-btn-results')!;
+  const resultsDialog = root.querySelector<HTMLDialogElement>('#hud-results-dialog')!;
+  const resultsSummary = root.querySelector<HTMLElement>('#hud-results-summary')!;
+  const resultsBest = root.querySelector<HTMLElement>('#hud-results-best')!;
+  const resultsLaps = root.querySelector<HTMLElement>('#hud-results-laps')!;
+  let showedFinishedResults = false;
+  lapLimitSelect.addEventListener('change', () => {
+    callbacks.onSelectTimeTrialLapLimit?.(lapLimitSelect.value === 'unlimited' ? null : Number(lapLimitSelect.value));
+    lapLimitSelect.blur();
+  });
+  resultsBtn.addEventListener('click', () => resultsDialog.showModal());
+  root.querySelector('#hud-results-close')!.addEventListener('click', () => resultsDialog.close());
+  root.querySelector('#hud-results-restart')!.addEventListener('click', () => {
+    callbacks.onReset?.();
+    resultsDialog.close();
+  });
+
   const speedEl = root.querySelector<HTMLElement>('#hud-speed-kph')!;
+  const guidanceEl = root.querySelector<HTMLElement>('#hud-line-guidance')!;
+  const guidanceAction = root.querySelector<HTMLElement>('#hud-guidance-action')!;
+  const guidanceReason = root.querySelector<HTMLElement>('#hud-guidance-reason')!;
   const throttleBar = root.querySelector<HTMLElement>('#hud-throttle-bar')!;
   const brakeBar = root.querySelector<HTMLElement>('#hud-brake-bar')!;
   const scrubBar = root.querySelector<HTMLElement>('#hud-scrub-bar')!;
@@ -228,6 +367,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
   const execApexEl = root.querySelector<HTMLElement>('#hud-exec-apex')!;
   const execSpeedsEl = root.querySelector<HTMLElement>('#hud-exec-speeds')!;
   const execTargetSpeedsEl = root.querySelector<HTMLElement>('#hud-exec-target-speeds')!;
+  const execTurnProximities = root.querySelector<HTMLElement>('#hud-exec-turn-proximities')!;
   const execInsightEl = root.querySelector<HTMLElement>('#hud-exec-insight')!;
 
   const turnBadge = root.querySelector<HTMLElement>('#hud-turn-badge')!;
@@ -237,6 +377,38 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
   const dataDialog = root.querySelector<HTMLDialogElement>('#hud-data-dialog')!;
   const dataTextarea = root.querySelector<HTMLTextAreaElement>('#hud-data-textarea')!;
   const importApplyBtn = root.querySelector<HTMLButtonElement>('#hud-btn-import-apply')!;
+  const exportRefreshBtn = root.querySelector<HTMLButtonElement>('#hud-btn-export-refresh')!;
+  const dataRecords = root.querySelector<HTMLElement>('#hud-data-records')!;
+  const dataFeedback = root.querySelector<HTMLElement>('#hud-data-feedback')!;
+  let latestTrainingData: SessionSnapshot['trainingData'] | null = null;
+
+  function refreshRecordInspection(): void {
+    if (!latestTrainingData) return;
+    dataRecords.replaceChildren();
+    const addRecords = (label: string, records: SessionSnapshot['trainingData']['current']): void => {
+      const section = document.createElement('section');
+      const heading = document.createElement('h3');
+      heading.textContent = `${label} · ${records.revision.handling} / ${records.revision.circuit}`;
+      const details = document.createElement('p');
+      const sectors = records.bestSectorSplits.map(formatSeconds).join(' / ');
+      const drills = Object.entries(records.drillPersonalBests).map(([id, seconds]) => `${id}: ${formatSeconds(seconds ?? null)}`).join(' · ');
+      details.textContent = `Personal Best: ${formatSeconds(records.personalBestSeconds)} · Sectors: ${sectors} · Ghost Kart: ${records.ghostFrameCount} replay frames`;
+      const drillDetails = document.createElement('p');
+      drillDetails.textContent = `Corner Drill records: ${drills || 'None'}`;
+      section.append(heading, details, drillDetails);
+      dataRecords.append(section);
+    };
+    addRecords('Current comparisons', latestTrainingData.current);
+    for (const records of latestTrainingData.legacy) addRecords('Legacy · excluded from current comparisons', records);
+    if (!latestTrainingData.legacy.length) {
+      const empty = document.createElement('p');
+      empty.textContent = 'No legacy records.';
+      dataRecords.append(empty);
+    }
+  }
+
+  // Text editing and dialog actions must not trigger driving shortcuts.
+  dataDialog.addEventListener('keydown', (event) => event.stopPropagation());
 
   // Fallback for browsers without <dialog closedby="any"> support (e.g. Safari)
   if (typeof HTMLDialogElement !== 'undefined' && !('closedBy' in HTMLDialogElement.prototype)) {
@@ -285,14 +457,31 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
 
   dataBtn.addEventListener('click', () => {
     dataTextarea.value = callbacks.onExportData?.() ?? '';
+    dataFeedback.textContent = latestTrainingData?.message ?? '';
+    refreshRecordInspection();
     dataDialog.showModal();
     dataBtn.blur();
   });
 
+  exportRefreshBtn.addEventListener('click', () => {
+    dataTextarea.value = callbacks.onExportData?.() ?? '';
+    dataFeedback.textContent = 'Export refreshed. Copy this JSON to keep all current and legacy records.';
+    refreshRecordInspection();
+  });
+
   importApplyBtn.addEventListener('click', () => {
-    if (dataTextarea.value.trim()) {
+    if (!dataTextarea.value.trim()) {
+      dataFeedback.textContent = 'Paste exported training data first.';
+      return;
+    }
+    try {
       callbacks.onImportData?.(dataTextarea.value.trim());
-      dataDialog.close();
+      dataTextarea.value = callbacks.onExportData?.() ?? '';
+      dataFeedback.textContent = 'Import complete. Current and legacy records have been retained.';
+      // The next HUD update refreshes the inspection from the committed session snapshot.
+      latestTrainingData = null;
+    } catch (error) {
+      dataFeedback.textContent = error instanceof Error ? error.message : 'Import failed. No records were changed.';
     }
   });
 
@@ -397,8 +586,54 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
   }
 
   function update(snapshot: SessionSnapshot): void {
-    const { kart, camera, lap, ghost, drill, mode } = snapshot;
+    const needsRecordRefresh = latestTrainingData === null;
+    latestTrainingData = snapshot.trainingData;
+    if (dataDialog.open && needsRecordRefresh) refreshRecordInspection();
+    const { kart, camera, lap, ghost, drill, mode, timeTrial } = snapshot;
+    steeringSensitivity.value = String(Math.round(snapshot.keyboardAssistance.steeringSensitivity * 100));
+    steeringSensitivityValue.value = `${Math.round(snapshot.keyboardAssistance.steeringSensitivity * 100)}%`;
+    const audio = callbacks.getAudioState?.();
+    if (audio) {
+      const label = audio.status === 'Off' ? 'ENABLE' : audio.status === 'Running' ? 'ON' : audio.status.toUpperCase();
+      audioButton.textContent = `SOUND: ${label}`;
+      audioButton.setAttribute('aria-pressed', String(audio.status === 'Running'));
+      audioVolume.value = String(Math.round(audio.volume * 100));
+      audioMeter.value = Math.min(1, audio.outputLevel * 10);
+    }
+    cameraFov.value = String(camera.settings.fieldOfViewDegrees);
+    cameraFovValue.value = `${camera.settings.fieldOfViewDegrees}°`;
+    cameraMotion.value = String(Math.round(camera.settings.motionStrength * 100));
+    cameraMotionValue.value = camera.settings.motionStrength === 0 ? 'Off' : `${Math.round(camera.settings.motionStrength * 100)}%`;
+    lapLimitWrap.hidden = mode !== 'Time Trial';
+    lapLimitSelect.value = timeTrial.lapLimit === null ? 'unlimited' : String(timeTrial.lapLimit);
+    const finished = mode === 'Time Trial' && timeTrial.status === 'Finished';
+    resultsBtn.hidden = mode !== 'Time Trial';
+    resultsBtn.disabled = !finished;
+    if (finished && !showedFinishedResults) {
+      showedFinishedResults = true;
+      resultsSummary.textContent = `${timeTrial.completedLaps.length} timed laps · Total ${formatSeconds(timeTrial.totalSeconds)}`;
+      resultsBest.textContent = `Best Clean Lap: ${formatSeconds(timeTrial.bestCleanLapSeconds)}`;
+      resultsLaps.replaceChildren(...timeTrial.completedLaps.map((completed) => {
+        const row = document.createElement('tr');
+        const values = [String(completed.lapNumber), formatSeconds(completed.seconds), completed.isClean ? 'Clean' : 'Barrier contact', ...completed.sectorSplits.map(formatSeconds)];
+        for (const value of values) {
+          const cell = document.createElement('td');
+          cell.textContent = value;
+          row.append(cell);
+        }
+        return row;
+      }));
+      resultsDialog.showModal();
+    } else if (!finished) {
+      showedFinishedResults = false;
+      if (resultsDialog.open) resultsDialog.close();
+    }
     speedEl.textContent = kart.speedKph.toFixed(1);
+    const guidance = snapshot.racingLine.guidance;
+    guidanceEl.hidden = snapshot.racingLine.displayMode === 'Off';
+    guidanceEl.style.color = guidance.cue === 'Red' ? 'var(--accent-red)' : guidance.cue === 'Yellow' ? 'var(--accent-amber)' : 'var(--accent-green)';
+    guidanceAction.textContent = `${guidance.action} · up to ${Math.round(guidance.targetSpeedKph)} km/h`;
+    guidanceReason.textContent = guidance.reason;
     throttleBar.style.width = `${Math.round(kart.throttleInput * 100)}%`;
     brakeBar.style.width = `${Math.round(kart.brakeInput * 100)}%`;
     scrubBar.style.width = `${Math.round(kart.axleScrub * 100)}%`;
@@ -411,7 +646,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
       drillSelect.value = drill.target.id;
     }
     cameraLabel.textContent = camera.mode;
-    lineLabel.textContent = snapshot.racingLine.visible ? 'ON' : 'OFF';
+    lineLabel.textContent = snapshot.racingLine.displayMode;
     ghostLabel.textContent = ghost.mode;
 
     if (mode === 'Corner Drill') {
@@ -433,7 +668,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
         execTitleEl.textContent = `${card.targetLabel} · Run #${card.runNumber}`;
         execCategoryEl.textContent = card.coachingCategory;
         execCategoryEl.className = `exec-category-badge ${
-          card.coachingCategory === 'Optimal Pass' ? 'cat-optimal' : 'cat-warn'
+          (card.coachingCategory === 'Matched Reference' || card.coachingCategory === 'Clean Faster Pass') ? 'cat-optimal' : 'cat-warn'
         }`;
         execTimeEl.textContent = `${card.segmentTimeSeconds.toFixed(3)}s`;
         const dSign = card.deltaToBenchmarkSeconds >= 0 ? '+' : '';
@@ -441,14 +676,16 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
           card.deltaToPersonalBestSeconds !== null
             ? ` · ${card.deltaToPersonalBestSeconds >= 0 ? '+' : ''}${card.deltaToPersonalBestSeconds.toFixed(3)}s vs PB`
             : '';
-        execDeltaEl.textContent = `${dSign}${card.deltaToBenchmarkSeconds.toFixed(3)}s vs REC${pbDeltaStr}`;
-        execApexEl.textContent = `${card.apexProximityCm.toFixed(0)} cm`;
+        execDeltaEl.textContent = `${dSign}${card.deltaToBenchmarkSeconds.toFixed(3)}s vs REFERENCE${pbDeltaStr}`;
+        execApexEl.textContent = card.apexProximityCm === null ? 'Not observed' : `${card.apexProximityCm.toFixed(0)} cm`;
         execApexEl.style.color =
-          card.apexProximityCm <= 50 ? 'var(--accent-green)' : 'var(--accent-amber)';
+          card.apexProximityCm !== null && card.apexProximityCm <= 50 ? 'var(--accent-green)' : 'var(--accent-amber)';
         execSpeedsEl.textContent = `${card.entrySpeedKph.toFixed(1)} / ${card.minApexSpeedKph.toFixed(1)} / ${card.exitSpeedKph.toFixed(1)}`;
         execTargetSpeedsEl.textContent = `Target: ${card.targetEntrySpeedKph.toFixed(1)} / ${card.targetMinApexSpeedKph.toFixed(1)} / ${card.targetExitSpeedKph.toFixed(1)} km/h`;
+        execTurnProximities.textContent = card.turnApexProximities.map((turn) => `T${turn.turnNumber}: ${turn.distanceCm === null ? 'not observed' : `${turn.distanceCm.toFixed(0)} cm${turn.distanceCm > 50 ? ' · target missed' : ''}`}`).join(' | ');
         execInsightEl.textContent = card.coachingInsight;
       } else {
+        execTurnProximities.textContent = '';
         execTitleEl.textContent = `${drill.target.label} (Flying Entry Ready)`;
         execCategoryEl.textContent = 'Awaiting Pass';
         execCategoryEl.className = 'exec-category-badge';
@@ -464,13 +701,13 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
     } else {
       execCardEl.classList.add('hidden');
       lapBadge.textContent =
-        lap.lapNumber === 0 ? 'FLYING START' : `LAP ${lap.lapNumber}`;
+        finished ? 'TIME TRIAL COMPLETE' : lap.lapNumber === 0 ? 'FLYING START · APPROACH UNCOUNTED' : `LAP ${lap.lapNumber}${timeTrial.lapLimit === null ? ' · UNLIMITED' : ` / ${timeTrial.lapLimit}`}`;
       cleanBadge.textContent = lap.isClean ? 'CLEAN LAP' : 'DIRTY (WALL CONTACT)';
       cleanBadge.className = `clean-badge ${lap.isClean ? 'clean-ok' : 'clean-dirty'}`;
       lapTimer.textContent = `${lap.currentLapSeconds.toFixed(3)}s`;
       lastLapEl.textContent = formatSeconds(lap.lastLapSeconds);
       pbLapEl.textContent = formatSeconds(lap.personalBestSeconds);
-      recLapEl.textContent = '24.499s';
+      recLapEl.textContent = `${snapshot.racingLine.benchmarkLapSeconds.toFixed(3)}s`;
     }
 
     // Time-Delta Bar: negative = ahead (green), positive = behind (red)
@@ -479,7 +716,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
     const refLabel =
       ghost.mode === 'Personal Best' && lap.personalBestSeconds !== null
         ? `vs ${lap.personalBestSeconds.toFixed(3)}s PB`
-        : 'vs 24.499s REC';
+        : `vs ${snapshot.racingLine.benchmarkLapSeconds.toFixed(3)}s REFERENCE`;
     deltaText.textContent = `${signStr}${delta.toFixed(3)}s ${refLabel}`;
     deltaText.style.color = delta <= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
 

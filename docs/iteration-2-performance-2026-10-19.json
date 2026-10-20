@@ -1,0 +1,629 @@
+{
+  "capturedAt": "2026-10-19T11:43:12.261Z",
+  "scenario": "Production renderer/HUD/audio, exact public ReferenceReplay commands at 120 Hz; 12 uninterrupted real-time laps; Full Racing Line and Both Ghost Karts. Lap 1 warmup, lap 2 warmed Chase, lap 3 warmed Helmet, laps 4\u201312 Chase.",
+  "quality": "Balanced",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+  "viewport": [
+    1920,
+    936
+  ],
+  "devicePixelRatio": 2,
+  "drawingBuffer": [
+    2400,
+    1170
+  ],
+  "effectivePixelRatio": 1.25,
+  "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Pro, Unspecified Version)",
+  "wallSeconds": 549.5108000000179,
+  "droppedWallSeconds": 0,
+  "referenceLapSeconds": 45.791666666666664,
+  "allMeasuredAfterWarmup": {
+    "frames": 30223,
+    "averageFps": 60.000055586856256,
+    "medianMs": 16.699999999982538,
+    "p95Ms": 18.5,
+    "p99Ms": 18.699999999982538,
+    "maxMs": 18.800000000046566,
+    "over16_7ms": 13703,
+    "over25ms": 0,
+    "over50ms": 0,
+    "over100ms": 0
+  },
+  "laps": [
+    {
+      "lap": 1,
+      "camera": "Chase Cam",
+      "start": {
+        "calls": 85,
+        "triangles": 35646,
+        "geometries": 51,
+        "textures": 10,
+        "programs": 16,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "end": {
+        "calls": 85,
+        "triangles": 35646,
+        "geometries": 86,
+        "textures": 21,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "maxCalls": 124,
+      "minCalls": 58,
+      "frames": 2748,
+      "averageFps": 60.00707506996299,
+      "medianMs": 16.69999999999709,
+      "p95Ms": 17.900000000001455,
+      "p99Ms": 18.599999999998545,
+      "maxMs": 18.80000000000291,
+      "over16_7ms": 1096,
+      "over25ms": 0,
+      "over50ms": 0,
+      "over100ms": 0
+    },
+    {
+      "lap": 2,
+      "camera": "Chase Cam",
+      "start": {
+        "calls": 85,
+        "triangles": 35646,
+        "geometries": 86,
+        "textures": 21,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "end": {
+        "calls": 85,
+        "triangles": 35646,
+        "geometries": 86,
+        "textures": 21,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "maxCalls": 124,
+      "minCalls": 58,
+      "frames": 2748,
+      "averageFps": 60.00013100465285,
+      "medianMs": 16.69999999999709,
+      "p95Ms": 18.10000000000582,
+      "p99Ms": 18.59999999999127,
+      "maxMs": 18.70000000001164,
+      "over16_7ms": 931,
+      "over25ms": 0,
+      "over50ms": 0,
+      "over100ms": 0
+    },
+    {
+      "lap": 3,
+      "camera": "Helmet Cam",
+      "start": {
+        "calls": 85,
+        "triangles": 35646,
+        "geometries": 86,
+        "textures": 21,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "end": {
+        "calls": 45,
+        "triangles": 31870,
+        "geometries": 86,
+        "textures": 21,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "maxCalls": 109,
+      "minCalls": 43,
+      "frames": 2747,
+      "averageFps": 59.99991263208935,
+      "medianMs": 16.69999999999709,
+      "p95Ms": 18.5,
+      "p99Ms": 18.69999999999709,
+      "maxMs": 18.80000000000291,
+      "over16_7ms": 890,
+      "over25ms": 0,
+      "over50ms": 0,
+      "over100ms": 0
+    },
+    {
+      "lap": 4,
+      "camera": "Chase Cam",
+      "start": {
+        "calls": 45,
+        "triangles": 31870,
+        "geometries": 86,
+        "textures": 21,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "end": {
+        "calls": 85,
+        "triangles": 35646,
+        "geometries": 86,
+        "textures": 21,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "maxCalls": 124,
+      "minCalls": 58,
+      "frames": 2748,
+      "averageFps": 60.00013100465286,
+      "medianMs": 16.699999999982538,
+      "p95Ms": 18.60000000000582,
+      "p99Ms": 18.70000000001164,
+      "maxMs": 18.70000000001164,
+      "over16_7ms": 1263,
+      "over25ms": 0,
+      "over50ms": 0,
+      "over100ms": 0
+    },
+    {
+      "lap": 5,
+      "camera": "Chase Cam",
+      "start": {
+        "calls": 85,
+        "triangles": 35646,
+        "geometries": 86,
+        "textures": 21,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "end": {
+        "calls": 85,
+        "triangles": 35646,
+        "geometries": 86,
+        "textures": 21,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "maxCalls": 124,
+      "minCalls": 58,
+      "frames": 2747,
+      "averageFps": 60.00240271725479,
+      "medianMs": 16.699999999982538,
+      "p95Ms": 18.599999999976717,
+      "p99Ms": 18.60000000000582,
+      "maxMs": 18.70000000001164,
+      "over16_7ms": 1203,
+      "over25ms": 0,
+      "over50ms": 0,
+      "over100ms": 0
+    },
+    {
+      "lap": 6,
+      "camera": "Chase Cam",
+      "start": {
+        "calls": 85,
+        "triangles": 35646,
+        "geometries": 86,
+        "textures": 21,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "end": {
+        "calls": 85,
+        "triangles": 35646,
+        "geometries": 86,
+        "textures": 21,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "maxCalls": 124,
+      "minCalls": 58,
+      "frames": 2748,
+      "averageFps": 59.997773008425476,
+      "medianMs": 16.699999999982538,
+      "p95Ms": 18.5,
+      "p99Ms": 18.600000000034925,
+      "maxMs": 18.79999999998836,
+      "over16_7ms": 1234,
+      "over25ms": 0,
+      "over50ms": 0,
+      "over100ms": 0
+    },
+    {
+      "lap": 7,
+      "camera": "Chase Cam",
+      "start": {
+        "calls": 85,
+        "triangles": 35646,
+        "geometries": 86,
+        "textures": 21,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "end": {
+        "calls": 85,
+        "triangles": 35646,
+        "geometries": 86,
+        "textures": 21,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "maxCalls": 124,
+      "minCalls": 58,
+      "frames": 2747,
+      "averageFps": 59.99991263208933,
+      "medianMs": 16.70000000001164,
+      "p95Ms": 18.20000000001164,
+      "p99Ms": 18.600000000034925,
+      "maxMs": 18.70000000001164,
+      "over16_7ms": 1496,
+      "over25ms": 0,
+      "over50ms": 0,
+      "over100ms": 0
+    },
+    {
+      "lap": 8,
+      "camera": "Chase Cam",
+      "start": {
+        "calls": 85,
+        "triangles": 35646,
+        "geometries": 86,
+        "textures": 21,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "end": {
+        "calls": 85,
+        "triangles": 35646,
+        "geometries": 86,
+        "textures": 21,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "maxCalls": 124,
+      "minCalls": 58,
+      "frames": 2748,
+      "averageFps": 60.00013100465289,
+      "medianMs": 16.70000000001164,
+      "p95Ms": 18.5,
+      "p99Ms": 18.70000000001164,
+      "maxMs": 18.800000000046566,
+      "over16_7ms": 1470,
+      "over25ms": 0,
+      "over50ms": 0,
+      "over100ms": 0
+    },
+    {
+      "lap": 9,
+      "camera": "Chase Cam",
+      "start": {
+        "calls": 85,
+        "triangles": 35646,
+        "geometries": 86,
+        "textures": 21,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "end": {
+        "calls": 85,
+        "triangles": 35646,
+        "geometries": 86,
+        "textures": 21,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "maxCalls": 124,
+      "minCalls": 58,
+      "frames": 2747,
+      "averageFps": 60.000043684050674,
+      "medianMs": 16.699999999953434,
+      "p95Ms": 18.599999999976717,
+      "p99Ms": 18.70000000001164,
+      "maxMs": 18.79999999998836,
+      "over16_7ms": 1309,
+      "over25ms": 0,
+      "over50ms": 0,
+      "over100ms": 0
+    },
+    {
+      "lap": 10,
+      "camera": "Chase Cam",
+      "start": {
+        "calls": 85,
+        "triangles": 35646,
+        "geometries": 86,
+        "textures": 21,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "end": {
+        "calls": 85,
+        "triangles": 35646,
+        "geometries": 86,
+        "textures": 21,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "maxCalls": 124,
+      "minCalls": 58,
+      "frames": 2748,
+      "averageFps": 60.00013100465289,
+      "medianMs": 16.699999999953434,
+      "p95Ms": 18.599999999976717,
+      "p99Ms": 18.600000000034925,
+      "maxMs": 18.70000000001164,
+      "over16_7ms": 1315,
+      "over25ms": 0,
+      "over50ms": 0,
+      "over100ms": 0
+    },
+    {
+      "lap": 11,
+      "camera": "Chase Cam",
+      "start": {
+        "calls": 85,
+        "triangles": 35646,
+        "geometries": 86,
+        "textures": 21,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "end": {
+        "calls": 85,
+        "triangles": 35646,
+        "geometries": 86,
+        "textures": 21,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "maxCalls": 124,
+      "minCalls": 58,
+      "frames": 2747,
+      "averageFps": 60.00030578969091,
+      "medianMs": 16.70000000001164,
+      "p95Ms": 18.5,
+      "p99Ms": 18.600000000034925,
+      "maxMs": 18.79999999998836,
+      "over16_7ms": 1496,
+      "over25ms": 0,
+      "over50ms": 0,
+      "over100ms": 0
+    },
+    {
+      "lap": 12,
+      "camera": "Chase Cam",
+      "start": {
+        "calls": 85,
+        "triangles": 35646,
+        "geometries": 86,
+        "textures": 21,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "end": {
+        "calls": 85,
+        "triangles": 35646,
+        "geometries": 86,
+        "textures": 21,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "maxCalls": 124,
+      "minCalls": 58,
+      "frames": 2748,
+      "averageFps": 59.99973799241057,
+      "medianMs": 16.699999999953434,
+      "p95Ms": 18.199999999953434,
+      "p99Ms": 18.5,
+      "maxMs": 18.70000000006985,
+      "over16_7ms": 1096,
+      "over25ms": 0,
+      "over50ms": 0,
+      "over100ms": 0
+    }
+  ],
+  "results": {
+    "lapLimit": 12,
+    "status": "Finished",
+    "completedLaps": [
+      {
+        "lapNumber": 1,
+        "seconds": 45.79166666666471,
+        "isClean": true,
+        "sectorSplits": [
+          12.20833333333328,
+          15.09166666666581,
+          18.491666666665623
+        ]
+      },
+      {
+        "lapNumber": 2,
+        "seconds": 45.79166666666471,
+        "isClean": true,
+        "sectorSplits": [
+          12.20833333333328,
+          15.09166666666581,
+          18.491666666665623
+        ]
+      },
+      {
+        "lapNumber": 3,
+        "seconds": 45.79166666666471,
+        "isClean": true,
+        "sectorSplits": [
+          12.20833333333328,
+          15.09166666666581,
+          18.491666666665623
+        ]
+      },
+      {
+        "lapNumber": 4,
+        "seconds": 45.79166666666471,
+        "isClean": true,
+        "sectorSplits": [
+          12.20833333333328,
+          15.09166666666581,
+          18.491666666665623
+        ]
+      },
+      {
+        "lapNumber": 5,
+        "seconds": 45.79166666666471,
+        "isClean": true,
+        "sectorSplits": [
+          12.20833333333328,
+          15.09166666666581,
+          18.491666666665623
+        ]
+      },
+      {
+        "lapNumber": 6,
+        "seconds": 45.79166666666471,
+        "isClean": true,
+        "sectorSplits": [
+          12.20833333333328,
+          15.09166666666581,
+          18.491666666665623
+        ]
+      },
+      {
+        "lapNumber": 7,
+        "seconds": 45.79166666666471,
+        "isClean": true,
+        "sectorSplits": [
+          12.20833333333328,
+          15.09166666666581,
+          18.491666666665623
+        ]
+      },
+      {
+        "lapNumber": 8,
+        "seconds": 45.79166666666471,
+        "isClean": true,
+        "sectorSplits": [
+          12.20833333333328,
+          15.09166666666581,
+          18.491666666665623
+        ]
+      },
+      {
+        "lapNumber": 9,
+        "seconds": 45.79166666666471,
+        "isClean": true,
+        "sectorSplits": [
+          12.20833333333328,
+          15.09166666666581,
+          18.491666666665623
+        ]
+      },
+      {
+        "lapNumber": 10,
+        "seconds": 45.79166666666471,
+        "isClean": true,
+        "sectorSplits": [
+          12.20833333333328,
+          15.09166666666581,
+          18.491666666665623
+        ]
+      },
+      {
+        "lapNumber": 11,
+        "seconds": 45.79166666666471,
+        "isClean": true,
+        "sectorSplits": [
+          12.20833333333328,
+          15.09166666666581,
+          18.491666666665623
+        ]
+      },
+      {
+        "lapNumber": 12,
+        "seconds": 45.79166666666471,
+        "isClean": true,
+        "sectorSplits": [
+          12.20833333333328,
+          15.09166666666581,
+          18.491666666665623
+        ]
+      }
+    ],
+    "totalSeconds": 549.4999999999765,
+    "bestCleanLapSeconds": 45.79166666666471
+  },
+  "barrierContacts": 0,
+  "ghostsAtFinish": {
+    "mode": "Both",
+    "reference": true,
+    "personalBest": true
+  },
+  "audio": {
+    "maximumRms": 0.04910395731913468,
+    "finalState": {
+      "status": "Paused",
+      "volume": 0.35,
+      "outputLevel": 0
+    }
+  },
+  "longTasks": [],
+  "errors": [],
+  "functionalChecks": [
+    "Reference playback earns a Clean Lap PB",
+    "Legacy import preserves current PB separately",
+    "T3 shares Reference Lap timing and measured coaching",
+    "T1-T3 shares Reference Lap timing and measured coaching",
+    "T6-T7-T8 shares Reference Lap timing and measured coaching",
+    "Both current Ghost Karts selected",
+    "Current/legacy lap, Ghost and drill records round trip together",
+    "PB portable export produced",
+    "Real-time playback finishes exactly twelve laps",
+    "All twelve real-time laps are clean",
+    "No Barrier contacts during accumulation run",
+    "Results stay frozen after further inputs",
+    "Restart clears results and retains PB and default twelve-lap limit",
+    "Driving/view settings survive results restart",
+    "Restart and display settings preserve current and legacy portable records",
+    "Unlimited practice remains explicit after results"
+  ],
+  "hardware": {
+    "model": "MacBook Pro (Mac17,9)",
+    "chip": "Apple M5 Pro",
+    "memoryGB": 48,
+    "gpuCores": 16,
+    "macOS": "27.0.1 (26A434)",
+    "verifiedBy": "system_profiler SPHardwareDataType SPDisplaysDataType and sw_vers; unique device identifiers excluded"
+  },
+  "configuration": {
+    "fieldOfViewDegrees": 64,
+    "cameraMotionStrength": 0.35,
+    "keyboardSteeringSensitivity": 1,
+    "shadowMap": "1024x1024",
+    "handling": "kart-v2",
+    "circuit": "k1-toronto-v2",
+    "implementationBase": "e252f8c"
+  },
+  "limits": [
+    "Local M5 Pro evidence only; generic laptop 60 FPS remains unverified.",
+    "Animation-frame cadence includes renderer/HUD/Session/audio and is not isolated GPU timing.",
+    "Clean ReferenceReplay produced no skid marks; this is not a saturated-scrub worst-case timing sample. The preallocated shared skid pool is bounded at 320.",
+    "Human acoustic audition and formal human usability study remain unverified.",
+    "Replay QA starts at retained timed-lap state; ordinary uncounted Flying Start is independently covered by the public Session suite.",
+    "Per-lap resource start reflects the preceding rendered frame; camera switches settle during the following render."
+  ]
+}

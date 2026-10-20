@@ -139,6 +139,31 @@ export interface RacingLinePoint {
 
 export type RacingLineDisplayMode = 'Full' | 'Corners Only' | 'Off';
 
+export interface ReferenceClosure {
+  positionMeters: number;
+  headingRad: number;
+  speedMps: number;
+  yawRateRadPerSecond: number;
+}
+
+export interface ReferenceComplexEvidence {
+  id: string;
+  seconds: number;
+  entrySpeedKph: number;
+  exitSpeedKph: number;
+  turns: { number: number; seconds: number }[];
+}
+
+export interface ReferenceCandidateEvidence {
+  name: string;
+  feasible: boolean;
+  lapSeconds: number | null;
+  reason: string | null;
+  complexes?: ReferenceComplexEvidence[];
+  basisCandidate?: string;
+  adjustment?: { complexId: string; offsetMeters: number; phaseMeters: number };
+}
+
 export interface RacingLineState {
   visible: boolean;
   displayMode: RacingLineDisplayMode;
@@ -151,8 +176,8 @@ export interface RacingLineState {
   benchmarkLapSeconds: number;
   reference: {
     name: string; validated: boolean; realWorldBenchmarkSeconds: number;
-    closure: { positionMeters: number; headingRad: number; speedMps: number; yawRateRadPerSecond: number };
-    candidates: { name: string; feasible: boolean; lapSeconds: number | null; reason: string | null; basisCandidate?: string; adjustment?: { complexId: string; offsetMeters: number; phaseMeters: number }; complexes?: { id: string; seconds: number; entrySpeedKph: number; exitSpeedKph: number; turns: { number: number; seconds: number }[] }[] }[];
+    closure: ReferenceClosure;
+    candidates: ReferenceCandidateEvidence[];
   };
   points: (RacingLinePoint & { displayed: boolean })[];
 }

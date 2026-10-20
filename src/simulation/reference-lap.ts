@@ -1,5 +1,8 @@
 import { insideFrontTirePosition } from './kart-geometry';
-import type { CircuitData, KartState, RacingLinePoint, Vector2D } from './types';
+import type {
+  CircuitData, KartState, RacingLinePoint, ReferenceCandidateEvidence,
+  ReferenceClosure, ReferenceComplexEvidence, Vector2D,
+} from './types';
 import { offsetComplex } from './reference-proposals';
 import { CORNER_COMPLEXES } from './corner-complexes';
 import { buildPriorLineProposal } from './prior-line-proposal';
@@ -10,19 +13,7 @@ import { wrapAngleRad } from './planar-math';
 import { CURRENT_TRAINING_REVISION, type TrainingRevision } from './training-data';
 
 export interface ReferenceFrame { lapSeconds: number; kart: KartState; }
-export interface ReferenceComplexEvidence {
-  id: string; seconds: number; entrySpeedKph: number; exitSpeedKph: number;
-  turns: { number: number; seconds: number }[];
-}
-export interface ReferenceCandidateEvidence {
-  name: string;
-  feasible: boolean;
-  lapSeconds: number | null;
-  reason: string | null;
-  complexes?: ReferenceComplexEvidence[];
-  basisCandidate?: string;
-  adjustment?: { complexId: string; offsetMeters: number; phaseMeters: number };
-}
+export type { ReferenceCandidateEvidence, ReferenceComplexEvidence } from './types';
 export interface ReferenceReplay {
   revision: TrainingRevision;
   name: string;
@@ -32,7 +23,7 @@ export interface ReferenceReplay {
   frames: ReferenceFrame[];
   points: RacingLinePoint[];
   evidence: ReferenceCandidateEvidence[];
-  closure: { positionMeters: number; headingRad: number; speedMps: number; yawRateRadPerSecond: number };
+  closure: ReferenceClosure;
 }
 export interface ReferenceProposal { name: string; positions: Vector2D[]; speedScale?: number; }
 const cache = new WeakMap<CircuitData, ReferenceReplay>();

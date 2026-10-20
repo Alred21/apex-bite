@@ -40,3 +40,12 @@ Spec summary: **3 findings; all resolved.** Highest-impact original issue: incom
 ## Final verification
 
 `npm test`: **61 tests in 13 files pass**. `npm run typecheck`, `npm run build` and `git diff --check` pass. Production bundle: **618.71 kB**, **164.80 kB gzip**, with the existing Vite size advisory. The full-session production metrics were captured before these review fixes and remain historical evidence; exact tape replay verifies unchanged clean traversal, while this pass adds focused lifecycle/Ghost/focus regressions. Human acoustic audition, formal human keyboard usability and performance on broader hardware remain unmeasured as documented in the implementation report.
+
+## Pre-PR maintainability follow-up
+
+The independent review of `main...7b0486a` found no actionable Spec defects and two non-blocking Standards judgement calls. Both are resolved:
+
+1. Reference Lap closure, Corner Complex evidence and candidate evidence now have one definition in `src/simulation/types.ts`, shared by the replay and public snapshot. Existing evidence exports from `reference-lap.ts` remain available.
+2. `tests/analog-driver.ts` owns the common command calculation for the two test-only analog drivers. The Corner Drill caller retains its explicit offset/oscillation scenarios; each driver retains its own completion condition. The helper stays independent of production Reference Lap driving helpers.
+
+After extraction, all **61 tests**, type checking and production build pass. A before/after public-session comparison found the complete ReferenceReplay SHA-256 unchanged (`749afbc22cca69f1304a4a35160762083d67a5425f23ad52672be0262441e05c`). A timed lap and three varied Corner Drill cards retained their outcomes across 79 numeric observations, with a maximum difference of **3.35 × 10⁻¹⁵** from equivalent angle normalization. The generated production JavaScript and CSS asset hashes also remain unchanged. No browser or full-session performance rerun was needed for these type-only and test-only refactors.

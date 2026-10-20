@@ -40,7 +40,7 @@ export function createCameraPresentation() {
     const forwardZ = Math.sin(kart.headingRad);
     const helmet = mode === 'Helmet Cam';
     const strength = settings.motionStrength;
-    const eyeDistance = (helmet ? -0.12 : -4.2) - longitudinal * strength * (helmet ? 0.018 : 0.1);
+    const eyeDistance = (helmet ? -0.27 : -4.2) - longitudinal * strength * (helmet ? 0.018 : 0.1);
     const lookDistance = helmet ? 4 : 3.5;
     const sideOffset = -lateral * strength * (helmet ? 0.018 : 0.075);
     return {
@@ -49,13 +49,13 @@ export function createCameraPresentation() {
       rollRad: -lateral * strength * (helmet ? 0.018 : 0.009) || 0,
       position: {
         x: kart.position.x + forwardX * eyeDistance - forwardZ * sideOffset,
-        y: (helmet ? 0.78 : 2.1) + impact * strength * 0.009,
+        y: (helmet ? 0.99 : 2.1) + impact * strength * 0.009,
         z: kart.position.z + forwardZ * eyeDistance + forwardX * sideOffset,
       },
-      // A modest downward Helmet Cam sightline includes the nose and tires.
+      // A seated-eye sightline includes hands and rim in the lower frame.
       lookAt: {
         x: kart.position.x + forwardX * lookDistance,
-        y: (helmet ? 0 : 0.4) + longitudinal * strength * 0.12,
+        y: (helmet ? -0.2 : 0.4) + longitudinal * strength * 0.12,
         z: kart.position.z + forwardZ * lookDistance,
       },
     };

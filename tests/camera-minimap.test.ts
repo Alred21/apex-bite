@@ -17,8 +17,8 @@ describe('Ticket #4: Helmet Cam & Chase Cam Switching, Cockpit Telemetry & Mini-
     // Toggle to Helmet Cam
     const helmetSnap = session.toggleCamera();
     expect(helmetSnap.camera.mode).toBe('Helmet Cam');
-    expect(helmetSnap.camera.position.y).toBeGreaterThan(0.65);
-    expect(helmetSnap.camera.position.y).toBeLessThan(0.95);
+    expect(helmetSnap.camera.position.y).toBeGreaterThan(0.95);
+    expect(helmetSnap.camera.position.y).toBeLessThan(1.05);
 
     // Distance from Kart center in Helmet Cam must be within the driver seat (< 0.35m)
     const seatOffset = Math.hypot(

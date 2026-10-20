@@ -569,3 +569,9 @@ body,
 .line-guidance { display: grid; gap: 5px; max-width: 180px; font-size: 0.72rem; line-height: 1.3; }
 .line-guidance span { color: var(--text-muted); font-size: 0.65rem; }
 .line-guidance[hidden] { display: none; }
+
+.driving-hint { margin: 0 0 8px; color: var(--text-muted); font-size: 10px; line-height: 1.4; }
+.driving-bindings { display: grid; gap: 10px; margin: 0; padding: 12px; border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 8px; }
+.driving-bindings legend { padding: 0 6px; font-weight: 600; }
+.driving-binding-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.driving-binding-row button { min-width: 155px; }

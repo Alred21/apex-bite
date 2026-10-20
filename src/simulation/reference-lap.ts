@@ -36,7 +36,7 @@ export function createKartAtDistance(circuit: CircuitData, distanceMeters: numbe
     position: { ...sample.center }, headingRad, speedMps, speedKph: speedMps * 3.6,
     velocity: { x: sample.tangent.x * speedMps, z: sample.tangent.z * speedMps }, yawRateRadPerSecond: 0,
     forwardAccelMps2: 0, lateralAccelMps2: 0, steerAngleRad: 0, steeringWheelAngleRad: 0,
-    throttleInput: 0, brakeInput: 0, isTrailBraking: false, axleScrub: 0, slipRatio: 0,
+    driveDirection: 'Forward', throttleInput: 0, brakeInput: 0, isTrailBraking: false, axleScrub: 0, slipRatio: 0,
     barrierContact: false, barrierContactCount: 0, lapDistanceMeters: sample.distanceMeters,
     unwrappedDistanceMeters: sample.distanceMeters, lapProgress: sample.progress, currentTurn: null, currentSector: sample.sector,
   };

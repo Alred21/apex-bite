@@ -79,7 +79,7 @@ export interface GamepadInputState {
 export interface DriverInput {
   throttle?: number; // 0..1
   brake?: number; // 0..1
-  fullBrake?: boolean; // Spacebar instant 100% rear brake
+  fullBrake?: boolean; // Explicit immediate brake for replay/automation; keyboard Space is progressive
   steer?: number; // -1 (left) .. +1 (right)
   keys?: KeyboardInputState;
   gamepad?: GamepadInputState;
@@ -90,8 +90,9 @@ export interface KartState {
   yawRateRadPerSecond: number;
   position: Vector2D;
   headingRad: number; // 0 = +x, PI/2 = +z, clockwise in top-down (x, z)
-  speedMps: number;
-  speedKph: number;
+  speedMps: number; // signed longitudinal speed: negative while backing up
+  speedKph: number; // speed magnitude for display
+  driveDirection: 'Forward' | 'Reverse';
   forwardAccelMps2: number;
   lateralAccelMps2: number;
   steerAngleRad: number;
@@ -209,7 +210,7 @@ export interface LapSummaryState {
   lapNumber: number;
   lastLapSeconds: number | null;
   personalBestSeconds: number | null;
-  timeDeltaSeconds: number;
+  timeDeltaSeconds: number | null; // null while recovery or repeated Ghost stations make comparison ambiguous
   currentSectorSplits: SectorSplitsTuple;
   lastSectorSplits: SectorSplitsTuple;
   bestSectorSplits: SectorSplitsTuple;

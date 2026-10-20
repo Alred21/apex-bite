@@ -166,7 +166,7 @@ export function stepKartOnCircuit(circuit: CircuitData, previous: KartState, com
   if (collision.normal) {
     const normal = collision.normal;
     const inward = Math.min(0, velocity.x * normal.x + velocity.z * normal.z);
-    const friction = previous.barrierContact ? Math.max(0, 1 - 2.5 * dtSeconds / Math.max(0.1, dynamics.speedMps)) : 0.92;
+    const friction = previous.barrierContact ? Math.max(0, 1 - 2.5 * dtSeconds / Math.max(0.1, Math.abs(dynamics.speedMps))) : 0.92;
     velocity = { x: (velocity.x - normal.x * inward * 1.03) * friction, z: (velocity.z - normal.z * inward * 1.03) * friction };
     const remainingSeconds = (1 - collision.fraction) * dtSeconds;
     const slideTarget = {
@@ -176,7 +176,7 @@ export function stepKartOnCircuit(circuit: CircuitData, previous: KartState, com
     resolvedPose = sweepBarriers(circuit, collision.pose, slideTarget).pose;
     yawRateRadPerSecond *= 0.7;
   }
-  const speedMps = Math.min(MAX_KART_SPEED_MPS, Math.hypot(velocity.x, velocity.z));
+  const speedMps = Math.min(MAX_KART_SPEED_MPS, Math.hypot(velocity.x, velocity.z)) * (dynamics.speedMps < 0 ? -1 : 1);
   const projection = projectKartProgress(circuit, resolvedPose.position, previous.lapDistanceMeters);
   return {
     ...dynamics,
@@ -185,7 +185,7 @@ export function stepKartOnCircuit(circuit: CircuitData, previous: KartState, com
     velocity,
     yawRateRadPerSecond,
     speedMps,
-    speedKph: speedMps * 3.6,
+    speedKph: Math.abs(speedMps) * 3.6,
     steeringWheelAngleRad: dynamics.steerAngleRad * 2.2,
     forwardAccelMps2: (speedMps - previous.speedMps) / dtSeconds,
     barrierContact,

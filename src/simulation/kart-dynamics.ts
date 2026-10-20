@@ -6,7 +6,8 @@ import {
 import type { Vector2D } from './types';
 import { wrapAngleRad } from './planar-math';
 
-export interface KartCommand { throttle: number; brake: number; steer: number; }
+export interface KartCommand { throttle: number; brake: number; steer: number; reverse?: boolean; }
+export const MAX_REVERSE_SPEED_MPS = 8 / 3.6;
 
 /** All integration state is explicit so a Reference Lap can execute the exact same solver. */
 export interface PlanarKartState {
@@ -25,6 +26,7 @@ export function normalizeKartCommand(command: KartCommand): KartCommand {
     throttle: brake > 0 ? 0 : clamp(command.throttle, 0, 1),
     brake,
     steer: clamp(command.steer, -1, 1),
+    ...(command.reverse ? { reverse: true } : {}),
   };
 }
 
@@ -34,6 +36,7 @@ export function normalizeKartCommand(command: KartCommand): KartCommand {
  */
 export function stepKartDynamics(kart: PlanarKartState, rawCommand: KartCommand, dtSeconds: number) {
   const command = normalizeKartCommand(rawCommand);
+  if (command.reverse || kart.speedMps < 0) return stepReverseDynamics(kart, command, dtSeconds);
   const { throttle, brake, steer } = command;
   const speedRatio = Math.min(1, kart.speedMps / MAX_KART_SPEED_MPS);
   const steerAngleRad = steer * MAX_STEER_ANGLE_RAD;
@@ -74,9 +77,35 @@ export function stepKartDynamics(kart: PlanarKartState, rawCommand: KartCommand,
   const slipRatio = Math.min(1, Math.max(axleScrub, Math.abs(Math.sin(headingRad - travelHeading)), 1 - 1 / Math.max(1, gripDemandRatio)));
   const isTrailBraking = speedMps > 2 && Math.abs(steer) > 0.08 && brake > 0.05 && brake < 0.8;
   return {
-    position, headingRad, velocity, yawRateRadPerSecond, speedMps,
+    position, headingRad, velocity, yawRateRadPerSecond, speedMps, driveDirection: 'Forward' as const,
     forwardAccelMps2: (speedMps - kart.speedMps) / dtSeconds,
     lateralAccelMps2, steerAngleRad, isTrailBraking, axleScrub, slipRatio,
     throttleInput: throttle, brakeInput: brake,
+  };
+}
+
+/** Low-speed recovery uses the same wheelbase/steering and swept world collision envelope. */
+function stepReverseDynamics(kart: PlanarKartState, command: KartCommand, dt: number) {
+  const drive = command.reverse ? command.brake : 0;
+  const stopping = command.reverse ? 0 : Math.max(command.throttle, command.brake);
+  const previousSpeed = Math.abs(kart.speedMps);
+  const drag = previousSpeed > 0 ? MOTOR_DRAG_DECEL_MPS2 : 0;
+  const magnitude = Math.max(0, Math.min(MAX_REVERSE_SPEED_MPS,
+    previousSpeed + (drive * PEAK_LAUNCH_ACCEL_MPS2 - stopping * MAX_REAR_BRAKE_DECEL_MPS2 - drag) * dt));
+  const speedMps = -magnitude;
+  const steerAngleRad = command.steer * MAX_STEER_ANGLE_RAD;
+  const desiredYaw = speedMps * Math.tan(steerAngleRad) / WHEELBASE_METERS;
+  const yawRateRadPerSecond = magnitude > 0.05
+    ? kart.yawRateRadPerSecond + (desiredYaw - kart.yawRateRadPerSecond) * (1 - Math.exp(-dt / 0.095)) : 0;
+  const headingRad = kart.headingRad + yawRateRadPerSecond * dt;
+  const velocity = { x: Math.cos(headingRad) * speedMps, z: Math.sin(headingRad) * speedMps };
+  return {
+    position: { x: kart.position.x + velocity.x * dt, z: kart.position.z + velocity.z * dt },
+    headingRad, velocity, yawRateRadPerSecond, speedMps,
+    driveDirection: command.reverse || magnitude > 0 ? 'Reverse' as const : 'Forward' as const,
+    forwardAccelMps2: (speedMps - kart.speedMps) / dt,
+    lateralAccelMps2: speedMps * yawRateRadPerSecond,
+    steerAngleRad, isTrailBraking: false, axleScrub: 0, slipRatio: 0,
+    throttleInput: 0, brakeInput: command.brake || command.throttle,
   };
 }

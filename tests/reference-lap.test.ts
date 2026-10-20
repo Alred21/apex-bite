@@ -44,7 +44,7 @@ it('keeps Reference Ghost Kart motion, live timing, and returned copies consiste
   expect(snap.ghost.mode).toBe('Reference Lap');
   expect(snap.ghost.trackRecordPose!.position.x).toBeCloseTo(snap.kart.position.x, 7);
   expect(snap.ghost.trackRecordPose!.position.z).toBeCloseTo(snap.kart.position.z, 7);
-  expect(Math.abs(snap.lap.timeDeltaSeconds)).toBeLessThan(0.025);
+  expect(Math.abs(snap.lap.timeDeltaSeconds!)).toBeLessThan(0.025);
   expect(reference.closure.positionMeters).toBeLessThan(0.1);
   expect(reference.closure.headingRad).toBeLessThan(0.01);
   reference.initialState.position.x = 10000;

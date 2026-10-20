@@ -58,7 +58,18 @@ function bootstrap(): void {
     audio.reset();
   };
   const renderer = createCircuitRenderer(canvas, session.getSnapshot());
+  controls = bindDriverControls((shortcut) => {
+    if (shortcut === 'camera') session.toggleCamera();
+    else if (shortcut === 'line') session.toggleRacingLine();
+    else if (shortcut === 'ghost') session.cycleGhostMode();
+    else if (shortcut === 'mode') togglePracticeMode();
+    else if (shortcut === 'reset') reset();
+  }, releaseInputs);
+
   const hud = createHudView(hudRoot, {
+    getDrivingBindings: () => controls.getBindings(),
+    onSetDrivingBinding: (action, code) => controls.setBinding(action, code),
+    onRestoreDrivingBindings: () => controls.restoreDefaultBindings(),
     getAudioState: () => audio.getState(),
     onToggleAudio: () => { void audio.toggle(); },
     onAudioVolume: (volume) => audio.setVolume(volume),
@@ -94,14 +105,6 @@ function bootstrap(): void {
       session.importTrainingDataJson(json);
     },
   });
-
-  controls = bindDriverControls((shortcut) => {
-    if (shortcut === 'camera') session.toggleCamera();
-    else if (shortcut === 'line') session.toggleRacingLine();
-    else if (shortcut === 'ghost') session.cycleGhostMode();
-    else if (shortcut === 'mode') togglePracticeMode();
-    else if (shortcut === 'reset') reset();
-  }, releaseInputs);
 
   let lastTimeMs = performance.now();
   let accumulatorSeconds = 0;

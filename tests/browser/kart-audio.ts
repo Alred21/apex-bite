@@ -36,6 +36,13 @@ button.addEventListener('click', async () => {
   await audio.toggle(); await settle(); record('Unmuted');
   audio.setActive(false); await settle(); record('Paused');
   audio.setActive(true); await settle(); record('Resumed');
+  // Reverse uses speed magnitude and Brake/Reverse motor load, with no negative pitch.
+  session.reset();
+  for (let i = 0; i < 900 && session.getSnapshot().kart.speedMps > 0; i++) session.step(1 / 120, { brake: 1 });
+  session.step(1 / 120, { brake: 0 });
+  for (let i = 0; i < 180; i++) session.step(1 / 120, { brake: 1 });
+  audio.update(session.getSnapshot(), true);
+  await settle(); record('Reverse recovery electric motor');
   for (let i = 0; i < 25; i++) {
     session.reset(); audio.reset(); audio.update(session.getSnapshot(), true);
   }

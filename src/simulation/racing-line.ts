@@ -29,7 +29,7 @@ export function evaluateLiveRacingLine(circuit: CircuitData, kart: KartState, di
   const heading = current.headingRad + wrapAngleRad(next.headingRad - current.headingRad) * ratio;
   const positionError = Math.hypot(kart.position.x - lineX, kart.position.z - lineZ);
   const headingError = Math.abs(wrapAngleRad(kart.headingRad - heading));
-  const recovering = positionError > 0.8 || headingError > 0.35 || kart.barrierContact || kart.slipRatio > 0.5;
+  const recovering = kart.driveDirection === 'Reverse' || positionError > 0.8 || headingError > 0.35 || kart.barrierContact || kart.slipRatio > 0.5;
   const poseAllowance = Math.max(0.65, 1 - positionError * 0.16 - headingError * 0.45);
   // Rear-only braking and cornering share grip. Reserve time to react and use a
   // conservative fraction of available braking rather than waiting at an apex.
@@ -65,7 +65,7 @@ export function evaluateLiveRacingLine(circuit: CircuitData, kart: KartState, di
     visible: displayMode !== 'Off', displayMode, benchmarkLapSeconds: reference.lapSeconds,
     guidance: {
       cue, action: cue === 'Red' ? 'Brake' : cue === 'Yellow' ? 'Coast' : 'Accelerate',
-      reason: recovering ? 'Recover alignment before accelerating' : cue === 'Red' ? `Slow for ${turnLabel} ahead` : cue === 'Yellow' ? `Prepare for ${turnLabel} ahead` : 'Room to build speed progressively',
+      reason: kart.driveDirection === 'Reverse' ? 'Reverse recovery · release brake, then accelerate to move forward' : recovering ? 'Recover alignment before accelerating' : cue === 'Red' ? `Slow for ${turnLabel} ahead` : cue === 'Yellow' ? `Prepare for ${turnLabel} ahead` : 'Room to build speed progressively',
       targetSpeedKph: allowedSpeed * 3.6,
     },
     reference: referenceMetadata(circuit, reference),

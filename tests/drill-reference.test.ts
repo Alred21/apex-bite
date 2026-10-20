@@ -52,11 +52,21 @@ describe('Reference-backed Corner Drills', () => {
     expect(card!.turnApexProximities.map((turn) => turn.turnNumber)).toEqual([1, 2, 3]);
     for (const proximity of card!.turnApexProximities) {
       const turn = start.circuit.turns[proximity.turnNumber - 1];
-      const frame = replay.frames.reduce((best, frame) => Math.abs(frame.kart.lapDistanceMeters - turn.apexDistanceMeters) < Math.abs(best.kart.lapDistanceMeters - turn.apexDistanceMeters) ? frame : best);
       const side = turn.direction === 'Right' ? 1 : -1;
-      // Independent physical dimensions: model front axle +0.54m, half track 0.285m.
-      expect(proximity.referenceTarget.x).toBeCloseTo(frame.kart.position.x + Math.cos(frame.kart.headingRad) * 0.54 - Math.sin(frame.kart.headingRad) * side * 0.285, 8);
-      expect(proximity.referenceTarget.z).toBeCloseTo(frame.kart.position.z + Math.sin(frame.kart.headingRad) * 0.54 + Math.cos(frame.kart.headingRad) * side * 0.285, 8);
+      // The clipping point is an actually executed inside tire position within
+      // this Turn, rather than the diagram anchor or the minimum-speed sample.
+      const tires = replay.frames.filter((frame) => frame.kart.lapDistanceMeters >= turn.entryDistanceMeters && frame.kart.lapDistanceMeters <= turn.exitDistanceMeters).map((frame) => ({
+        x: frame.kart.position.x + Math.cos(frame.kart.headingRad) * 0.54 - Math.sin(frame.kart.headingRad) * side * 0.285,
+        z: frame.kart.position.z + Math.sin(frame.kart.headingRad) * 0.54 + Math.cos(frame.kart.headingRad) * side * 0.285,
+      }));
+      expect(Math.min(...tires.map((tire) => Math.hypot(tire.x - proximity.referenceTarget.x, tire.z - proximity.referenceTarget.z)))).toBeLessThan(1e-8);
+      const barriers = start.circuit.samples.filter((sample) => sample.distanceMeters >= turn.entryDistanceMeters - 1 && sample.distanceMeters <= turn.exitDistanceMeters + 1).map((sample) => side === 1 ? sample.rightBarrier : sample.leftBarrier);
+      const clearance = (point: { x: number; z: number }) => Math.min(...barriers.slice(1).map((b, index) => {
+        const a = barriers[index], dx = b.x - a.x, dz = b.z - a.z;
+        const t = Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.z - a.z) * dz) / (dx * dx + dz * dz)));
+        return Math.hypot(point.x - a.x - t * dx, point.z - a.z - t * dz);
+      }));
+      expect(clearance(proximity.referenceTarget)).toBeCloseTo(Math.min(...tires.map(clearance)), 8);
       expect(proximity.distanceCm).toBeLessThan(0.001);
     }
   });

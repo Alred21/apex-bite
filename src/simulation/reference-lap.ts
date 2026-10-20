@@ -3,7 +3,7 @@ import type {
   CircuitData, KartState, RacingLinePoint, ReferenceCandidateEvidence,
   ReferenceClosure, ReferenceComplexEvidence, Vector2D,
 } from './types';
-import { offsetComplex } from './reference-proposals';
+import { offsetComplex, placeTurn } from './reference-proposals';
 import { CORNER_COMPLEXES } from './corner-complexes';
 import { buildPriorLineProposal } from './prior-line-proposal';
 import type { KartCommand } from './kart-dynamics';
@@ -36,7 +36,7 @@ export function createKartAtDistance(circuit: CircuitData, distanceMeters: numbe
     position: { ...sample.center }, headingRad, speedMps, speedKph: speedMps * 3.6,
     velocity: { x: sample.tangent.x * speedMps, z: sample.tangent.z * speedMps }, yawRateRadPerSecond: 0,
     forwardAccelMps2: 0, lateralAccelMps2: 0, steerAngleRad: 0, steeringWheelAngleRad: 0,
-    throttleInput: 0, brakeInput: 0, isTrailBraking: false, axleScrub: 0, slipRatio: 0,
+    driveDirection: 'Forward', throttleInput: 0, brakeInput: 0, isTrailBraking: false, axleScrub: 0, slipRatio: 0,
     barrierContact: false, barrierContactCount: 0, lapDistanceMeters: sample.distanceMeters,
     unwrappedDistanceMeters: sample.distanceMeters, lapProgress: sample.progress, currentTurn: null, currentSector: sample.sector,
   };
@@ -194,6 +194,25 @@ export function buildReferenceLap(circuit: CircuitData): ReferenceReplay {
       } else evidence.push({ ...candidate, basisCandidate: basisName, adjustment: { complexId: CORNER_COMPLEXES[complexIndex].id, offsetMeters: amplitude, phaseMeters: phase } });
     }
   }
+  // Keep iteration-2 candidates unchanged as an identical-dynamics baseline.
+  const hairpinBasis = selectedPositions;
+  const hairpinBasisName = selected.name;
+  for (const widthUse of [0.45, 0.7, 0.9]) for (const apexShift of [-1.5, 1, 3]) {
+    const name = `T3 entry/apex/exit width ${widthUse} / apex ${apexShift > 0 ? '+' : ''}${apexShift}m`;
+    const positions = placeTurn(circuit, hairpinBasis, 3, { apexShiftMeters: apexShift, entryWidthUse: widthUse, apexWidthUse: widthUse, exitWidthUse: widthUse * 0.55 });
+    const candidate = executeReferenceProposal(circuit, { name, positions });
+    const placement: NonNullable<ReferenceCandidateEvidence['turnPlacement']> = { turnNumber: 3, requestedApexDistanceMeters: circuit.turns[2].apexDistanceMeters + apexShift, widthUse };
+    const item = 'frames' in candidate ? candidate.evidence[0] : candidate;
+    item.basisCandidate = hairpinBasisName;
+    item.turnPlacement = placement;
+    if ('frames' in candidate) {
+      const apex = referenceApex(circuit, candidate, 3);
+      placement.achievedApexDistanceMeters = apex.frame.kart.lapDistanceMeters;
+      placement.insideTireClearanceMeters = apex.clearanceMeters;
+      if (candidate.lapSeconds < selected.lapSeconds) { selected = candidate; selectedPositions = positions; }
+    }
+    evidence.push(item);
+  }
   selected.evidence = evidence;
   cache.set(circuit, freeze(selected));
   return selected;
@@ -224,9 +243,28 @@ export function referencePoseAtTime(reference: ReferenceReplay, seconds: number)
 
 /** Inside-front-tire target measured from the executed Turn traversal. */
 export function referenceApexTarget(circuit: CircuitData, reference: ReferenceReplay, turnNumber: number): Vector2D {
+  return { ...referenceApex(circuit, reference, turnNumber).target };
+}
+
+/** The executed inside tire's closest approach to the inside Barrier in the
+ * Turn window, not its slowest sample or the diagram's geometric anchor. */
+export function referenceApex(circuit: CircuitData, reference: ReferenceReplay, turnNumber: number) {
   const turn = circuit.turns[turnNumber - 1];
-  const kart = referenceStateAtDistance(reference, turn.apexDistanceMeters);
-  return insideFrontTirePosition(kart, turn.direction);
+  const side = turn.direction === 'Right' ? 'rightBarrier' : 'leftBarrier';
+  const samples = circuit.samples.filter((sample) => sample.distanceMeters >= turn.entryDistanceMeters - 1 && sample.distanceMeters <= turn.exitDistanceMeters + 1);
+  let best = { frame: reference.frames[0], target: insideFrontTirePosition(reference.frames[0].kart, turn.direction), clearanceMeters: Infinity };
+  for (const frame of reference.frames) {
+    if (frame.kart.lapDistanceMeters < turn.entryDistanceMeters || frame.kart.lapDistanceMeters > turn.exitDistanceMeters) continue;
+    const target = insideFrontTirePosition(frame.kart, turn.direction);
+    for (let i = 0; i < samples.length - 1; i++) {
+      const a = samples[i][side], b = samples[i + 1][side];
+      const dx = b.x - a.x, dz = b.z - a.z;
+      const ratio = Math.max(0, Math.min(1, ((target.x - a.x) * dx + (target.z - a.z) * dz) / (dx * dx + dz * dz)));
+      const clearanceMeters = Math.hypot(target.x - a.x - ratio * dx, target.z - a.z - ratio * dz);
+      if (clearanceMeters < best.clearanceMeters) best = { frame, target, clearanceMeters };
+    }
+  }
+  return best;
 }
 
 function measureComplexes(circuit: CircuitData, frames: ReferenceFrame[]): ReferenceComplexEvidence[] {

@@ -25,9 +25,11 @@ export function bindDriverControls(onShortcut: (shortcut: Shortcut) => void, onR
     }
     if (drivingCodes.has(event.code)) {
       event.preventDefault();
+      if (event.repeat && !pressed.has(event.code)) return;
       pressed.add(event.code);
     } else if (!event.repeat && shortcuts[event.code]) {
       event.preventDefault();
+      if (shortcuts[event.code] === 'reset' || shortcuts[event.code] === 'mode') release();
       onShortcut(shortcuts[event.code]);
     }
   });
@@ -53,5 +55,5 @@ export function bindDriverControls(onShortcut: (shortcut: Shortcut) => void, onR
       space: pressed.has('Space'),
     };
   }
-  return { readKeys, isPaused };
+  return { readKeys, isPaused, release };
 }

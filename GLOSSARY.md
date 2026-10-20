@@ -26,9 +26,21 @@ _Avoid_: Stage, checkpoint zone, split
 The continuous red-and-white physical wall enclosing the indoor track surface; grazing it scrubs speed through tangential friction, while steeper contact deflects the Kart and invalidates a Clean Lap.
 _Avoid_: Fence, guardrail, off-track, runoff
 
+**Circuit Centreline**:
+The path through the middle of the Circuit's track corridor. It describes the Circuit layout and is distinct from the Racing Line.
+_Avoid_: Optimal line, Racing Line
+
 **Racing Line**:
-The validated reference path for a fast, physically achievable full lap, accounting for compromises between connected Turns. Its throttle, coast, and brake cues account for the Kart's current speed, position, heading, and upcoming Turns; the path remains stable during a session.
+The validated reference path for a fast, physically achievable full lap, with deliberate entry, apex and exit placement and compromises between connected Turns. Its position stays fixed during a session while its colors indicate live speed and upcoming braking demand.
 _Avoid_: Guide line, path, driving line, trajectory
+
+**Apex**:
+The clipping point of a Racing Line through a Turn, where the Kart passes nearest the inside Barrier. The training target follows the selected Reference Lap's actual placement within that Turn.
+_Avoid_: Mandatory midpoint, fixed apex pin
+
+**Late Apex**:
+An Apex placed farther through a Turn than the geometric mid-corner clipping point, to favor the exit or positioning for the following Turn.
+_Avoid_: Late braking
 
 ### Kart & Physics
 

@@ -198,7 +198,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
 
       <div class="speedometer">
         <div class="speed-value" id="hud-speed-kph">0.0</div>
-        <div class="speed-unit">km/h</div>
+        <div class="speed-unit">km/h <strong id="hud-drive-direction" aria-live="polite"></strong></div>
       </div>
 
       <div class="line-guidance" id="hud-line-guidance" aria-label="Racing Line guidance">
@@ -222,6 +222,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
         <h2 id="hud-camera-settings-title">Driving and view settings</h2>
         <label for="hud-steering-sensitivity">Keyboard steering sensitivity <output id="hud-steering-sensitivity-value" for="hud-steering-sensitivity">100%</output></label>
         <input id="hud-steering-sensitivity" type="range" min="50" max="175" step="5" value="100" />
+        <p class="dialog-desc">Brake/Reverse: stop, release, then press again to back up at up to 8 km/h. Accelerator stops backward motion before moving forward.</p>
         <p class="dialog-desc">Short taps make small corrections. Hold progressively and brake for tight Turns. Sensitivity changes response speed; the steering limit still adapts to speed.</p>
         <p>Adjust both Helmet Cam and Chase Cam. Camera motion adds gentle acceleration, cornering and contact feedback.</p>
         <label for="hud-camera-fov">Vertical field of view <output id="hud-camera-fov-value" for="hud-camera-fov">64°</output></label>
@@ -327,6 +328,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
   });
 
   const speedEl = root.querySelector<HTMLElement>('#hud-speed-kph')!;
+  const directionEl = root.querySelector<HTMLElement>('#hud-drive-direction')!;
   const guidanceEl = root.querySelector<HTMLElement>('#hud-line-guidance')!;
   const guidanceAction = root.querySelector<HTMLElement>('#hud-guidance-action')!;
   const guidanceReason = root.querySelector<HTMLElement>('#hud-guidance-reason')!;
@@ -629,6 +631,8 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
       if (resultsDialog.open) resultsDialog.close();
     }
     speedEl.textContent = kart.speedKph.toFixed(1);
+    directionEl.textContent = kart.driveDirection === 'Reverse' ? 'REVERSE' : '';
+    directionEl.style.color = 'var(--accent-yellow)';
     const guidance = snapshot.racingLine.guidance;
     guidanceEl.hidden = snapshot.racingLine.displayMode === 'Off';
     guidanceEl.style.color = guidance.cue === 'Red' ? 'var(--accent-red)' : guidance.cue === 'Yellow' ? 'var(--accent-amber)' : 'var(--accent-green)';
@@ -711,14 +715,14 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
     }
 
     // Time-Delta Bar: negative = ahead (green), positive = behind (red)
-    const delta = lap.timeDeltaSeconds;
+    const delta = lap.timeDeltaSeconds ?? 0;
     const signStr = delta >= 0 ? '+' : '';
     const refLabel =
       ghost.mode === 'Personal Best' && lap.personalBestSeconds !== null
         ? `vs ${lap.personalBestSeconds.toFixed(3)}s PB`
         : `vs ${snapshot.racingLine.benchmarkLapSeconds.toFixed(3)}s REFERENCE`;
-    deltaText.textContent = `${signStr}${delta.toFixed(3)}s ${refLabel}`;
-    deltaText.style.color = delta <= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+    deltaText.textContent = lap.timeDeltaSeconds === null ? 'COMPARISON UNAVAILABLE · RECOVERY' : `${signStr}${delta.toFixed(3)}s ${refLabel}`;
+    deltaText.style.color = lap.timeDeltaSeconds === null ? 'var(--text-muted)' : delta <= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
 
     const clampedDelta = Math.max(-2.5, Math.min(2.5, delta));
     const pct = Math.abs(clampedDelta / 2.5) * 50;

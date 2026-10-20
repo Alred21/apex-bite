@@ -4,7 +4,7 @@ import { createSimulationSession } from '../src/simulation/session';
 const DT = 1 / 120;
 
 describe('Keyboard Assistance through SimulationSession', () => {
-  it('ramps keyboard pedals while retaining immediate analog pedals and emergency braking', () => {
+  it('ramps all keyboard pedals including Space while retaining immediate analog pedals', () => {
     const keyboard = createSimulationSession();
     const first = keyboard.step(DT, { keys: { up: true } });
     expect(first.kart.throttleInput).toBeGreaterThan(0);
@@ -15,7 +15,9 @@ describe('Keyboard Assistance through SimulationSession', () => {
     const firstBrake = keyboard.step(DT, { keys: { down: true } });
     expect(firstBrake.kart.brakeInput).toBeGreaterThan(0);
     expect(firstBrake.kart.brakeInput).toBeLessThan(0.1);
-    expect(keyboard.step(DT, { keys: { space: true } }).kart.brakeInput).toBe(1);
+    const space = createSimulationSession().step(DT, { keys: { space: true } });
+    expect(space.kart.brakeInput).toBeGreaterThan(0);
+    expect(space.kart.brakeInput).toBeLessThan(0.1);
     const analog = createSimulationSession();
     expect(analog.step(DT, { gamepad: { throttle: 0.7, steer: 0.4 } }).kart.throttleInput).toBe(0.7);
     expect(analog.step(DT, { gamepad: { brake: 0.6, steer: 0 } }).kart.brakeInput).toBe(0.6);

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createSeatedDriver } from './driver';
 import { KART_WHEEL_GEOMETRY } from '../simulation/kart-parameters';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { SessionSnapshot } from '../simulation/types';
@@ -286,20 +287,20 @@ export function createKartRig(): KartRig {
   }
 
   const steeringMount = new THREE.Group();
-  steeringMount.position.set(0.24, 0.6, 0);
+  steeringMount.position.set(0.21, 0.6, 0);
   steeringMount.rotation.z = 0.4;
   const steeringWheel = new THREE.Group();
   steeringMount.add(steeringWheel);
   root.add(steeringMount);
-  add(tube([[0.24, 0.6, 0], [0.38, 0.22, 0]], 0.013), steel);
-  const grip = add(new THREE.TorusGeometry(0.127, 0.017, 8, 40), rubber, 0, 0, 0, steeringWheel);
+  add(tube([[0.21, 0.6, 0], [0.38, 0.22, 0]], 0.013), steel);
+  const grip = add(new THREE.TorusGeometry(0.119, 0.016, 8, 40), rubber, 0, 0, 0, steeringWheel);
   grip.rotation.y = Math.PI / 2;
   for (const angle of [Math.PI / 2, Math.PI, Math.PI * 3 / 2]) {
     add(tube([[0, 0, 0], [0, Math.cos(angle) * 0.11, Math.sin(angle) * 0.11]], 0.008), alloy, 0, 0, 0, steeringWheel);
   }
   const center = add(new THREE.CylinderGeometry(0.032, 0.032, 0.018, 16), black, 0, 0, 0, steeringWheel);
   center.rotation.z = Math.PI / 2;
-  const tape = add(new THREE.TorusGeometry(0.127, 0.018, 6, 6, 0.18), accent, 0, 0, 0, steeringWheel);
+  const tape = add(new THREE.TorusGeometry(0.119, 0.017, 6, 6, 0.18), accent, 0, 0, 0, steeringWheel);
   tape.geometry.rotateZ(Math.PI / 2 - 0.09);
   tape.rotation.set(0, Math.PI / 2, 0);
 
@@ -311,12 +312,15 @@ export function createKartRig(): KartRig {
   const dashTexture = new THREE.CanvasTexture(dashCanvas);
   dashTexture.colorSpace = THREE.SRGBColorSpace;
   const dashMaterial = new THREE.MeshBasicMaterial({ map: dashTexture });
-  const dashHousing = add(moulding([[-0.025, -0.073], [0.025, -0.073], [0.025, 0.073], [-0.025, 0.073]], 0.075, 0.007), black, 0.3, 0.625);
+  const dashHousing = add(moulding([[-0.025, -0.073], [0.025, -0.073], [0.025, 0.073], [-0.025, 0.073]], 0.075, 0.007), black, 0.3, 0.695);
   dashHousing.rotation.z = 0.3;
-  const dashScreen = add(new THREE.PlaneGeometry(0.126, 0.06), dashMaterial, 0.249, 0.653);
+  // The raised display is carried by a compact bracket off the column.
+  add(tube([[0.31, 0.44, 0], [0.34, 0.65, 0], [0.3, 0.7, 0]], 0.007), black);
+  const dashScreen = add(new THREE.PlaneGeometry(0.126, 0.06), dashMaterial, 0.249, 0.723);
   dashScreen.rotation.set(0, -Math.PI / 2, 0.3, 'ZYX');
 
   consolidate(stationary);
+  const driver = createSeatedDriver(root, steeringWheel);
   let lastElapsed: number | undefined;
   let lastPosition: { x: number; z: number } | undefined;
   let lastSpeed = 0;
@@ -328,6 +332,7 @@ export function createKartRig(): KartRig {
     root.rotation.y = -kart.headingRad;
     frontPivots.forEach((pivot) => { pivot.rotation.y = -kart.steerAngleRad; });
     steeringWheel.rotation.x = -kart.steeringWheelAngleRad;
+    driver.update(snapshot);
     const dt = lastElapsed === undefined ? 0 : elapsedSeconds - lastElapsed;
     const distance = lastPosition ? Math.hypot(kart.position.x - lastPosition.x, kart.position.z - lastPosition.z) : 0;
     // Repeated snapshots cannot spin wheels; reset/mode teleports do not either.

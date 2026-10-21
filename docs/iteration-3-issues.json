@@ -70,8 +70,17 @@
         25,
         26,
         28,
-        29
+        29,
+        32
       ]
+    },
+    {
+      "number": 32,
+      "url": "https://github.com/Alred21/apex-bite/issues/32",
+      "ordinal": 8,
+      "title": "Keep the player Kart readable when Ghost Karts overlap",
+      "local_file": "docs/iteration-3-tickets/08-ghost-overlap.md",
+      "blocked_by": []
     }
   ]
 }

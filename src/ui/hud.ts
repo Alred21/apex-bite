@@ -654,6 +654,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
     latestTrainingData = snapshot.trainingData;
     if (dataDialog.open && needsRecordRefresh) refreshRecordInspection();
     const { kart, camera, lap, ghost, drill, mode, timeTrial } = snapshot;
+    root.dataset.cameraMode = camera.mode === 'Helmet Cam' ? 'helmet' : 'chase';
     steeringSensitivity.value = String(Math.round(snapshot.keyboardAssistance.steeringSensitivity * 100));
     steeringSensitivityValue.value = `${Math.round(snapshot.keyboardAssistance.steeringSensitivity * 100)}%`;
     const audio = callbacks.getAudioState?.();

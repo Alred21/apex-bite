@@ -4,8 +4,22 @@ import { createKartAudio } from '../../src/audio/kart-audio';
 import { createSimulationSession, FIXED_TIMESTEP_SECONDS } from '../../src/simulation/session';
 
 // QA-only playback of the documented executable Reference Lap, never player assistance.
+const moduleStarted = performance.now();
+const errors: string[] = [];
+window.addEventListener('error', (event) => errors.push(event.message));
+window.addEventListener('unhandledrejection', (event) => errors.push(String(event.reason)));
+const constructionStarted = performance.now();
 const session = createSimulationSession({ referenceReplay: true });
+const startup = {
+  coldSessionWithReferenceMs: performance.now() - constructionStarted,
+  functionalPreflightMs: 0,
+  rendererConstructionMs: 0,
+  firstRenderAndHudCpuMs: 0,
+  navigationToFirstFrameMs: 0,
+  moduleToFirstFrameMs: 0,
+};
 const replay = session.getReferenceReplay();
+const preflightStarted = performance.now();
 const checks: string[] = [];
 function check(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
@@ -18,27 +32,42 @@ const portable = session.exportTrainingDataJson();
 session.importTrainingDataJson(JSON.stringify({ version: 1, personalBestSeconds: 31,
   bestSectorSplits: [10, 12, 9], personalBestGhostFrames: [], drillPersonalBests: { T3: 4.25 } }));
 check(session.getSnapshot().trainingData.legacy.length === 1, 'Legacy import preserves current PB separately');
-for (const id of ['T3', 'T1-T3', 'T6-T7-T8'] as const) {
-  const entry = session.selectDrillTarget(id);
+session.cycleGhostMode(); session.cycleGhostMode();
+const drillEvidence: Array<Record<string, unknown>> = [];
+for (const target of session.getSnapshot().drill.availableTargets) {
+  const entry = session.selectDrillTarget(target.id);
   const first = replay.frames.findIndex((frame) => frame.kart.position.x === entry.kart.position.x && frame.kart.position.z === entry.kart.position.z);
-  let card = entry.drill.lastExecutionCard;
-  for (let i = first; i >= 0 && i < replay.commands.length && !card; i++) {
-    card = session.step(FIXED_TIMESTEP_SECONDS, replay.commands[i]).drill.lastExecutionCard;
+  check(first >= 0, `${target.id} Flying Entry comes from the selected Reference Lap`);
+  let snapshot = entry;
+  let maxReferenceGhostErrorMeters = 0, maxPersonalBestGhostErrorMeters = 0;
+  for (let i = first; i < replay.commands.length && snapshot.drill.lastExecutionCard?.runNumber !== entry.drill.runNumber; i++) {
+    const referenceGhost = snapshot.ghost.trackRecordPose, personalBestGhost = snapshot.ghost.personalBestPose;
+    if (!referenceGhost || !personalBestGhost) throw new Error(`${target.id} Ghost Kart missing during replay`);
+    maxReferenceGhostErrorMeters = Math.max(maxReferenceGhostErrorMeters, Math.hypot(referenceGhost!.position.x - snapshot.kart.position.x, referenceGhost!.position.z - snapshot.kart.position.z));
+    maxPersonalBestGhostErrorMeters = Math.max(maxPersonalBestGhostErrorMeters, Math.hypot(personalBestGhost!.position.x - snapshot.kart.position.x, personalBestGhost!.position.z - snapshot.kart.position.z));
+    snapshot = session.step(FIXED_TIMESTEP_SECONDS, replay.commands[i]);
   }
-  check(Boolean(card?.isClean && card.coachingCategory === 'Matched Reference' && Math.abs(card.deltaToBenchmarkSeconds) < 0.025), `${id} shares Reference Lap timing and measured coaching`);
+  const card = snapshot.drill.lastExecutionCard;
+  check(Boolean(card?.targetId === target.id && card.runNumber === entry.drill.runNumber && card.isClean && card.coachingCategory === 'Matched Reference' && Math.abs(card.deltaToBenchmarkSeconds) < 0.025), `${target.id} shares Reference Lap timing and measured coaching`);
+  check(Boolean(card?.turnApexProximities.every((apex) => apex.distanceCm !== null && apex.distanceCm < 0.001)), `${target.id} reaches every actual selected Apex target`);
+  check(maxReferenceGhostErrorMeters < 1e-6 && maxPersonalBestGhostErrorMeters < 0.15, `${target.id} Reference and Personal Best Ghost timing stays aligned`);
+  drillEvidence.push({ id: target.id, seconds: card!.segmentTimeSeconds, benchmarkSeconds: card!.benchmarkTimeSeconds, deltaSeconds: card!.deltaToBenchmarkSeconds, apexProximities: card!.turnApexProximities, entrySpeedKph: card!.entrySpeedKph, minimumSpeedKph: card!.minApexSpeedKph, exitSpeedKph: card!.exitSpeedKph, coaching: card!.coachingCategory, maxReferenceGhostErrorMeters, maxPersonalBestGhostErrorMeters });
 }
 session.setPracticeMode('Time Trial');
 session.reset();
-session.cycleGhostMode(); session.cycleGhostMode();
 check(session.getSnapshot().ghost.mode === 'Both', 'Both current Ghost Karts selected');
 const restored = createSimulationSession();
 restored.importTrainingDataJson(session.exportTrainingDataJson());
 check(restored.getSnapshot().trainingData.legacy.length === 1 && restored.getSnapshot().lap.personalBestSeconds !== null && restored.getSnapshot().drill.personalBests.T3 !== undefined, 'Current/legacy lap, Ghost and drill records round trip together');
 check(portable.length > 0, 'PB portable export produced');
+check(Object.keys(restored.getSnapshot().drill.personalBests).length === 16, 'All sixteen drill records round trip');
+startup.functionalPreflightMs = performance.now() - preflightStarted;
 
 const canvas = document.querySelector<HTMLCanvasElement>('#viewport')!;
+const rendererStarted = performance.now();
 const renderer = createCircuitRenderer(canvas, session.getSnapshot());
 renderer.setGraphicsQuality('Balanced');
+startup.rendererConstructionMs = performance.now() - rendererStarted;
 const audio = createKartAudio();
 const hud = createHudView(document.querySelector<HTMLElement>('#hud-root')!, { getAudioState: () => audio.getState() });
 const output = document.querySelector<HTMLElement>('#report')!;
@@ -57,13 +86,10 @@ let accumulator = 0;
 let result = '';
 let maximumAudioRms = 0;
 let droppedWallSeconds = 0;
-const errors: string[] = [];
-window.addEventListener('error', (event) => errors.push(event.message));
-window.addEventListener('unhandledrejection', (event) => errors.push(String(event.reason)));
 function distribution(values: number[]) {
   const sorted = [...values].sort((a, b) => a - b);
   const percentile = (p: number) => sorted[Math.floor((sorted.length - 1) * p)] ?? 0;
-  return { frames: values.length, averageFps: 1000 * values.length / values.reduce((a, b) => a + b, 0),
+  return { frames: values.length, meanMs: values.reduce((a, b) => a + b, 0) / values.length, averageFps: 1000 * values.length / values.reduce((a, b) => a + b, 0),
     medianMs: percentile(0.5), p95Ms: percentile(0.95), p99Ms: percentile(0.99), maxMs: Math.max(...values),
     over16_7ms: values.filter((v) => v > 16.7).length, over25ms: values.filter((v) => v > 25).length,
     over50ms: values.filter((v) => v > 50).length, over100ms: values.filter((v) => v > 100).length };
@@ -79,7 +105,7 @@ button.addEventListener('click', () => {
 download.addEventListener('click', () => {
   const anchor = document.createElement('a');
   anchor.href = URL.createObjectURL(new Blob([result], { type: 'application/json' }));
-  anchor.download = 'iteration-2-performance-2026-10-19.json'; anchor.click();
+  anchor.download = `iteration-3-performance-${new Date().toISOString().slice(0, 10)}.json`; anchor.click();
   setTimeout(() => URL.revokeObjectURL(anchor.href), 1000);
 });
 function finish(now: number): void {
@@ -104,6 +130,7 @@ function finish(now: number): void {
   check(session.getSnapshot().timeTrial.lapLimit === null, 'Unlimited practice remains explicit after results');
   const gl = canvas.getContext('webgl2'); const debug = gl?.getExtension('WEBGL_debug_renderer_info');
   result = JSON.stringify({ capturedAt: new Date().toISOString(), scenario: 'Production renderer/HUD/audio, exact public ReferenceReplay commands at 120 Hz; 12 uninterrupted real-time laps; Full Racing Line and Both Ghost Karts. Lap 1 warmup, lap 2 warmed Chase, lap 3 warmed Helmet, laps 4–12 Chase.',
+    startup, drillEvidence, reference: session.getSnapshot().racingLine.reference, trainingRevision: snapshot.trainingData.revision,
     quality: renderer.getGraphicsQuality(), userAgent: navigator.userAgent, viewport: [innerWidth, innerHeight], devicePixelRatio,
     drawingBuffer: [canvas.width, canvas.height], effectivePixelRatio: canvas.width / innerWidth,
     gpu: gl && debug ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL) : 'Unavailable',
@@ -139,7 +166,13 @@ function frame(now: number): void {
   const snapshot = session.getSnapshot();
   audio.update(snapshot, driving);
   maximumAudioRms = Math.max(maximumAudioRms, audio.getState().outputLevel);
+  const renderStarted = performance.now();
   renderer.render(snapshot); hud.update(snapshot);
+  if (startup.navigationToFirstFrameMs === 0) {
+    startup.firstRenderAndHudCpuMs = performance.now() - renderStarted;
+    startup.navigationToFirstFrameMs = performance.now();
+    startup.moduleToFirstFrameMs = performance.now() - moduleStarted;
+  }
   if (driving) {
     const sample = lapSamples[lapSamples.length - 1];
     sample.end = renderer.getDiagnostics();

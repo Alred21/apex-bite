@@ -1,0 +1,1108 @@
+{
+  "historicalIteration2LapSeconds": 45.791666666666664,
+  "comparisonProtocol": "Same current 120 Hz player dynamics, physical path-distance lookahead, two warmup laps, swept whole-Kart validation. Historical iteration-2 time is separate from its re-executed final-protocol baseline.",
+  "comparisons": [
+    {
+      "name": "Conservative centerline",
+      "lapSeconds": 45.983333333333334,
+      "pathLengthMeters": 362.84504510102335,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 11.049684534190085,
+          "entrySpeedKph": 27.026538341857112,
+          "exitSpeedKph": 20.65489588417457,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.3426504079620267
+            },
+            {
+              "number": 2,
+              "seconds": 1.8352816419073035
+            },
+            {
+              "number": 3,
+              "seconds": 3.1088340707670774
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.425816081632019,
+          "entrySpeedKph": 33.431704335828115,
+          "exitSpeedKph": 20.65489588417457,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.8352816419073035
+            },
+            {
+              "number": 3,
+              "seconds": 3.1088340707670774
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.995681546346594,
+          "entrySpeedKph": 28.18444069186658,
+          "exitSpeedKph": 33.85138994222219,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.6254185212496974
+            },
+            {
+              "number": 5,
+              "seconds": 1.856536193504926
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.430053474647362,
+          "entrySpeedKph": 38.96521127664901,
+          "exitSpeedKph": 23.306493397817906,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.7631442955450005
+            },
+            {
+              "number": 7,
+              "seconds": 2.2180869024618524
+            },
+            {
+              "number": 8,
+              "seconds": 2.384634391527083
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.625400547129232,
+          "entrySpeedKph": 32.82913134194464,
+          "exitSpeedKph": 29.076861574123228,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.9401665672226116
+            },
+            {
+              "number": 10,
+              "seconds": 2.7024752010355613
+            },
+            {
+              "number": 11,
+              "seconds": 2.5678140550127466
+            }
+          ]
+        }
+      ],
+      "sampledWholeKartSurfaceClearanceMeters": 1.6934120364168437,
+      "closure": {
+        "positionMeters": 0.0001870881442618738,
+        "headingRad": 0.000006199616539248609,
+        "speedMps": 3.882682122480219e-7,
+        "yawRateRadPerSecond": 0.000006652523785399822
+      }
+    },
+    {
+      "name": "T9-T10-T11 offset -0.45m / phase -2m",
+      "lapSeconds": 45.85,
+      "pathLengthMeters": 360.0060909981324,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 10.987166049620116,
+          "entrySpeedKph": 26.889544204817472,
+          "exitSpeedKph": 20.431030972568877,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.3406468548000463
+            },
+            {
+              "number": 2,
+              "seconds": 1.803717688979317
+            },
+            {
+              "number": 3,
+              "seconds": 3.0716718179718416
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.369913443596786,
+          "entrySpeedKph": 33.414411503926395,
+          "exitSpeedKph": 20.431030972568877,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.803717688979317
+            },
+            {
+              "number": 3,
+              "seconds": 3.0716718179718416
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.950425079853536,
+          "entrySpeedKph": 27.8334840707195,
+          "exitSpeedKph": 33.57808176544005,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.6074491799096062
+            },
+            {
+              "number": 5,
+              "seconds": 1.8304184560091308
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.431106735515158,
+          "entrySpeedKph": 38.73897076821301,
+          "exitSpeedKph": 23.306997962120096,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.7638289579208895
+            },
+            {
+              "number": 7,
+              "seconds": 2.2177575630362902
+            },
+            {
+              "number": 8,
+              "seconds": 2.384955804116558
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.57642298933477,
+          "entrySpeedKph": 32.97683289161128,
+          "exitSpeedKph": 29.16316988238068,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.9400702457146473
+            },
+            {
+              "number": 10,
+              "seconds": 2.619160915258142
+            },
+            {
+              "number": 11,
+              "seconds": 2.5719116682773304
+            }
+          ]
+        }
+      ],
+      "sampledWholeKartSurfaceClearanceMeters": 1.391164077674834,
+      "closure": {
+        "positionMeters": 0.0009529319288818524,
+        "headingRad": 0.000031979759757660986,
+        "speedMps": 0.0000037906163132817028,
+        "yawRateRadPerSecond": 0.000034066932378395975
+      }
+    },
+    {
+      "name": "T11 linked placement entry 0.7 apex 0.75/0m exit 0.5",
+      "lapSeconds": 44.666666666666664,
+      "pathLengthMeters": 350.3312630854002,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 10.498361395943144,
+          "entrySpeedKph": 24.734917486319045,
+          "exitSpeedKph": 19.958026968518844,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 2.137929273929104
+            },
+            {
+              "number": 2,
+              "seconds": 1.4940056879246617
+            },
+            {
+              "number": 3,
+              "seconds": 3.019253260218278
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 6.000750458509767,
+          "entrySpeedKph": 37.0409087580685,
+          "exitSpeedKph": 19.958026968518844,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.4940056879246617
+            },
+            {
+              "number": 3,
+              "seconds": 3.019253260218278
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.731571350206767,
+          "entrySpeedKph": 27.508085253003983,
+          "exitSpeedKph": 36.77367623421239,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.5437173518800833
+            },
+            {
+              "number": 5,
+              "seconds": 1.61868941937864
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 6.285073059805377,
+          "entrySpeedKph": 37.31753112225809,
+          "exitSpeedKph": 23.750196652955278,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.7684240181853426
+            },
+            {
+              "number": 7,
+              "seconds": 2.2989247097228933
+            },
+            {
+              "number": 8,
+              "seconds": 2.1322113534817824
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 12.110539941611663,
+          "entrySpeedKph": 32.95211467186922,
+          "exitSpeedKph": 26.277813055116173,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.7902576893626403
+            },
+            {
+              "number": 10,
+              "seconds": 2.466725686593378
+            },
+            {
+              "number": 11,
+              "seconds": 2.2515132481654945
+            }
+          ]
+        }
+      ],
+      "sampledWholeKartSurfaceClearanceMeters": 0.43367007360329757,
+      "closure": {
+        "positionMeters": 0.002540752660354092,
+        "headingRad": 0.000051820758320886284,
+        "speedMps": 0.0003352513939294255,
+        "yawRateRadPerSecond": 0.00020592096930860393
+      }
+    },
+    {
+      "name": "Smooth linked placement 0.8m",
+      "lapSeconds": 41.55833333333333,
+      "pathLengthMeters": 350.39918372261144,
+      "complexes": [
+        {
+          "id": "T1-T3",
+          "seconds": 9.688806972350577,
+          "entrySpeedKph": 25.964899156942366,
+          "exitSpeedKph": 19.61567955411488,
+          "turns": [
+            {
+              "number": 1,
+              "seconds": 1.7627790362553946
+            },
+            {
+              "number": 2,
+              "seconds": 1.342542596218344
+            },
+            {
+              "number": 3,
+              "seconds": 2.8806984345263054
+            }
+          ]
+        },
+        {
+          "id": "T2-T3",
+          "seconds": 5.677878636481606,
+          "entrySpeedKph": 37.20314859829215,
+          "exitSpeedKph": 19.61567955411488,
+          "turns": [
+            {
+              "number": 2,
+              "seconds": 1.342542596218344
+            },
+            {
+              "number": 3,
+              "seconds": 2.8806984345263054
+            }
+          ]
+        },
+        {
+          "id": "T4-T5",
+          "seconds": 4.369331995311768,
+          "entrySpeedKph": 29.983242717092093,
+          "exitSpeedKph": 36.80520375940299,
+          "turns": [
+            {
+              "number": 4,
+              "seconds": 2.22712904383787
+            },
+            {
+              "number": 5,
+              "seconds": 1.5578350968054906
+            }
+          ]
+        },
+        {
+          "id": "T6-T7-T8",
+          "seconds": 5.595143375773954,
+          "entrySpeedKph": 36.16426036195651,
+          "exitSpeedKph": 23.30002560048142,
+          "turns": [
+            {
+              "number": 6,
+              "seconds": 1.6070564067019646
+            },
+            {
+              "number": 7,
+              "seconds": 1.8465755026327635
+            },
+            {
+              "number": 8,
+              "seconds": 1.98439485079804
+            }
+          ]
+        },
+        {
+          "id": "T9-T10-T11",
+          "seconds": 11.156818141864857,
+          "entrySpeedKph": 35.44461247767646,
+          "exitSpeedKph": 28.04880444775713,
+          "turns": [
+            {
+              "number": 9,
+              "seconds": 1.5244301439618546
+            },
+            {
+              "number": 10,
+              "seconds": 2.2854337739898902
+            },
+            {
+              "number": 11,
+              "seconds": 2.040721979977178
+            }
+          ]
+        }
+      ],
+      "sampledWholeKartSurfaceClearanceMeters": 0.2889551633342599,
+      "closure": {
+        "positionMeters": 0.00004638489101065295,
+        "headingRad": 4.180676729248489e-7,
+        "speedMps": 3.7258637064496725e-7,
+        "yawRateRadPerSecond": 5.849000370983237e-7
+      }
+    }
+  ],
+  "candidates": {
+    "count": 165,
+    "feasible": 149,
+    "rejected": [
+      {
+        "name": "Prior pinned-apex heuristic",
+        "reason": "Requested local curvature exceeds the Kart steering range."
+      },
+      {
+        "name": "T3 entry/apex/exit width 0.7 / apex +1m",
+        "reason": "Requested local curvature exceeds the Kart steering range."
+      },
+      {
+        "name": "T3 entry/apex/exit width 0.9 / apex -1.5m",
+        "reason": "Requested local curvature exceeds the Kart steering range."
+      },
+      {
+        "name": "T3 entry/apex/exit width 0.9 / apex +1m",
+        "reason": "Requested local curvature exceeds the Kart steering range."
+      },
+      {
+        "name": "T3 linked placement entry 0.7 apex 0.75/0m exit 0.5",
+        "reason": "Requested local curvature exceeds the Kart steering range."
+      },
+      {
+        "name": "T3 linked placement entry 0.7 apex 0.75/2.5m exit 0.5",
+        "reason": "Requested local curvature exceeds the Kart steering range."
+      },
+      {
+        "name": "T3 linked placement entry 0.7 apex 0.75/4.5m exit 0.5",
+        "reason": "Requested local curvature exceeds the Kart steering range."
+      },
+      {
+        "name": "T3 linked placement entry 0.4 apex 0.65/0m exit -0.2",
+        "reason": "Requested local curvature exceeds the Kart steering range."
+      },
+      {
+        "name": "T3 linked placement entry 0.4 apex 0.65/2.5m exit -0.2",
+        "reason": "Requested local curvature exceeds the Kart steering range."
+      },
+      {
+        "name": "T3 linked placement entry 0.4 apex 0.65/4.5m exit -0.2",
+        "reason": "Requested local curvature exceeds the Kart steering range."
+      },
+      {
+        "name": "T6 linked placement entry 0.4 apex 0.4/2.5m exit 0.3",
+        "reason": "Requested local curvature exceeds the Kart steering range."
+      },
+      {
+        "name": "T6 linked placement entry 0.4 apex 0.4/4.5m exit 0.3",
+        "reason": "Requested local curvature exceeds the Kart steering range."
+      },
+      {
+        "name": "T6 linked placement entry 0.7 apex 0.75/2.5m exit 0.5",
+        "reason": "Requested local curvature exceeds the Kart steering range."
+      },
+      {
+        "name": "T6 linked placement entry 0.7 apex 0.75/4.5m exit 0.5",
+        "reason": "Requested local curvature exceeds the Kart steering range."
+      },
+      {
+        "name": "T6 linked placement entry 0.4 apex 0.65/2.5m exit -0.2",
+        "reason": "Requested local curvature exceeds the Kart steering range."
+      },
+      {
+        "name": "T7 linked placement entry 0.7 apex 0.75/0m exit 0.5",
+        "reason": "Requested local curvature exceeds the Kart steering range."
+      }
+    ]
+  },
+  "turns": [
+    {
+      "number": 1,
+      "geometricApexStationMeters": 19.215836176687162,
+      "achievedApexStationMeters": 16.78402930971006,
+      "entry": {
+        "station": 11.719458672904265,
+        "position": {
+          "x": -40.49357901730756,
+          "z": 0.1472249784364786
+        },
+        "speedKph": 25.95989604966217,
+        "offsetMeters": 1.0093135968665423
+      },
+      "apex": {
+        "station": 16.78402930971006,
+        "position": {
+          "x": -39.48599443537355,
+          "z": -4.357883549997109
+        },
+        "speedKph": 23.007484415334428,
+        "centerOffsetMeters": 1.9759356801515533,
+        "insideTireBarrierCenterDistanceMeters": 0.597112659305376
+      },
+      "exit": {
+        "station": 26.680235760822317,
+        "position": {
+          "x": -34.026021236616295,
+          "z": -9.741540664507035
+        },
+        "speedKph": 33.0878853542456,
+        "offsetMeters": 0.3673970742887783
+      },
+      "achievedCenterOffsetRangeMeters": [
+        0.36795120494981703,
+        1.9985707604933287
+      ],
+      "corridorWidthMeters": 5.699470398451356,
+      "feasibleProposals": 12
+    },
+    {
+      "number": 2,
+      "geometricApexStationMeters": 58.870600338645595,
+      "achievedApexStationMeters": 58.66474274091426,
+      "entry": {
+        "station": 51.349703316896154,
+        "position": {
+          "x": -10.957652030489749,
+          "z": -17.94966476751859
+        },
+        "speedKph": 37.22445229733279,
+        "offsetMeters": 0.5205685077885644
+      },
+      "apex": {
+        "station": 58.66474274091426,
+        "position": {
+          "x": -4.260251680915817,
+          "z": -15.592643466981947
+        },
+        "speedKph": 35.233597661109144,
+        "centerOffsetMeters": 1.6249316061884649,
+        "insideTireBarrierCenterDistanceMeters": 0.7432690289097272
+      },
+      "exit": {
+        "station": 66.33627147019665,
+        "position": {
+          "x": 1.2147690856265116,
+          "z": -11.957946379715176
+        },
+        "speedKph": 42.24152080538027,
+        "offsetMeters": 0.8138785032418139
+      },
+      "achievedCenterOffsetRangeMeters": [
+        0.6423356728281568,
+        1.6266511611458143
+      ],
+      "corridorWidthMeters": 5.306871746161141,
+      "feasibleProposals": 12
+    },
+    {
+      "number": 3,
+      "geometricApexStationMeters": 87.93237820739812,
+      "achievedApexStationMeters": 88.37554270538023,
+      "entry": {
+        "station": 80.43793390109472,
+        "position": {
+          "x": 11.202967996792296,
+          "z": -1.9020843128086486
+        },
+        "speedKph": 27.013785032137793,
+        "offsetMeters": 0.5255997391506044
+      },
+      "apex": {
+        "station": 88.37554270538023,
+        "position": {
+          "x": 18.493021644615048,
+          "z": -0.043251070000631
+        },
+        "speedKph": 15.488411587363188,
+        "centerOffsetMeters": -0.4905239752240554,
+        "insideTireBarrierCenterDistanceMeters": 1.6736813769573864
+      },
+      "exit": {
+        "station": 95.45076556529504,
+        "position": {
+          "x": 19.092513039514447,
+          "z": -5.302217441276842
+        },
+        "speedKph": 19.63577439015538,
+        "offsetMeters": 0.22549878807078977
+      },
+      "achievedCenterOffsetRangeMeters": [
+        -0.5123844770323716,
+        0.5766199958812848
+      ],
+      "corridorWidthMeters": 4.848808442429802,
+      "feasibleProposals": 12
+    },
+    {
+      "number": 4,
+      "geometricApexStationMeters": 133.4747385563801,
+      "achievedApexStationMeters": 132.49009893573276,
+      "entry": {
+        "station": 125.98039583804635,
+        "position": {
+          "x": -2.8426208170581133,
+          "z": -26.57974662693087
+        },
+        "speedKph": 29.97466072260143,
+        "offsetMeters": -0.1690302350781338
+      },
+      "apex": {
+        "station": 132.49009893573276,
+        "position": {
+          "x": -5.150817778565923,
+          "z": -32.812718990840736
+        },
+        "speedKph": 21.34047449648626,
+        "centerOffsetMeters": 0.8706810821692584,
+        "insideTireBarrierCenterDistanceMeters": 1.4871793334265608
+      },
+      "exit": {
+        "station": 140.9649081824349,
+        "position": {
+          "x": -1.4671740158908675,
+          "z": -38.61715803982996
+        },
+        "speedKph": 24.47525621213013,
+        "offsetMeters": -0.5163636195301874
+      },
+      "achievedCenterOffsetRangeMeters": [
+        -0.5084341466464164,
+        0.90273160867911
+      ],
+      "corridorWidthMeters": 5.2991124954134765,
+      "feasibleProposals": 12
+    },
+    {
+      "number": 5,
+      "geometricApexStationMeters": 152.8449389899837,
+      "achievedApexStationMeters": 152.7442344492492,
+      "entry": {
+        "station": 145.32370062379127,
+        "position": {
+          "x": 2.7831587358392986,
+          "z": -39.914006151217116
+        },
+        "speedKph": 30.86984718616817,
+        "offsetMeters": -0.33464835770503476
+      },
+      "apex": {
+        "station": 152.7442344492492,
+        "position": {
+          "x": 10.479209482017252,
+          "z": -38.814527429381904
+        },
+        "speedKph": 34.2109412024793,
+        "centerOffsetMeters": 0.4475653561018659,
+        "insideTireBarrierCenterDistanceMeters": 2.0243669656244125
+      },
+      "exit": {
+        "station": 160.32475995681736,
+        "position": {
+          "x": 16.538423385892006,
+          "z": -35.58871489877351
+        },
+        "speedKph": 36.797656030570394,
+        "offsetMeters": -0.23096131628693328
+      },
+      "achievedCenterOffsetRangeMeters": [
+        -0.2623203081841677,
+        0.44633309927559406
+      ],
+      "corridorWidthMeters": 5.502583620334039,
+      "feasibleProposals": 12
+    },
+    {
+      "number": 6,
+      "geometricApexStationMeters": 172.18205797249152,
+      "achievedApexStationMeters": 172.84139433473098,
+      "entry": {
+        "station": 164.71869241475693,
+        "position": {
+          "x": 19.558949774428772,
+          "z": -32.363793512348195
+        },
+        "speedKph": 36.1411586227332,
+        "offsetMeters": -0.2853115698364115
+      },
+      "apex": {
+        "station": 172.84139433473098,
+        "position": {
+          "x": 22.875864745371324,
+          "z": -24.46828604841872
+        },
+        "speedKph": 35.08059517718743,
+        "centerOffsetMeters": 0.40337101715744894,
+        "insideTireBarrierCenterDistanceMeters": 1.7784277185530695
+      },
+      "exit": {
+        "station": 179.65718132385442,
+        "position": {
+          "x": 25.545741552314116,
+          "z": -18.846002459140315
+        },
+        "speedKph": 26.61963471393989,
+        "offsetMeters": -0.5230043407613946
+      },
+      "achievedCenterOffsetRangeMeters": [
+        -0.4723970624139182,
+        0.40632314260180563
+      ],
+      "corridorWidthMeters": 4.953450813496898,
+      "feasibleProposals": 7
+    },
+    {
+      "number": 7,
+      "geometricApexStationMeters": 181.33323856283258,
+      "achievedApexStationMeters": 180.33015981020637,
+      "entry": {
+        "station": 173.81942673506737,
+        "position": {
+          "x": 23.26695524774866,
+          "z": -24.14893609740912
+        },
+        "speedKph": 34.00782768129746,
+        "offsetMeters": 0.3982012139983807
+      },
+      "apex": {
+        "station": 180.33015981020637,
+        "position": {
+          "x": 26.468821534350088,
+          "z": -18.112990208369723
+        },
+        "speedKph": 25.987429798736304,
+        "centerOffsetMeters": -0.5941369737051994,
+        "insideTireBarrierCenterDistanceMeters": 1.5962178574463501
+      },
+      "exit": {
+        "station": 188.85076291435473,
+        "position": {
+          "x": 32.87956675503986,
+          "z": -14.433471335837165
+        },
+        "speedKph": 32.264898585586046,
+        "offsetMeters": -0.3628578371414427
+      },
+      "achievedCenterOffsetRangeMeters": [
+        -0.6408644872290334,
+        0.3796399765808741
+      ],
+      "corridorWidthMeters": 5.009076550598805,
+      "feasibleProposals": 11
+    },
+    {
+      "number": 8,
+      "geometricApexStationMeters": 204.50701331031138,
+      "achievedApexStationMeters": 206.1220196534899,
+      "entry": {
+        "station": 197.01812461191614,
+        "position": {
+          "x": 40.71651183667524,
+          "z": -12.043527426323994
+        },
+        "speedKph": 32.533020705044756,
+        "offsetMeters": -0.7500239229322438
+      },
+      "apex": {
+        "station": 206.1220196534899,
+        "position": {
+          "x": 46.3803048998911,
+          "z": -5.277156436978542
+        },
+        "speedKph": 22.963037846373357,
+        "centerOffsetMeters": 1.0383946998554245,
+        "insideTireBarrierCenterDistanceMeters": 1.6772972779808935
+      },
+      "exit": {
+        "station": 212.0095519542237,
+        "position": {
+          "x": 46.19015014223441,
+          "z": -0.8293987898674657
+        },
+        "speedKph": 23.30032899827246,
+        "offsetMeters": 0.7224160453073689
+      },
+      "achievedCenterOffsetRangeMeters": [
+        -0.7390298411639715,
+        1.0442298346039542
+      ],
+      "corridorWidthMeters": 5.950120226935712,
+      "feasibleProposals": 12
+    },
+    {
+      "number": 9,
+      "geometricApexStationMeters": 258.59223408527146,
+      "achievedApexStationMeters": 258.72221486305745,
+      "entry": {
+        "station": 251.0689848016511,
+        "position": {
+          "x": 11.879664339600993,
+          "z": 15.812670125426825
+        },
+        "speedKph": 35.47372396622268,
+        "offsetMeters": 0.7993690907909344
+      },
+      "apex": {
+        "station": 258.72221486305745,
+        "position": {
+          "x": 4.814076184259137,
+          "z": 14.731851478698907
+        },
+        "speedKph": 29.388445248690388,
+        "centerOffsetMeters": 1.7880412574655926,
+        "insideTireBarrierCenterDistanceMeters": 0.5871403727797189
+      },
+      "exit": {
+        "station": 266.07400704091054,
+        "position": {
+          "x": -0.3763751990269261,
+          "z": 11.621748370142305
+        },
+        "speedKph": 35.684546771661466,
+        "offsetMeters": 1.3028856076089044
+      },
+      "achievedCenterOffsetRangeMeters": [
+        0.8216279369556211,
+        1.7876546553812318
+      ],
+      "corridorWidthMeters": 5.299495595268981,
+      "feasibleProposals": 12
+    },
+    {
+      "number": 10,
+      "geometricApexStationMeters": 293.158185647382,
+      "achievedApexStationMeters": 296.9832872474498,
+      "entry": {
+        "station": 285.67693252614697,
+        "position": {
+          "x": -15.90274127694212,
+          "z": -0.6199212535530502
+        },
+        "speedKph": 28.54111984262213,
+        "offsetMeters": 0.5367599877072218
+      },
+      "apex": {
+        "station": 296.9832872474498,
+        "position": {
+          "x": -24.77815041562675,
+          "z": 1.405694486147145
+        },
+        "speedKph": 16.99893117852342,
+        "centerOffsetMeters": -1.5344549938841743,
+        "insideTireBarrierCenterDistanceMeters": 0.6424633087481963
+      },
+      "exit": {
+        "station": 300.6595445156097,
+        "position": {
+          "x": -25.140097239229693,
+          "z": 3.2109511300024467
+        },
+        "speedKph": 18.26843124316789,
+        "offsetMeters": -1.3909220064541659
+      },
+      "achievedCenterOffsetRangeMeters": [
+        -1.559845679851274,
+        0.510581513247887
+      ],
+      "corridorWidthMeters": 4.850469948758283,
+      "feasibleProposals": 12
+    },
+    {
+      "number": 11,
+      "geometricApexStationMeters": 334.2625090968916,
+      "achievedApexStationMeters": 332.5513566018428,
+      "entry": {
+        "station": 326.73663266873297,
+        "position": {
+          "x": -13.349242894656792,
+          "z": 25.015059502553623
+        },
+        "speedKph": 20.88619408204866,
+        "offsetMeters": 0.6456051366527146
+      },
+      "apex": {
+        "station": 332.5513566018428,
+        "position": {
+          "x": -17.26658569369128,
+          "z": 28.48488184092201
+        },
+        "speedKph": 19.826268574953183,
+        "centerOffsetMeters": 1.8034381389226226,
+        "insideTireBarrierCenterDistanceMeters": 0.8112598905127077
+      },
+      "exit": {
+        "station": 341.75560671490484,
+        "position": {
+          "x": -23.6024014688212,
+          "z": 27.65762064358212
+        },
+        "speedKph": 28.033820923523425,
+        "offsetMeters": 0.7354774022244168
+      },
+      "achievedCenterOffsetRangeMeters": [
+        0.6497094147407108,
+        1.8797272337220035
+      ],
+      "corridorWidthMeters": 5.898457339488746,
+      "feasibleProposals": 12
+    }
+  ],
+  "drills": [
+    {
+      "target": "T1",
+      "seconds": 2.999999999999992,
+      "referenceSeconds": 3,
+      "apexProximityCm": 0,
+      "isClean": true
+    },
+    {
+      "target": "T2",
+      "seconds": 2.3583333333333276,
+      "referenceSeconds": 2.3583333333333334,
+      "apexProximityCm": 0,
+      "isClean": true
+    },
+    {
+      "target": "T3",
+      "seconds": 4.308333333333337,
+      "referenceSeconds": 4.3083333333333345,
+      "apexProximityCm": 0,
+      "isClean": true
+    },
+    {
+      "target": "T4",
+      "seconds": 3.4999999999999902,
+      "referenceSeconds": 3.5,
+      "apexProximityCm": 0,
+      "isClean": true
+    },
+    {
+      "target": "T5",
+      "seconds": 2.966666666666659,
+      "referenceSeconds": 2.9666666666666686,
+      "apexProximityCm": 0,
+      "isClean": true
+    },
+    {
+      "target": "T6",
+      "seconds": 2.8166666666666593,
+      "referenceSeconds": 2.8166666666666664,
+      "apexProximityCm": 0,
+      "isClean": true
+    },
+    {
+      "target": "T7",
+      "seconds": 2.966666666666659,
+      "referenceSeconds": 2.966666666666665,
+      "apexProximityCm": 0,
+      "isClean": true
+    },
+    {
+      "target": "T8",
+      "seconds": 3.2583333333333244,
+      "referenceSeconds": 3.258333333333333,
+      "apexProximityCm": 0,
+      "isClean": true
+    },
+    {
+      "target": "T9",
+      "seconds": 2.5499999999999936,
+      "referenceSeconds": 2.5500000000000007,
+      "apexProximityCm": 0,
+      "isClean": true
+    },
+    {
+      "target": "T10",
+      "seconds": 3.691666666666656,
+      "referenceSeconds": 3.6916666666666664,
+      "apexProximityCm": 0,
+      "isClean": true
+    },
+    {
+      "target": "T11",
+      "seconds": 3.5333333333333234,
+      "referenceSeconds": 3.5333333333333314,
+      "apexProximityCm": 0,
+      "isClean": true
+    },
+    {
+      "target": "T1-T3",
+      "seconds": 11.141666666666675,
+      "referenceSeconds": 11.141666666666667,
+      "apexProximityCm": 0,
+      "isClean": true
+    },
+    {
+      "target": "T2-T3",
+      "seconds": 6.958333333333469,
+      "referenceSeconds": 6.958333333333334,
+      "apexProximityCm": 0,
+      "isClean": true
+    },
+    {
+      "target": "T4-T5",
+      "seconds": 5.500000000000063,
+      "referenceSeconds": 5.5,
+      "apexProximityCm": 0,
+      "isClean": true
+    },
+    {
+      "target": "T6-T7-T8",
+      "seconds": 6.8416666666667965,
+      "referenceSeconds": 6.841666666666669,
+      "apexProximityCm": 0,
+      "isClean": true
+    },
+    {
+      "target": "T9-T10-T11",
+      "seconds": 12.258333333333278,
+      "referenceSeconds": 12.258333333333333,
+      "apexProximityCm": 0,
+      "isClean": true
+    }
+  ],
+  "repeatedReplay": {
+    "contacts": 0,
+    "status": "Finished",
+    "completedLaps": [
+      {
+        "seconds": 41.55833333333162,
+        "isClean": true
+      },
+      {
+        "seconds": 41.55833333333162,
+        "isClean": true
+      },
+      {
+        "seconds": 41.55833333333162,
+        "isClean": true
+      },
+      {
+        "seconds": 41.55833333333162,
+        "isClean": true
+      },
+      {
+        "seconds": 41.55833333333162,
+        "isClean": true
+      },
+      {
+        "seconds": 41.55833333333162,
+        "isClean": true
+      },
+      {
+        "seconds": 41.55833333333162,
+        "isClean": true
+      },
+      {
+        "seconds": 41.55833333333162,
+        "isClean": true
+      },
+      {
+        "seconds": 41.55833333333162,
+        "isClean": true
+      },
+      {
+        "seconds": 41.55833333333162,
+        "isClean": true
+      },
+      {
+        "seconds": 41.55833333333162,
+        "isClean": true
+      },
+      {
+        "seconds": 41.55833333333162,
+        "isClean": true
+      }
+    ]
+  },
+  "performance": {
+    "cpu": "Apple M5 Pro",
+    "platform": "darwin arm64",
+    "runtime": "v26.4.0",
+    "coldSessionMs": 73.41608300000001,
+    "cachedSessionMeanMs": 4.799156250000001,
+    "cachedLookupMeanMs": 0.00006216599999999062,
+    "note": "CLI CPU timings; browser startup/frame timing is measured separately during integrated acceptance. Offline search measured 8.71 s before precomputation."
+  }
+}

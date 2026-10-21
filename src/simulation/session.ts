@@ -1,13 +1,13 @@
 import { createKeyboardAssistance } from './keyboard-assistance';
 import { buildReferenceLap, cloneKartState, referenceStateAtDistance, referenceApexTarget, referenceTimeAtDistance, referencePoseAtTime, type ReferenceReplay } from './reference-lap';
 import { insideFrontTirePosition } from './kart-geometry';
-import { buildReferenceDrills, evaluateDrillCoaching } from './corner-drill';
+import { buildReferenceDrills, drillReferenceRevision, evaluateDrillCoaching } from './corner-drill';
 import { createCameraPresentation } from './camera';
 import {
   CURRENT_TRAINING_REVISION,
   parseTrainingData,
   sameRevision,
-  summarizeTrainingRecords,
+  summarizeTrainingRecords, alignDrillReference, type LegacyDrillPersonalBests,
   TrainingRecords,
   TrainingRevision,
   PersistedTrainingData,
@@ -158,6 +158,7 @@ export function createSimulationSession(
   const flyingStartState = referenceStateAtDistance(reference, circuit.totalLengthMeters - FLYING_START_APPROACH_METERS);
   const referenceDrills = buildReferenceDrills(circuit, reference);
   const drillCatalog = referenceDrills.map((drill) => drill.target);
+  const drillReference = drillReferenceRevision(referenceDrills);
 
   const storage: StorageLike | undefined = options.storage;
   const trainingRevision = { ...(options.trainingRevision ?? CURRENT_TRAINING_REVISION) };
@@ -187,6 +188,7 @@ export function createSimulationSession(
   let drillCurrentSegmentSeconds = 0;
   let drillIsClean = true;
   let drillPersonalBests: Partial<Record<DrillTargetId, number>> = {};
+  let legacyDrillPersonalBests: LegacyDrillPersonalBests[] = [];
   let lastExecutionCard: CornerExecutionCard | null = null;
 
   // Per-pass telemetry accumulators for Corner Drill
@@ -643,7 +645,8 @@ export function createSimulationSession(
       personalBestSeconds: lap.personalBestSeconds,
       bestSectorSplits: [...lap.bestSectorSplits] as SectorSplitsTuple,
       personalBestGhostFrames,
-      drillPersonalBests: { ...drillPersonalBests },
+      drillPersonalBests: { ...drillPersonalBests }, drillReference,
+      legacyDrillPersonalBests: structuredClone(legacyDrillPersonalBests),
     };
   }
 
@@ -660,7 +663,7 @@ export function createSimulationSession(
     return [
       ...incoming,
       ...existing.filter((record) => !incoming.some((item) => sameRevision(item.revision, record.revision))),
-    ];
+    ].map((record) => sameRevision(record.revision, trainingRevision) ? alignDrillReference(record, drillReference) : record);
   }
 
   function applyTrainingRecords(records: TrainingRecords[]): void {
@@ -671,6 +674,7 @@ export function createSimulationSession(
       lap.bestSectorSplits = current.bestSectorSplits;
       personalBestGhostFrames = current.personalBestGhostFrames;
       drillPersonalBests = current.drillPersonalBests;
+      legacyDrillPersonalBests = structuredClone(current.legacyDrillPersonalBests ?? []);
     }
   }
 

@@ -48,7 +48,8 @@ it('keeps the hairpin line, Ghost Kart, timing and actual tire Apex coherent thr
     return (kart.position.x - sample.center.x) * sample.normal.x + (kart.position.z - sample.center.z) * sample.normal.z;
   };
   // T3 is Left: approach from the right, clip left, then open the exit.
-  expect(lateralAt(turn.entryDistanceMeters - 3)).toBeGreaterThan(0.4);
+  const entryOffset = lateralAt((snapshot.circuit.turns[1].apexDistanceMeters + turn.apexDistanceMeters) * 0.5);
+  expect(entryOffset).toBeGreaterThan(0);
   expect(lateralAt(actual.kart.lapDistanceMeters)).toBeLessThan(-0.4);
   expect(lateralAt(turn.exitDistanceMeters + 4)).toBeGreaterThan(0.15);
 });

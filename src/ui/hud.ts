@@ -398,13 +398,19 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
       const drillDetails = document.createElement('p');
       drillDetails.textContent = `Corner Drill records: ${drills || 'None'}`;
       section.append(heading, details, drillDetails);
+      for (const archive of records.legacyDrillPersonalBests ?? []) {
+        const archived = document.createElement('p');
+        const times = Object.entries(archive.personalBests).map(([id, seconds]) => `${id}: ${formatSeconds(seconds ?? null)}`).join(' · ');
+        archived.textContent = `Archived Corner Drills · ${times} · Flying Entry changed; excluded from current comparisons.`;
+        section.append(archived);
+      }
       dataRecords.append(section);
     };
     addRecords('Current comparisons', latestTrainingData.current);
     for (const records of latestTrainingData.legacy) addRecords('Legacy · excluded from current comparisons', records);
     if (!latestTrainingData.legacy.length) {
       const empty = document.createElement('p');
-      empty.textContent = 'No legacy records.';
+      empty.textContent = 'No other legacy records.';
       dataRecords.append(empty);
     }
   }

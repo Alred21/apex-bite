@@ -1,9 +1,12 @@
+import { REFERENCE_RECIPE } from './reference-recipe';
+import * as parameters from './kart-parameters';
+import { pathMetric } from './path-distance';
 import { insideFrontTirePosition } from './kart-geometry';
 import type {
   CircuitData, KartState, RacingLinePoint, ReferenceCandidateEvidence,
   ReferenceClosure, ReferenceComplexEvidence, Vector2D,
 } from './types';
-import { offsetComplex, placeTurn } from './reference-proposals';
+import { offsetComplex, placeTurn, placeCircuit, relaxPlacement, type CircuitPlacement } from './reference-proposals';
 import { CORNER_COMPLEXES } from './corner-complexes';
 import { buildPriorLineProposal } from './prior-line-proposal';
 import type { KartCommand } from './kart-dynamics';
@@ -80,7 +83,8 @@ function interpolateAtDistance<T extends {distanceMeters: number}>(points: T[], 
 export function referenceDriverCommand(circuit: CircuitData, proposal: ReferenceProposal, speeds: number[], kart: KartState): KartCommand {
   const n = proposal.positions.length, length = circuit.totalLengthMeters;
   const lookahead = 0.85 + kart.speedMps * 0.11;
-  const targetDistance = (kart.lapDistanceMeters + lookahead) % length;
+  const metric = pathMetric(length, proposal.positions);
+  const targetDistance = metric.stationAhead(kart.lapDistanceMeters, lookahead);
   const fractionalIndex = targetDistance / length * n;
   const i = Math.floor(fractionalIndex), j = (i + 1) % n, f = fractionalIndex - i;
   const a = proposal.positions[i], b = proposal.positions[j];
@@ -90,8 +94,11 @@ export function referenceDriverCommand(circuit: CircuitData, proposal: Reference
   const steer = Math.max(-1, Math.min(1, Math.atan2(2 * WHEELBASE_METERS * Math.sin(alpha), Math.hypot(dx, dz)) / MAX_STEER_ANGLE_RAD));
   let targetSpeed = MAX_KART_SPEED_MPS;
   const stoppingHorizon = kart.speedMps ** 2 / (2 * 3.2) + 3;
-  for (let distance = 0; distance <= stoppingHorizon; distance += 0.65) {
-    const index = Math.floor(((kart.lapDistanceMeters + distance) % length) / length * n) % n;
+  for (let stationDelta = 0; stationDelta < length; stationDelta += 0.65) {
+    const station = (kart.lapDistanceMeters + stationDelta) % length;
+    const distance = stationDelta === 0 ? 0 : metric.distance(kart.lapDistanceMeters, station);
+    if (distance > stoppingHorizon) break;
+    const index = Math.floor(station / length * n) % n;
     targetSpeed = Math.min(targetSpeed, Math.sqrt(speeds[index] ** 2 + 2 * 3.0 * Math.max(0, distance - 0.8)));
   }
   const error = targetSpeed - kart.speedMps;
@@ -136,7 +143,12 @@ export function executeReferenceProposal(circuit: CircuitData, proposal: Referen
         if (closure.positionMeters > 0.18 || closure.headingRad > 0.035 || closure.speedMps > 0.15 || closure.yawRateRadPerSecond > 0.04) return { name: proposal.name, feasible: false, lapSeconds: null, reason: `Unsettled lap closure: ${closure.positionMeters.toFixed(3)}m position mismatch.` };
         const lapSeconds = commands.length * FIXED_TIMESTEP_SECONDS;
         // Index the observed trajectory by Circuit progress, not proposal arc length.
-        const distances = frames.map((frame) => ({ ...frame, distanceMeters: frame.kart.unwrappedDistanceMeters - initialState.unwrappedDistanceMeters }));
+        const distances = frames.map((frame) => ({ ...frame, distanceMeters: frame.kart.unwrappedDistanceMeters - initialState.unwrappedDistanceMeters + initialState.lapDistanceMeters }));
+        // Include the previous side of the periodic crossing, so station zero
+        // is interpolated on the achieved path instead of shifted to tick zero.
+        const beforeCrossing = frames[frames.length - 2];
+        distances.unshift({ ...beforeCrossing, lapSeconds: beforeCrossing.lapSeconds - lapSeconds,
+          distanceMeters: beforeCrossing.kart.unwrappedDistanceMeters - initialState.unwrappedDistanceMeters + initialState.lapDistanceMeters - length });
         const points = circuit.samples.map((sample, index): RacingLinePoint => {
           const distance = sample.distanceMeters;
           const frameIndex = interpolateAtDistance(distances, distance);
@@ -148,7 +160,7 @@ export function executeReferenceProposal(circuit: CircuitData, proposal: Referen
             position: { x: a.kart.position.x + (b.kart.position.x - a.kart.position.x) * ratio, z: a.kart.position.z + (b.kart.position.z - a.kart.position.z) * ratio },
             headingRad: a.kart.headingRad + wrapAngleRad(b.kart.headingRad - a.kart.headingRad) * ratio,
             targetSpeedMps: speed, targetSpeedKph: speed * 3.6,
-            benchmarkTimeSeconds: a.lapSeconds + (b.lapSeconds - a.lapSeconds) * ratio,
+            benchmarkTimeSeconds: Math.max(0, a.lapSeconds + (b.lapSeconds - a.lapSeconds) * ratio),
             liveCue: 'Green',
           };
         });
@@ -160,22 +172,59 @@ export function executeReferenceProposal(circuit: CircuitData, proposal: Referen
   return { name: proposal.name, feasible: false, lapSeconds: null, reason: 'Traversal did not complete within the bounded simulation budget.' };
 }
 
+export interface ReferenceRecipe {
+  signature: string;
+  name: string;
+  positions: Vector2D[];
+  lapSeconds: number;
+  evidence: ReferenceCandidateEvidence[];
+}
+
+/** Content stamp for the fixed Circuit, physics parameters and reference driver.
+ * A stale offline recipe is caught before publishing incomparable guidance. */
+export function referenceRecipeSignature(circuit: CircuitData): string {
+  const input = JSON.stringify({ driver: 'arc-distance-v1', revision: CURRENT_TRAINING_REVISION,
+    parameters: Object.keys(parameters).sort().map((key) => [key, parameters[key as keyof typeof parameters]]),
+    circuit: circuit.samples.map((sample) => [sample.center.x, sample.center.z, sample.widthMeters]) },
+  (_key, value) => typeof value === 'number' ? Math.round(value * 1000000) / 1000000 : value);
+  let hash = 2166136261;
+  for (let index = 0; index < input.length; index++) hash = Math.imul(hash ^ input.charCodeAt(index), 16777619);
+  return (hash >>> 0).toString(16);
+}
+
+function freeze<T>(value: T): T {
+  if (value && typeof value === 'object') {
+    for (const child of Object.values(value)) freeze(child);
+    Object.freeze(value);
+  }
+  return value;
+}
+
 export function buildReferenceLap(circuit: CircuitData): ReferenceReplay {
   const existing = cache.get(circuit);
   if (existing) return existing;
+  if (!REFERENCE_RECIPE || REFERENCE_RECIPE.signature !== referenceRecipeSignature(circuit)) throw new Error('Reference recipe is out of date. Run npm run reference:generate.');
+  // Re-execute only the offline winner at startup. Never publish an unexecuted
+  // recipe, and never run candidate search in a live driving update.
+  const result = executeReferenceProposal(circuit, { name: REFERENCE_RECIPE.name, positions: REFERENCE_RECIPE.positions });
+  if (!('frames' in result) || Math.abs(result.lapSeconds - REFERENCE_RECIPE.lapSeconds) > FIXED_TIMESTEP_SECONDS + 1e-6) throw new Error('Reference recipe no longer reproduces its validated lap. Run npm run reference:generate.');
+  const observed = result.evidence[0];
+  result.evidence = structuredClone(REFERENCE_RECIPE.evidence);
+  // Engines can differ at a final tick boundary by one fixed step. Keep the
+  // published winner's actual time/Complex evidence from this execution.
+  const winner = result.evidence.find((candidate) => candidate.name === result.name)!;
+  winner.lapSeconds = result.lapSeconds;
+  winner.complexes = observed.complexes;
+  cache.set(circuit, freeze(result));
+  return result;
+}
+
+/** Offline bounded search used by the reproducible recipe/evidence command. */
+export function searchReferenceLap(circuit: CircuitData): { reference: ReferenceReplay; proposal: ReferenceProposal } {
   const result = executeReferenceProposal(circuit, { name: 'Conservative centerline', positions: circuit.samples.map((sample) => sample.center) });
   if (!('frames' in result)) throw new Error(`Reference Lap unavailable: ${result.reason}`);
   const prior = executeReferenceProposal(circuit, { name: 'Prior pinned-apex heuristic', positions: buildPriorLineProposal(circuit) });
   result.evidence.push('frames' in prior ? { name: prior.name, feasible: true, lapSeconds: prior.lapSeconds, reason: null } : prior);
-  // Session callers receive copies; freeze the cached graph so its validation
-  // cannot be invalidated accidentally by a later consumer.
-  function freeze<T>(value: T): T {
-    if (value && typeof value === 'object') {
-      for (const child of Object.values(value)) freeze(child);
-      Object.freeze(value);
-    }
-    return value;
-  }
   let selected = result;
   let selectedPositions = circuit.samples.map((sample) => sample.center);
   const evidence = result.evidence;
@@ -213,9 +262,52 @@ export function buildReferenceLap(circuit: CircuitData): ReferenceReplay {
     }
     evidence.push(item);
   }
+  // A separate periodic family shares each exit/setup station between its
+  // neighboring Turns. A bounded coordinate pass explores actual compromises.
+  let controls: CircuitPlacement[] = circuit.turns.map(() => ({ entryWidthUse: 0, apexWidthUse: 0, apexShiftMeters: 0 }));
+  let circuitBest = result;
+  for (const turn of circuit.turns) {
+    const basis = controls, basisName = circuitBest.name;
+    const shapes = [
+      { entryWidthUse: 0.15, apexWidthUse: 0.2, exitWidthUse: 0.15 },
+      { entryWidthUse: 0.4, apexWidthUse: 0.4, exitWidthUse: 0.3 },
+      { entryWidthUse: 0.7, apexWidthUse: 0.75, exitWidthUse: 0.5 },
+      { entryWidthUse: 0.4, apexWidthUse: 0.65, exitWidthUse: -0.2 },
+    ];
+    for (const shape of shapes) for (const shift of [0, 2.5, 4.5]) {
+      const proposed = basis.map((control) => ({ ...control }));
+      proposed[turn.number - 1] = { entryWidthUse: shape.entryWidthUse, apexWidthUse: shape.apexWidthUse, apexShiftMeters: shift };
+      const next = turn.number % circuit.turns.length;
+      proposed[next].entryWidthUse = shape.exitWidthUse * (circuit.turns[next].direction === turn.direction ? 1 : -1);
+      const name = `T${turn.number} linked placement entry ${shape.entryWidthUse} apex ${shape.apexWidthUse}/${shift}m exit ${shape.exitWidthUse}`;
+      const positions = placeCircuit(circuit, proposed);
+      const candidate = executeReferenceProposal(circuit, { name, positions });
+      const item = 'frames' in candidate ? candidate.evidence[0] : candidate;
+      item.basisCandidate = basisName;
+      item.turnPlacement = { turnNumber: turn.number, requestedApexDistanceMeters: turn.apexDistanceMeters + Math.min(shift, ((circuit.turns[next].apexDistanceMeters - turn.apexDistanceMeters + circuit.totalLengthMeters) % circuit.totalLengthMeters) * 0.32), widthUse: shape.apexWidthUse, entryWidthUse: shape.entryWidthUse, exitWidthUse: shape.exitWidthUse, family: 'circuit' };
+      if ('frames' in candidate) {
+        const apex = referenceApex(circuit, candidate, turn.number);
+        item.turnPlacement.achievedApexDistanceMeters = apex.frame.kart.lapDistanceMeters;
+        item.turnPlacement.insideTireClearanceMeters = apex.clearanceMeters;
+        if (candidate.lapSeconds < circuitBest.lapSeconds) { circuitBest = candidate; controls = proposed; }
+        if (candidate.lapSeconds < selected.lapSeconds) { selected = candidate; selectedPositions = positions; }
+      }
+      evidence.push(item);
+    }
+  }
+  const smoothingBasis = selectedPositions, smoothingBasisName = selected.name;
+  for (const change of [0.4, 0.8]) {
+    const name = `Smooth linked placement ${change}m`;
+    const positions = relaxPlacement(circuit, smoothingBasis, 12000, change);
+    const candidate = executeReferenceProposal(circuit, { name, positions });
+    const item = 'frames' in candidate ? candidate.evidence[0] : candidate;
+    item.basisCandidate = smoothingBasisName;
+    item.relaxation = { passes: 12000, maxChangeMeters: change };
+    evidence.push(item);
+    if ('frames' in candidate && candidate.lapSeconds < selected.lapSeconds) { selected = candidate; selectedPositions = positions; }
+  }
   selected.evidence = evidence;
-  cache.set(circuit, freeze(selected));
-  return selected;
+  return { reference: selected, proposal: { name: selected.name, positions: selectedPositions } };
 }
 
 export function referenceStateAtDistance(reference: ReferenceReplay, distance: number): KartState {
@@ -228,7 +320,7 @@ export function referenceStateAtDistance(reference: ReferenceReplay, distance: n
 export function referenceTimeAtDistance(reference: ReferenceReplay, distance: number): number {
   const index = interpolateAtDistance(reference.points, distance);
   const a = reference.points[index], b = reference.points[(index + 1) % reference.points.length];
-  const endDistance = index + 1 === reference.points.length ? reference.frames.at(-1)!.kart.unwrappedDistanceMeters - reference.initialState.unwrappedDistanceMeters : b.distanceMeters;
+  const endDistance = index + 1 === reference.points.length ? reference.frames.at(-1)!.kart.unwrappedDistanceMeters - reference.initialState.unwrappedDistanceMeters + reference.initialState.lapDistanceMeters : b.distanceMeters;
   const endTime = index + 1 === reference.points.length ? reference.lapSeconds : b.benchmarkTimeSeconds;
   const ratio = Math.max(0, Math.min(1, (distance - a.distanceMeters) / Math.max(1e-9, endDistance - a.distanceMeters)));
   return a.benchmarkTimeSeconds + (endTime - a.benchmarkTimeSeconds) * ratio;

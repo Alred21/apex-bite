@@ -17,3 +17,11 @@ The starting frontier is #24, #26, #27. Each slice owns its behavior tests and r
 The user confirmed the public SimulationSession as the primary behavior seam, plus existing real-browser harnesses for controls, HUD/focus, cameras, and rendering. No new general test framework or standalone prefactoring ticket is required.
 
 The accepted design and full specification remain available in the adjacent iteration-3 design and spec documents. Individual local ticket files mirror the published bodies; canonical acceptance criteria and dependencies live in GitHub. Parent specification body and state were preserved during ticket creation.
+
+## Implementation progress
+
+Tracked in [PR #31](https://github.com/Alred21/apex-bite/pull/31) on feat/iteration-3.
+
+- #24, #25, #26, and #27 are implemented, validated, and merged into the integration branch.
+- #28 and #29 are in progress in isolated worktrees; saved work was retained across the interruption.
+- #30 remains gated by the complete reference-line and cue implementations. Final branch review follows integrated verification.

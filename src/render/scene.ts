@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CircuitData, SessionSnapshot } from '../simulation/types';
+import { CircuitData, SessionSnapshot, type GhostPose, type Vector2D } from '../simulation/types';
 import { createIndoorVenue, buildVenueBarriers } from './venue';
 import { applyGraphicsQuality, GraphicsQuality, loadGraphicsQuality } from './graphics';
 import { createKartRig } from './kart';
@@ -204,7 +204,7 @@ function buildRacingLineRibbon(initialSnapshot: SessionSnapshot): {
   return { mesh, updateColors };
 }
 
-function buildGhostKartMesh(tintColor: number): THREE.Group {
+function buildGhostKartMesh(tintColor: number): { root: THREE.Group; material: THREE.MeshStandardMaterial } {
   const ghostRoot = new THREE.Group();
   const mat = new THREE.MeshStandardMaterial({
     color: tintColor,
@@ -236,7 +236,7 @@ function buildGhostKartMesh(tintColor: number): THREE.Group {
 
   ghostRoot.add(body, nose, seat);
   ghostRoot.visible = false;
-  return ghostRoot;
+  return { root: ghostRoot, material: mat };
 }
 
 export interface CircuitRenderer {
@@ -292,9 +292,9 @@ export function createCircuitRenderer(
   });
   scene.add(kartRig.root);
 
-  const trackRecordGhostMesh = buildGhostKartMesh(0xfacc15); // Gold executable Reference Lap Ghost
-  const personalBestGhostMesh = buildGhostKartMesh(0x22c55e); // Emerald Personal Best Ghost
-  scene.add(trackRecordGhostMesh, personalBestGhostMesh);
+  const trackRecordGhost = buildGhostKartMesh(0xfacc15); // Gold executable Reference Lap Ghost
+  const personalBestGhost = buildGhostKartMesh(0x22c55e); // Emerald Personal Best Ghost
+  scene.add(trackRecordGhost.root, personalBestGhost.root);
 
   // Dynamic rear-tire scrub / skid marks pool on the indoor floor
   const maxSkidMarks = 320;
@@ -317,6 +317,19 @@ export function createCircuitRenderer(
     applyGraphicsQuality(renderer, venue.keyLight, graphicsQuality);
   });
 
+  function updateGhost(rig: ReturnType<typeof buildGhostKartMesh>, pose: GhostPose | null, player: Vector2D): void {
+    if (!pose) { rig.root.visible = false; return; }
+    rig.root.position.set(pose.position.x, 0, pose.position.z);
+    rig.root.rotation.y = -pose.headingRad;
+    // The combined Kart/Ghost footprint fits inside 2.2 m at any heading.
+    // Keep intersecting geometry invisible, then restore it over 1.3 m of clearance.
+    // Smoothstep has flat endpoints; tiny boundary motion cannot produce a pop.
+    const distance = Math.hypot(pose.position.x - player.x, pose.position.z - player.z);
+    const separation = THREE.MathUtils.clamp((distance - 2.2) / 1.3, 0, 1);
+    rig.material.opacity = 0.42 * separation * separation * (3 - 2 * separation);
+    rig.root.visible = separation > 0;
+  }
+
   function render(snapshot: SessionSnapshot): void {
     const { kart, camera: camState, ghost } = snapshot;
     venue.keyLight.position.set(kart.position.x + 4, 14, kart.position.z + 7);
@@ -325,29 +338,8 @@ export function createCircuitRenderer(
 
     kartRig.update(snapshot);
 
-    if (ghost.trackRecordPose) {
-      trackRecordGhostMesh.visible = true;
-      trackRecordGhostMesh.position.set(
-        ghost.trackRecordPose.position.x,
-        0,
-        ghost.trackRecordPose.position.z,
-      );
-      trackRecordGhostMesh.rotation.y = -ghost.trackRecordPose.headingRad;
-    } else {
-      trackRecordGhostMesh.visible = false;
-    }
-
-    if (ghost.personalBestPose) {
-      personalBestGhostMesh.visible = true;
-      personalBestGhostMesh.position.set(
-        ghost.personalBestPose.position.x,
-        0,
-        ghost.personalBestPose.position.z,
-      );
-      personalBestGhostMesh.rotation.y = -ghost.personalBestPose.headingRad;
-    } else {
-      personalBestGhostMesh.visible = false;
-    }
+    updateGhost(trackRecordGhost, ghost.trackRecordPose, kart.position);
+    updateGhost(personalBestGhost, ghost.personalBestPose, kart.position);
 
     // Emit rear-tire scrub/skid marks when sliding or experiencing heavy Axle Scrub
     if (

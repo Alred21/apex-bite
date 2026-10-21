@@ -6,11 +6,15 @@ The detailed Kart has no driver in either view, and the steering wheel appears o
 
 The Racing Line is fixed in position but remains close to the Circuit Centreline. The existing bounded search shifts whole Corner Complexes sideways and cannot independently express deliberate Turn entry, movable Apex, and exit placement. Its small measured advantage over the centreline does not establish useful cornering-line coverage. Apex training targets also remain tied to a fixed Circuit station. The nearly opaque ribbon and mixed recovery/speed colors obscure the intended model: fixed useful placement with live speed-based advice.
 
+During iteration-3 review, the user also observed a Ghost Kart overlapping the player Kart. Intersecting translucent geometry obscures the Kart and driver and can intrude into Helmet Cam. A useful comparison should remain spatially truthful while keeping the player's immediate driving view clear.
+
 ## Solution
 
 Deliver a focused third iteration of the existing solo K1 Toronto trainer. Make Space a progressive Brake/Reverse control, support deliberate low-speed reversing and remapping, add a believable seated driver with coherent Kart/camera proportions, and improve the actual Racing Line.
 
 Evaluate smooth entry/Apex/exit alternatives and connected-Turn compromises under the player's existing dynamics. Use achieved whole-lap performance to choose the fastest validated candidate found. Keep its path, speeds, timing, Ghost Kart, actual Apex targets, Corner Drills, and coaching consistent. Freeze reference placement during driving while translucent upcoming sections communicate live speed and advance braking demand. Preserve current training modes, realistic forward speed, record safeguards, and adjustable presentation.
+
+Suppress distracting Ghost Kart geometry when it overlaps the player, and restore its visibility smoothly as it separates. Apply this presentation behavior independently to Reference Lap and Personal Best Ghost Karts in both cameras, while preserving their actual replay positions, timing, and training comparisons.
 
 ## User Stories
 
@@ -83,6 +87,23 @@ Evaluate smooth entry/Apex/exit alternatives and connected-Turn compromises unde
 67. As a practice driver, I want to retain unlimited practice, restart, record portability, and legacy separation, so that iteration 3 fits the existing workflow.
 68. As a trainee, I want to keep the Real-World Benchmark clearly separate from simulated reference performance, so that lap-time comparisons remain honest.
 69. As a project maintainer, I want to keep this iteration focused on the agreed driving and learning problems, so that new systems do not consume effort without demonstrated value.
+70. As a driver, I want an overlapping Ghost Kart to stop obscuring my Kart, so that I can read my own motion and placement.
+71. As a Chase Cam driver, I want the seated driver, steering, and Kart silhouette to remain readable during a ghost overtake, so that spatial comparison does not hide my controls or posture.
+72. As a Helmet Cam driver, I want intersecting ghost geometry kept out of my immediate driving view, so that I can see my hands, steering wheel, and the track ahead.
+73. As a driver, I want partial Ghost Kart intersections handled as well as exact coincidence, so that the fix remains useful while the two Karts move through each other.
+74. As a trainee, I want separated Ghost Karts to remain visible, so that I can still compare Racing Line placement and progress.
+75. As a driver, I want a Ghost Kart to become visible smoothly as it leaves the overlap region, so that the transition does not pop or flicker.
+76. As a driver, I want a Ghost Kart approaching from behind or the side to receive the same overlap treatment, so that clear presentation does not depend on the direction of approach.
+77. As a trainee, I want the Reference Lap Ghost Kart to retain its true replay pose and clock, so that the visibility repair does not misrepresent the training target.
+78. As a returning driver, I want the Personal Best Ghost Kart to retain its true replay pose and clock, so that the visibility repair does not alter my recorded performance.
+79. As a driver using Both, I want each Ghost Kart's visibility handled independently, so that a nearby ghost cannot hide a useful separated comparison.
+80. As a driver, I want Reference Lap, Personal Best, Both, and Off to retain their existing selection behavior, so that the repair fits the current controls.
+81. As a practice driver, I want overlap handling to work during stopping and reverse recovery, so that ghost geometry does not obscure my escape from a Barrier.
+82. As a trainee, I want live time deltas, lap results, coaching, and records to stay unchanged by ghost visibility, so that presentation cannot manufacture a gain or loss.
+83. As a player, I want ghost visibility to preserve the non-colliding replay behavior, so that comparison Karts cannot change the player's dynamics.
+84. As a reviewer, I want before/after evidence at coincidence, partial overlap, and separation in both views, so that I can verify the reported defect is fixed.
+85. As a player, I want the overlap repair to retain responsive rendering, so that clearer presentation does not introduce avoidable frame cost.
+86. As a project maintainer, I want a small presentation repair using the existing Ghost Kart renderer, so that the fix does not become an unnecessary new system.
 
 ## Implementation Decisions
 
@@ -96,6 +117,9 @@ Evaluate smooth entry/Apex/exit alternatives and connected-Turn compromises unde
 - Preserve compatible Personal Bests, portable data, and existing legacy records. If an actual handling or reference-comparison incompatibility is introduced, represent it explicitly using existing revision mechanisms rather than deleting records or needlessly invalidating compatible data.
 - Add one believable helmeted seated player driver. Inspect free asset files, actual license, rig, material/texture cost, and seated suitability before selection; adapt or author geometry as needed and retain required credits. Listing metadata is not an approved asset.
 - Keep steering-linked hands/arms modest. Calibrate physical wheel dimensions, body proportions, seating, eye position, and camera framing together. Use appropriate first-person geometry visibility while retaining the third-person body; preserve FOV and camera-motion settings.
+- Keep Ghost Kart overlap handling in presentation. Use the actual world-space player and ghost poses to suppress intersecting geometry around the player and fade it back as clearance increases. Cover the occupied Kart/driver region rather than only identical centre points; tune the modest transition in both cameras. Do not displace, delay, or advance a replay to avoid overlap.
+- Evaluate Reference Lap and Personal Best Ghost Karts independently. Preserve mode selection, absent-pose behavior, and visibility of separated ghosts. The repair must not hide the player Kart or driver, change the Racing Line, or alter simulation snapshots, clocks, comparisons, records, collisions, or physics.
+- Prefer a small bounded visibility/opacity adjustment in the existing renderer. Do not introduce a ghost lifecycle framework, new simulation API, user setting, or custom rendering pipeline without a demonstrated need.
 - Replace the restrictive whole-Complex-offset proposal family with bounded smooth entry/Apex/exit alternatives that can vary Apex position and linked-Turn setup. Use available corridor width with whole-Kart clearance and feasible steering.
 - Optimize achieved whole-lap time, not isolated Turn time, minimum curvature alone, or compliance with a textbook visual pattern. Explore Late Apex alternatives where useful; do not require Late Apex at every Turn. Preserve current and centreline baselines for comparison under identical final dynamics.
 - Retain shared-dynamics execution, complete state/command recording, warmup/closure evidence, and repeated clean replay. Publish observed traversal geometry rather than a requested path the Kart did not execute.
@@ -120,16 +144,20 @@ Evaluate smooth entry/Apex/exit alternatives and connected-Turn compromises unde
 - Inspect annotated entry/Apex/exit placement for all eleven Turns and detailed hairpin/connected-Turn examples. Verify alternatives include meaningful Apex movement and that every actual Apex target, reference speed, Ghost pose/time, drill entry/target, and coaching result follows the selected traversal.
 - At identical position/heading, compare faster and slower approaches and anticipated braking. Cover linked Turns, displaced/misaligned recovery, stopped/reversing states, and mode-independent geometry/timing.
 - Visually inspect both camera views in motion for body proportions, hand grip, wheel scale, clipping, track visibility, fixed line placement, transparency, colors, and reverse feedback. Pixel-perfect screenshots alone are insufficient.
+- Reproduce Ghost Kart coincidence and partial overlap through ordinary public Session replay and the production renderer before applying the repair. Retain an image-based regression signal that fails on the reported obstruction, then verify player Kart/driver readability and restored ghost visibility after separation in both cameras. Use the existing approved browser/render seam rather than testing a private fade helper or adding pose-injection APIs.
+- Exercise Reference Lap, Personal Best, Both, and Off, including one overlapping ghost with the other separated, approach from different directions, stopping, and reverse recovery. Compare public replay poses/times, lap and drill results, and portable records to verify that presentation has no training effect.
+- Record whether Ghost Karts are actually visible or suppressed in performance scenarios. Include a short separated-ghost rendering check after the repair; do not describe a coincident, correctly suppressed ghost as visible rendering load.
 - Measure a production build's cold reference construction and warmed frame timing in both cameras with driver, Racing Line, and Ghost Karts visible. Record hardware, browser, viewport, DPR, quality, mean and percentile frame timing, and hitches; include a full twelve-lap session for accumulating cost. Target 60 FPS at an appropriate existing preset and distinguish measured local evidence from untested laptop claims.
 - Run relevant existing behavior/browser suites and required type checking and production build during implementation. Final integration checks do not replace each slice's own verification.
 
 ## Out of Scope
 
-New opponent racing or AI behavior; rewind/Flashback; career, multiplayer, damage, or transmission systems; a replacement physics engine; Circuit resizing or grip/speed changes to manufacture lap-time gains; global-optimality proof; driver customization, locomotion, or ragdoll systems; a broad venue rebuild; paid asset purchases; a general optimization/training service; and production deployment without separate task authorization.
+New opponent racing or AI behavior; rewind/Flashback; career, multiplayer, damage, or transmission systems; a replacement physics engine; Circuit resizing or grip/speed changes to manufacture lap-time gains; global-optimality proof; driver customization, locomotion, or ragdoll systems; a broad venue rebuild; paid asset purchases; a general optimization/training service; a redesigned Ghost Kart system or changed replay timing/positions; and production deployment without separate task authorization.
 
 ## Further Notes
 
 - The user accepted the iteration-3 design, test seams, ticket granularity, and blocking edges. The approved specification is ready for agent implementation through its child tickets.
+- The user added Ghost Kart overlap repair during implementation and requested this specification update. [Ticket #32](https://github.com/Alred21/apex-bite/issues/32) delivers the focused fix and gates final integrated verification in #30. The existing approved public Session and real-browser renderer seams remain in use.
 - Iteration 2's selected lap is 45.791667 s against 45.983333 s for the centreline baseline, a 0.417% improvement. These are baseline observations to reproduce under the final dynamics, not fixed future target times.
 - EA documents [GRID Legends control remapping and Brake/Reverse](https://www.ea.com/able/resources/grid/grid-legends/pc/controls) and [Racing Line display and camera settings](https://www.ea.com/able/resources/grid/grid-legends/pc/gameplay). No public disclosure of Legends' reference-path generator or live-color algorithm was located; do not claim the project reproduces proprietary internals.
 - A [direct GRID Autosport developer interview](https://www.pcgamesn.com/how-codemasters-teach-ai-drive) describes authored track guidance and simulation-based AI refinement. It is historical inspiration for measured iteration, not evidence of Legends' displayed assist implementation.

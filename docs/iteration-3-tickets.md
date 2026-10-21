@@ -1,6 +1,6 @@
 # Iteration 3 tickets
 
-The approved specification and ticket acceptance criteria are published in GitHub: [specification #23](https://github.com/Alred21/apex-bite/issues/23) and its seven native sub-issues below. All eight issues are labeled ready-for-agent; blocking relationships are native GitHub dependencies.
+The approved specification and ticket acceptance criteria are published in GitHub: [specification #23](https://github.com/Alred21/apex-bite/issues/23) and its eight native sub-issues below. All issues are labeled ready-for-agent; blocking relationships are native GitHub dependencies.
 
 | Ticket | Delivery | Blocked by |
 | --- | --- | --- |
@@ -10,7 +10,8 @@ The approved specification and ticket acceptance criteria are published in GitHu
 | [#27](https://github.com/Alred21/apex-bite/issues/27) | Practice a hairpin against an executable movable Apex | None |
 | [#28](https://github.com/Alred21/apex-bite/issues/28) | Follow a faster Racing Line across the complete Circuit | #27 |
 | [#29](https://github.com/Alred21/apex-bite/issues/29) | Read translucent Racing Line cues driven by live speed | #24, #28 |
-| [#30](https://github.com/Alred21/apex-bite/issues/30) | Verify the complete iteration-3 training experience | #25, #26, #28, #29 |
+| [#30](https://github.com/Alred21/apex-bite/issues/30) | Verify the complete iteration-3 training experience | #25, #26, #28, #29, #32 |
+| [#32](https://github.com/Alred21/apex-bite/issues/32) | Keep the player Kart readable when Ghost Karts overlap | None |
 
 The original starting frontier was #24, #26, and #27. Each slice owns its behavior tests and relevant browser checks. The final integration ticket verifies the complete experience and measured performance. Transitive blockers are omitted.
 
@@ -22,8 +23,9 @@ The accepted design and full specification remain available in the adjacent iter
 
 Tracked in [PR #31](https://github.com/Alred21/apex-bite/pull/31) on feat/iteration-3.
 
-- #24, #25, #26, and #27 are implemented, validated, and merged into the integration branch.
-- #28 and #29 are in progress in isolated worktrees; saved work was retained across the interruption.
-- #30 remains gated by the complete reference-line and cue implementations. Final branch review follows integrated verification.
+- #24–#29 are implemented, validated, and merged into the integration branch.
+- #30 is performing final integration, production performance measurement, and the narrow Helmet Cam HUD visibility repair. Its final acceptance also depends on the newly reported Ghost Kart overlap repair, #32.
+- #32 captures the user's additional visual defect as one complete presentation fix, preserving replay positions and timing.
+- Final Standards and Spec review follows integrated verification. PR #31 remains draft until those checks and any review fixes pass.
 
 Implementation dependency correction: #29 also depends on #28 because live braking lookahead must share the selected path's physical arc-distance calculation. The native tracker edge and manifest reflect this discovered correctness dependency.

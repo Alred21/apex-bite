@@ -88,7 +88,7 @@ describe('Reference-backed Corner Drills', () => {
   it('keeps a significant individual Turn miss visible within a clean Corner Complex without calling it late braking', () => {
     const session = createSimulationSession();
     session.selectDrillTarget('T1-T3');
-    const card = driveDrillVariant(session, 0.85, 0.9);
+    const card = driveDrillVariant(session, 0.85, -0.9);
     expect(card.isClean).toBe(true);
     const turn2 = card.turnApexProximities.find((turn) => turn.turnNumber === 2)!;
     expect(turn2.distanceCm).toBeGreaterThan(70);

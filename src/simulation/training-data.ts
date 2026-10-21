@@ -12,12 +12,19 @@ export interface TrainingRevision {
   circuit: string;
 }
 
+export interface LegacyDrillPersonalBests {
+  reference: string;
+  personalBests: Partial<Record<DrillTargetId, number>>;
+}
+
 export interface TrainingRecords {
   revision: TrainingRevision;
   personalBestSeconds: number | null;
   bestSectorSplits: SectorSplitsTuple;
   personalBestGhostFrames: GhostSampleFrame[];
   drillPersonalBests: Partial<Record<DrillTargetId, number>>;
+  drillReference?: string;
+  legacyDrillPersonalBests?: LegacyDrillPersonalBests[];
 }
 
 export interface PersistedTrainingData {
@@ -30,6 +37,8 @@ export interface TrainingRecordSummary {
   personalBestSeconds: number | null;
   bestSectorSplits: SectorSplitsTuple;
   drillPersonalBests: Partial<Record<DrillTargetId, number>>;
+  drillReference?: string;
+  legacyDrillPersonalBests?: LegacyDrillPersonalBests[];
   ghostFrameCount: number;
 }
 
@@ -40,6 +49,8 @@ export function summarizeTrainingRecords(records: TrainingRecords): TrainingReco
     bestSectorSplits: [...records.bestSectorSplits],
     drillPersonalBests: { ...records.drillPersonalBests },
     ghostFrameCount: records.personalBestGhostFrames.length,
+    drillReference: records.drillReference,
+    legacyDrillPersonalBests: structuredClone(records.legacyDrillPersonalBests ?? []),
   };
 }
 
@@ -84,6 +95,39 @@ function revision(value: unknown): TrainingRevision {
   return { handling: source.handling as string, circuit: source.circuit as string };
 }
 
+function referenceName(value: unknown): string {
+  if (typeof value !== 'string' || !/^[a-zA-Z0-9._-]{1,100}$/.test(value)) invalid();
+  return value;
+}
+
+function drillTimes(value: unknown): Partial<Record<DrillTargetId, number>> {
+  const result: Partial<Record<DrillTargetId, number>> = {};
+  for (const [key, seconds] of Object.entries(object(value))) {
+    if (!DRILL_IDS.has(key)) invalid();
+    result[key as DrillTargetId] = time(seconds);
+  }
+  return result;
+}
+
+/** Preserve obsolete drill achievements while leaving physical lap records
+ * active. An imported archive for this exact reference can become active again. */
+export function alignDrillReference(record: TrainingRecords, currentReference: string): TrainingRecords {
+  if (record.drillReference === currentReference) return record;
+  const archives = structuredClone(record.legacyDrillPersonalBests ?? []);
+  if (Object.keys(record.drillPersonalBests).length) {
+    const reference = record.drillReference ?? 'unversioned-reference';
+    const existing = archives.find((archive) => archive.reference === reference);
+    if (existing) {
+      for (const [target, seconds] of Object.entries(record.drillPersonalBests)) {
+        const id = target as DrillTargetId;
+        existing.personalBests[id] = Math.min(existing.personalBests[id] ?? Infinity, seconds!);
+      }
+    } else archives.push({ reference, personalBests: { ...record.drillPersonalBests } });
+  }
+  const matching = archives.find((archive) => archive.reference === currentReference);
+  return { ...record, drillReference: currentReference, drillPersonalBests: { ...matching?.personalBests }, legacyDrillPersonalBests: archives.filter((archive) => archive !== matching) };
+}
+
 function records(value: unknown, baseline: boolean): TrainingRecords {
   const source = object(value);
   if (!Array.isArray(source.bestSectorSplits) || source.bestSectorSplits.length !== 3) invalid();
@@ -105,15 +149,20 @@ function records(value: unknown, baseline: boolean): TrainingRecords {
       speedKph: finiteNumber(frame.speedKph, 0),
     };
   });
-  const drillPersonalBests: Partial<Record<DrillTargetId, number>> = {};
-  const drills = source.drillPersonalBests === undefined && baseline ? {} : object(source.drillPersonalBests);
-  for (const [key, value] of Object.entries(drills)) {
-    if (!DRILL_IDS.has(key)) invalid();
-    drillPersonalBests[key as DrillTargetId] = time(value);
+  const drillPersonalBests = drillTimes(source.drillPersonalBests === undefined && baseline ? {} : source.drillPersonalBests);
+  const drillReference = source.drillReference === undefined ? undefined : referenceName(source.drillReference);
+  let legacyDrillPersonalBests: LegacyDrillPersonalBests[] | undefined;
+  if (source.legacyDrillPersonalBests !== undefined) {
+    if (!Array.isArray(source.legacyDrillPersonalBests)) invalid();
+    legacyDrillPersonalBests = source.legacyDrillPersonalBests.map((value) => {
+      const archive = object(value);
+      return { reference: referenceName(archive.reference), personalBests: drillTimes(archive.personalBests) };
+    });
+    if (new Set(legacyDrillPersonalBests.map((archive) => archive.reference)).size !== legacyDrillPersonalBests.length) invalid();
   }
   return {
     revision: baseline ? { handling: 'kart-v1', circuit: 'k1-toronto-v1' } : revision(source.revision),
-    personalBestSeconds, bestSectorSplits, personalBestGhostFrames, drillPersonalBests,
+    personalBestSeconds, bestSectorSplits, personalBestGhostFrames, drillPersonalBests, drillReference, legacyDrillPersonalBests,
   };
 }
 

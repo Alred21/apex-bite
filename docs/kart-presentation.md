@@ -1,5 +1,7 @@
 # Electric rental Kart presentation
 
+Iteration 3 adds the seated driver and recalibrates the wheel, binnacle and Helmet Cam together; see [driver review](iteration-3-driver.md). The original iteration-2 model review below is retained as baseline evidence.
+
 The Kart is custom geometry authored for Apex Bite. No downloaded models, paid assets, fonts, photographs, or third-party texture images are included. Rubber micrograin, seat weave, APEX/ELECTRIC labels, and the digital instrument display are drawn procedurally using Canvas; their source is part of the project. Browser system fonts are used when rasterizing labels. Three.js supplies the geometry and rendering utilities under the project's existing dependency license.
 
 The model uses tapered, beveled plastic mouldings, a contoured bucket seat and rolled rim, powder-coated chassis tubes, a continuous rubber bumper, rear axle and brake disc, finned electric motor, cabling, pedals, and hubs with recessed spokes and fasteners. Rubber, plastic, woven seat, powder coat, and metal have separate roughness and reflectance. Hardware and static surfaces are batched by material; the steering and wheel assemblies remain animated.

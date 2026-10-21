@@ -56,7 +56,8 @@
       "title": "Read translucent Racing Line cues driven by live speed",
       "local_file": "docs/iteration-3-tickets/06-line-speed-colors.md",
       "blocked_by": [
-        24
+        24,
+        28
       ]
     },
     {

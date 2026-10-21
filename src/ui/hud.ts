@@ -1,8 +1,12 @@
 import { CameraSettings, DrillTargetId, KeyboardAssistanceSettings, PracticeMode, SessionSnapshot } from '../simulation/types';
 import { GraphicsQuality } from '../render/graphics';
 import type { KartAudioState } from '../audio/kart-audio';
+import { DEFAULT_DRIVING_BINDINGS, DRIVING_ACTION_LABELS, formatDrivingKey, type DrivingAction, type DrivingBindings, type BindingChangeResult } from './driver-controls';
 
 export interface HudCallbacks {
+  getDrivingBindings?: () => DrivingBindings;
+  onSetDrivingBinding?: (action: DrivingAction, code: string) => BindingChangeResult;
+  onRestoreDrivingBindings?: () => void;
   getAudioState?: () => KartAudioState;
   onToggleAudio?: () => void;
   onAudioVolume?: (volume: number) => void;
@@ -34,6 +38,7 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
   root.innerHTML = `
     <div class="hud-top-row">
       <div class="hud-panel hud-quick-bar" aria-label="Controls Bar">
+        <p id="hud-driving-hint" class="driving-hint"></p>
         <div class="brand-title">APEX BITE <span class="brand-sub">K1 TORONTO</span></div>
         <div class="quick-actions">
           <button type="button" class="hud-btn" id="hud-btn-mode" title="Switch Practice Mode: Time Trial / Corner Drill (M)">
@@ -220,6 +225,11 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
     <dialog id="hud-camera-dialog" class="hud-dialog" aria-labelledby="hud-camera-settings-title">
       <form method="dialog" class="camera-settings">
         <h2 id="hud-camera-settings-title">Driving and view settings</h2>
+        <fieldset class="driving-bindings"><legend>Keyboard controls</legend>
+          ${(Object.keys(DRIVING_ACTION_LABELS) as DrivingAction[]).map((action) => `<div class="driving-binding-row"><span id="hud-bind-${action}-label">${DRIVING_ACTION_LABELS[action]}</span><button type="button" class="hud-btn" id="hud-bind-${action}" aria-labelledby="hud-bind-${action}-label hud-bind-${action}"></button></div>`).join('')}
+          <button type="button" class="hud-btn" id="hud-bind-defaults">Restore default keys</button>
+          <p class="dialog-desc" id="hud-binding-status" role="status" aria-live="polite">Select an action, then press a letter, number, arrow key or Space. New keys replace that action's aliases. Browser shortcuts stay available.</p>
+        </fieldset>
         <label for="hud-steering-sensitivity">Keyboard steering sensitivity <output id="hud-steering-sensitivity-value" for="hud-steering-sensitivity">100%</output></label>
         <input id="hud-steering-sensitivity" type="range" min="50" max="175" step="5" value="100" />
         <p class="dialog-desc">Brake/Reverse: stop, release, then press again to back up at up to 8 km/h. Accelerator stops backward motion before moving forward.</p>
@@ -296,7 +306,53 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
   const cameraFovValue = root.querySelector<HTMLOutputElement>('#hud-camera-fov-value')!;
   const cameraMotionValue = root.querySelector<HTMLOutputElement>('#hud-camera-motion-value')!;
   root.querySelector('#hud-btn-camera-settings')!.addEventListener('click', () => cameraDialog.showModal());
-  cameraDialog.addEventListener('keydown', (event) => event.stopPropagation());
+  let capturingBinding: DrivingAction | null = null;
+  const bindingStatus = root.querySelector<HTMLElement>('#hud-binding-status')!;
+  function refreshBindings(): void {
+    const bindings = callbacks.getDrivingBindings?.() ?? DEFAULT_DRIVING_BINDINGS;
+    for (const action of Object.keys(DRIVING_ACTION_LABELS) as DrivingAction[]) {
+      root.querySelector<HTMLElement>(`#hud-bind-${action}`)!.textContent = bindings[action].map(formatDrivingKey).join(' / ');
+    }
+    root.querySelector<HTMLElement>('#hud-driving-hint')!.textContent =
+      (Object.keys(DRIVING_ACTION_LABELS) as DrivingAction[]).map((action) => `${DRIVING_ACTION_LABELS[action]}: ${bindings[action].map(formatDrivingKey).join(' / ')}`).join(' · ');
+  }
+  for (const action of Object.keys(DRIVING_ACTION_LABELS) as DrivingAction[]) {
+    const button = root.querySelector<HTMLButtonElement>(`#hud-bind-${action}`)!;
+    button.disabled = !callbacks.onSetDrivingBinding;
+    button.addEventListener('click', () => {
+      capturingBinding = action;
+      bindingStatus.textContent = `Press a key for ${DRIVING_ACTION_LABELS[action]}. Escape cancels.`;
+    });
+  }
+  root.querySelector<HTMLButtonElement>('#hud-bind-defaults')!.addEventListener('click', () => {
+    callbacks.onRestoreDrivingBindings?.();
+    capturingBinding = null;
+    bindingStatus.textContent = 'Default keyboard controls restored.';
+    refreshBindings();
+  });
+  cameraDialog.addEventListener('close', () => { capturingBinding = null; });
+  cameraDialog.addEventListener('keydown', (event) => {
+    event.stopPropagation();
+    if (!capturingBinding || event.repeat) return;
+    if (event.code === 'Escape' || event.code === 'Tab') {
+      if (event.code === 'Escape') event.preventDefault();
+      capturingBinding = null;
+      bindingStatus.textContent = 'Key change cancelled.';
+      return;
+    }
+    if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
+      bindingStatus.textContent = 'Choose a single key without modifiers. Browser shortcuts remain available.';
+      return;
+    }
+    event.preventDefault();
+    const result = callbacks.onSetDrivingBinding?.(capturingBinding, event.code);
+    if (result) {
+      bindingStatus.textContent = result.message;
+      if (result.accepted) capturingBinding = null;
+    }
+    refreshBindings();
+  });
+  refreshBindings();
   cameraFov.addEventListener('input', () => callbacks.onSetCameraSettings?.({ fieldOfViewDegrees: Number(cameraFov.value) }));
   cameraMotion.addEventListener('input', () => callbacks.onSetCameraSettings?.({ motionStrength: Number(cameraMotion.value) / 100 }));
   const graphicsWrap = root.querySelector<HTMLElement>('#hud-graphics-wrap')!;

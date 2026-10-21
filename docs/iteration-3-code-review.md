@@ -20,4 +20,6 @@ Resolved by suppressing the Personal Best Ghost in a Corner Drill when its Flyin
 
 The existing clean recovery/portable Ghost test was extended through the public Session seam. Before the fix, its new T3 assertion failed with the lap-start pose instead of `null`. Afterward, Personal Best and Both suppress the unavailable drill comparison; Reference playback advances, mode changes preserve Kart/drill state, Time Trial PB playback advances again, and exported records remain byte-for-byte unchanged. All **78 tests**, type checking and the production build pass. The original four-lap browser measurements remain valid: ordinary full-lap and monotonic drill playback are unchanged, so no additional GPU benchmark was run.
 
+Both reviewers independently checked the focused fix at `52b2398`. The Spec reviewer reran the public reproduction and all seven recovery tests, confirming the finding resolved; the Standards reviewer confirmed no new breaches or actionable smells.
+
 Original review findings: Standards **0** (worst: none); Spec **1** (worst: P2, misaligned backward-PB drill Ghost), **resolved**. Remaining findings: **0**.

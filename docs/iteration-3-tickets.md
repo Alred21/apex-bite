@@ -23,9 +23,9 @@ The accepted design and full specification remain available in the adjacent iter
 
 Tracked in [PR #31](https://github.com/Alred21/apex-bite/pull/31) on feat/iteration-3.
 
-- #24–#29 are implemented, validated, and merged into the integration branch.
-- #30 is performing final integration, production performance measurement, and the narrow Helmet Cam HUD visibility repair. Its final acceptance also depends on the newly reported Ghost Kart overlap repair, #32.
-- #32 captures the user's additional visual defect as one complete presentation fix, preserving replay positions and timing.
-- Final Standards and Spec review follows integrated verification. PR #31 remains draft until those checks and any review fixes pass.
+- #24–#29 and #32 are implemented, validated, and merged into the integration branch.
+- #30's final four-lap browser acceptance run passed, with four Clean Laps and zero Barrier contacts. The game still defaults to twelve laps. Actual separated-Ghost rendering, controls, HUD, reverse recovery, and all sixteen drill checks passed.
+- Final validation passes all 78 behavior tests, type checking, and production build. Standards review found no issues; the single Spec finding was fixed and independently confirmed, leaving zero outstanding findings.
+- [Implementation and performance report](iteration-3-implementation-report.md), [Ghost overlap evidence](iteration-3-ghost-overlap.md), and [separate Standards/Spec review](iteration-3-code-review.md) provide the final review evidence for PR #31.
 
 Implementation dependency correction: #29 also depends on #28 because live braking lookahead must share the selected path's physical arc-distance calculation. The native tracker edge and manifest reflect this discovered correctness dependency.

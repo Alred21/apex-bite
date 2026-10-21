@@ -8,6 +8,7 @@ const moduleStarted = performance.now();
 const errors: string[] = [];
 window.addEventListener('error', (event) => errors.push(event.message));
 window.addEventListener('unhandledrejection', (event) => errors.push(String(event.reason)));
+const QA_LAP_LIMIT = 4; // User-approved browser sample; the product default remains twelve.
 const constructionStarted = performance.now();
 const session = createSimulationSession({ referenceReplay: true });
 const startup = {
@@ -18,6 +19,7 @@ const startup = {
   navigationToFirstFrameMs: 0,
   moduleToFirstFrameMs: 0,
 };
+session.setTimeTrialLapLimit(QA_LAP_LIMIT);
 const replay = session.getReferenceReplay();
 const preflightStarted = performance.now();
 const checks: string[] = [];
@@ -57,6 +59,7 @@ session.setPracticeMode('Time Trial');
 session.reset();
 check(session.getSnapshot().ghost.mode === 'Both', 'Both current Ghost Karts selected');
 const restored = createSimulationSession();
+check(restored.getSnapshot().timeTrial.lapLimit === 12, 'Normal game still defaults to twelve laps');
 restored.importTrainingDataJson(session.exportTrainingDataJson());
 check(restored.getSnapshot().trainingData.legacy.length === 1 && restored.getSnapshot().lap.personalBestSeconds !== null && restored.getSnapshot().drill.personalBests.T3 !== undefined, 'Current/legacy lap, Ghost and drill records round trip together');
 check(portable.length > 0, 'PB portable export produced');
@@ -100,7 +103,7 @@ button.addEventListener('click', () => {
   started = performance.now(); last = started; driving = true;
   button.disabled = true;
   void audio.toggle();
-  output.textContent = 'Running 12 real-time laps (~9 minutes). Lap 1 warms the scene; lap 2 measures Chase Cam; lap 3 measures Helmet Cam; laps 4–12 return to Chase Cam for accumulation comparison. Keep this page visible.';
+  output.textContent = 'Running 4 real-time laps (~3 minutes). Lap 1 warms the scene; lap 2 measures Chase Cam; lap 3 measures Helmet Cam; lap 4 returns to Chase Cam for a short accumulation comparison. Keep this page visible.';
 });
 download.addEventListener('click', () => {
   const anchor = document.createElement('a');
@@ -111,8 +114,8 @@ download.addEventListener('click', () => {
 function finish(now: number): void {
   const snapshot = session.getSnapshot();
   driving = false; completed = true;
-  check(snapshot.timeTrial.status === 'Finished' && snapshot.timeTrial.completedLaps.length === 12, 'Real-time playback finishes exactly twelve laps');
-  check(snapshot.timeTrial.completedLaps.every((lap) => lap.isClean), 'All twelve real-time laps are clean');
+  check(snapshot.timeTrial.status === 'Finished' && snapshot.timeTrial.completedLaps.length === QA_LAP_LIMIT, 'Real-time QA playback finishes exactly four laps');
+  check(snapshot.timeTrial.completedLaps.every((lap) => lap.isClean), 'All four real-time QA laps are clean');
   check(snapshot.kart.barrierContactCount === 0, 'No Barrier contacts during accumulation run');
   const frozen = JSON.stringify(snapshot.timeTrial);
   for (let i = 0; i < 240; i++) session.step(FIXED_TIMESTEP_SECONDS, { throttle: 1, steer: 1 });
@@ -123,13 +126,13 @@ function finish(now: number): void {
   const settings = session.getSnapshot();
   session.toggleRacingLine(); session.toggleRacingLine(); session.toggleRacingLine();
   const restarted = session.reset();
-  check(restarted.timeTrial.completedLaps.length === 0 && restarted.timeTrial.lapLimit === 12 && restarted.lap.personalBestSeconds !== null, 'Restart clears results and retains PB and default twelve-lap limit');
+  check(restarted.timeTrial.completedLaps.length === 0 && restarted.timeTrial.lapLimit === QA_LAP_LIMIT && restarted.lap.personalBestSeconds !== null, 'Restart clears results and retains PB and selected four-lap QA limit');
   check(JSON.stringify(restarted.camera.settings) === JSON.stringify(settings.camera.settings) && JSON.stringify(restarted.keyboardAssistance) === JSON.stringify(settings.keyboardAssistance), 'Driving/view settings survive results restart');
   check(session.exportTrainingDataJson() === records, 'Restart and display settings preserve current and legacy portable records');
   session.setTimeTrialLapLimit(null);
   check(session.getSnapshot().timeTrial.lapLimit === null, 'Unlimited practice remains explicit after results');
   const gl = canvas.getContext('webgl2'); const debug = gl?.getExtension('WEBGL_debug_renderer_info');
-  result = JSON.stringify({ capturedAt: new Date().toISOString(), scenario: 'Production renderer/HUD/audio, exact public ReferenceReplay commands at 120 Hz; 12 uninterrupted real-time laps; Full Racing Line and Both Ghost Karts. Lap 1 warmup, lap 2 warmed Chase, lap 3 warmed Helmet, laps 4–12 Chase.',
+  result = JSON.stringify({ capturedAt: new Date().toISOString(), scenario: 'Production renderer/HUD/audio, exact public ReferenceReplay commands at 120 Hz; 4 uninterrupted real-time QA laps; product default remains 12; Full Racing Line and Both Ghost modes selected; coincident Ghost geometry is suppressed, so this is not a continuous two-visible-Ghost load. Lap 1 warmup, lap 2 warmed Chase, lap 3 warmed Helmet, lap 4 Chase. Accumulation beyond four browser laps is unmeasured.',
     startup, drillEvidence, reference: session.getSnapshot().racingLine.reference, trainingRevision: snapshot.trainingData.revision,
     quality: renderer.getGraphicsQuality(), userAgent: navigator.userAgent, viewport: [innerWidth, innerHeight], devicePixelRatio,
     drawingBuffer: [canvas.width, canvas.height], effectivePixelRatio: canvas.width / innerWidth,
@@ -138,7 +141,13 @@ function finish(now: number): void {
     allMeasuredAfterWarmup: distribution(lapSamples.slice(1).flatMap((lap) => lap.intervalsMs)),
     laps: lapSamples.map(({ intervalsMs, ...lap }) => ({ ...lap, ...distribution(intervalsMs) })),
     results: snapshot.timeTrial, barrierContacts: snapshot.kart.barrierContactCount,
-    ghostsAtFinish: { mode: snapshot.ghost.mode, reference: Boolean(snapshot.ghost.trackRecordPose), personalBest: Boolean(snapshot.ghost.personalBestPose) },
+    ghostsAtFinish: {
+      selectedMode: snapshot.ghost.mode,
+      referencePoseAvailable: Boolean(snapshot.ghost.trackRecordPose), personalBestPoseAvailable: Boolean(snapshot.ghost.personalBestPose),
+      referenceDistanceMeters: snapshot.ghost.trackRecordPose ? Math.hypot(snapshot.ghost.trackRecordPose.position.x - snapshot.kart.position.x, snapshot.ghost.trackRecordPose.position.z - snapshot.kart.position.z) : null,
+      personalBestDistanceMeters: snapshot.ghost.personalBestPose ? Math.hypot(snapshot.ghost.personalBestPose.position.x - snapshot.kart.position.x, snapshot.ghost.personalBestPose.position.z - snapshot.kart.position.z) : null,
+      note: 'Pose availability means selected, not visibly drawn. Exact playback overlaps and suppresses Ghost geometry; the separate integration browser check records actual separated render load.',
+    },
     audio: { maximumRms: maximumAudioRms, finalState: audio.getState() }, longTasks: longTasks.filter((task) => task.startTime >= started!), errors, functionalChecks: checks,
   }, null, 2);
   output.textContent = result; download.disabled = false;

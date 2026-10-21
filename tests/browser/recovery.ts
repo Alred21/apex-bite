@@ -3,7 +3,8 @@ import { createHudView } from '../../src/ui/hud';
 import { bindDriverControls } from '../../src/ui/driver-controls';
 import { createCircuitRenderer } from '../../src/render/scene';
 import { analogReferenceCommand } from '../analog-driver';
-import type { CameraMode, CameraSettings, DrillTargetId, DriverInput } from '../../src/simulation/types';
+import { createKartAudio } from '../../src/audio/kart-audio';
+import type { CameraMode, CameraSettings, DrillTargetId, DriverInput, GhostMode } from '../../src/simulation/types';
 
 // Actual browser adapter, HUD and Kart presentation driven by normal Session inputs.
 const session = createSimulationSession({ referenceReplay: true });
@@ -24,7 +25,12 @@ const controls = bindDriverControls((shortcut) => {
   if (shortcut === 'ghost') session.cycleGhostMode();
   if (shortcut === 'mode') { controls.release(); session.setPracticeMode(session.getSnapshot().mode === 'Time Trial' ? 'Corner Drill' : 'Time Trial'); }
 }, () => { session.releaseDriverInputs(); });
+const audio = createKartAudio();
+window.addEventListener('pagehide', () => audio.dispose());
 const hud = createHudView(document.querySelector<HTMLElement>('#hud-root')!, {
+  getAudioState: () => audio.getState(),
+  onToggleAudio: () => { void audio.toggle(); },
+  onAudioVolume: (volume) => audio.setVolume(volume),
   onReset: reset,
   onToggleMode: () => { controls.release(); session.setPracticeMode(session.getSnapshot().mode === 'Time Trial' ? 'Corner Drill' : 'Time Trial'); },
   onSelectDrillTarget: (target) => { controls.release(); session.selectDrillTarget(target); },
@@ -42,6 +48,7 @@ const hud = createHudView(document.querySelector<HTMLElement>('#hud-root')!, {
 const renderer = createCircuitRenderer(document.querySelector<HTMLCanvasElement>('#viewport')!, session.getSnapshot());
 function render() {
   const snapshot = session.getSnapshot();
+  audio.update(snapshot, document.hasFocus() && !document.hidden && !document.querySelector('dialog[open]'));
   hud.update(snapshot); renderer.render(snapshot);
   return snapshot;
 }
@@ -53,6 +60,16 @@ const harness = {
     }
     const snapshot = render();
     return { kart: snapshot.kart, lap: snapshot.lap, ghost: snapshot.ghost, keys: controls.readKeys() };
+  },
+  diagnostics() { return { ...renderer.getDiagnostics(), audio: audio.getState() }; },
+  read() { return { snapshot: session.getSnapshot(), diagnostics: renderer.getDiagnostics(), audio: audio.getState() }; },
+  drive(ticks: number, speedScale = 0.9) {
+    for (let tick = 0; tick < ticks; tick++) session.step(1 / 120, analogReferenceCommand(session.getSnapshot(), speedScale));
+    return render();
+  },
+  ghost(mode: GhostMode) {
+    for (let index = 0; index < 4 && session.getSnapshot().ghost.mode !== mode; index++) session.cycleGhostMode();
+    return render();
   },
   reset() { reset(); return render(); },
   release() { controls.release(); },

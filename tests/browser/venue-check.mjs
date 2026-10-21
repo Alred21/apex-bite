@@ -40,7 +40,7 @@ try {
   console.log('Production ready', JSON.stringify(startup));
   await writeFile(join(evidence, 'cold-navigation.json'), JSON.stringify(startup, null, 2));
   await page.locator('#sample').click();
-  const deadline = performance.now() + 15 * 60 * 1000;
+  const deadline = performance.now() + 8 * 60 * 1000;
   let finalReport = null;
   while (performance.now() < deadline && !finalReport) {
     if (errors.length) throw new Error(errors.join('\n'));
@@ -58,7 +58,7 @@ try {
     console.log('Benchmark progress', JSON.stringify({ elapsedSeconds: Math.round((performance.now() - started) / 1000), lap: status.lap, camera: status.camera }));
     if (!finalReport) await new Promise(resolve => setTimeout(resolve, 30000));
   }
-  if (!finalReport) throw new Error('Timed out before genuine twelve-lap report.');
+  if (!finalReport) throw new Error('Timed out before genuine four-lap report.');
   await writeFile(join(evidence, 'iteration-3-performance.json'), JSON.stringify({ ...finalReport, browserVersion: startup.browser, startup: { ...finalReport.startup, navigation: startup }, launcherErrors: errors }, null, 2));
   await page.screenshot({ path: join(evidence, 'results-after-measurement.png') });
   console.log('Complete', JSON.stringify({ completedLaps: finalReport.results.completedLaps.length, wallSeconds: finalReport.wallSeconds, barrierContacts: finalReport.barrierContacts, timing: finalReport.allMeasuredAfterWarmup }));

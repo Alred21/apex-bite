@@ -1,0 +1,251 @@
+{
+  "capturedAt": "2026-10-21T13:31:07.024Z",
+  "browser": "155.0.8059.85",
+  "viewport": [
+    1920,
+    936
+  ],
+  "dpr": 2,
+  "scenario": "Production scene/HUD/audio; actual slower clean PB; ordinary public .9-speed driver; 4s warmup then 600 rAF frames per view. Mode call comparisons at identical snapshots establish actual separated Ghost draw load.",
+  "initial": {
+    "pb": 43.64166666666483,
+    "reference": 41.55833333333333,
+    "mode": "Both"
+  },
+  "separated": [
+    {
+      "camera": "Chase Cam",
+      "frames": 600,
+      "meanMs": 8.341166666686535,
+      "averageFps": 119.88730593213796,
+      "medianMs": 8.300000000000182,
+      "p95Ms": 9.800000000000182,
+      "p99Ms": 10.199999999999818,
+      "maxMs": 16.69999999999891,
+      "over25ms": 0,
+      "over50ms": 0,
+      "start": {
+        "calls": 77,
+        "triangles": 41674,
+        "geometries": 65,
+        "textures": 20,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320,
+        "audio": {
+          "status": "Running",
+          "volume": 0.35,
+          "outputLevel": 0.021435591016847395
+        }
+      },
+      "end": {
+        "calls": 77,
+        "triangles": 41674,
+        "geometries": 65,
+        "textures": 20,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320,
+        "audio": {
+          "status": "Running",
+          "volume": 0.35,
+          "outputLevel": 0.01580042809417597
+        }
+      },
+      "startPose": {
+        "mode": "Both",
+        "referenceDistanceMeters": 6.751084286596529,
+        "personalBestDistanceMeters": 3.6074114749946444,
+        "speedKph": 31.60288332133525,
+        "contacts": 0
+      },
+      "endPose": {
+        "mode": "Both",
+        "referenceDistanceMeters": 6.024881576628126,
+        "personalBestDistanceMeters": 3.0130366432197326,
+        "speedKph": 14.218684596342147,
+        "contacts": 0
+      },
+      "startCalls": {
+        "Off": 63,
+        "Reference Lap": 70,
+        "Personal Best": 70,
+        "Both": 77
+      },
+      "endCalls": {
+        "Off": 63,
+        "Reference Lap": 70,
+        "Personal Best": 70,
+        "Both": 77
+      },
+      "minimumCalls": 73,
+      "maximumCalls": 78,
+      "maxAudioRms": 0.04059550887642391
+    },
+    {
+      "camera": "Helmet Cam",
+      "frames": 600,
+      "meanMs": 8.36883333334327,
+      "averageFps": 119.49096847415761,
+      "medianMs": 8.299999999999272,
+      "p95Ms": 8.799999999999272,
+      "p99Ms": 9.299999999999272,
+      "maxMs": 16.700000000000728,
+      "over25ms": 0,
+      "over50ms": 0,
+      "start": {
+        "calls": 60,
+        "triangles": 36338,
+        "geometries": 65,
+        "textures": 21,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320,
+        "audio": {
+          "status": "Running",
+          "volume": 0.35,
+          "outputLevel": 0.013409630069541434
+        }
+      },
+      "end": {
+        "calls": 62,
+        "triangles": 36342,
+        "geometries": 65,
+        "textures": 21,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320,
+        "audio": {
+          "status": "Running",
+          "volume": 0.35,
+          "outputLevel": 0.026748674531113428
+        }
+      },
+      "startPose": {
+        "mode": "Both",
+        "referenceDistanceMeters": 10.91259970189013,
+        "personalBestDistanceMeters": 7.038411240511057,
+        "speedKph": 30.903003896442197,
+        "contacts": 0
+      },
+      "endPose": {
+        "mode": "Both",
+        "referenceDistanceMeters": 20.201155311367817,
+        "personalBestDistanceMeters": 11.617752011432092,
+        "speedKph": 31.93519255006041,
+        "contacts": 0
+      },
+      "startCalls": {
+        "Off": 46,
+        "Reference Lap": 53,
+        "Personal Best": 53,
+        "Both": 60
+      },
+      "endCalls": {
+        "Off": 48,
+        "Reference Lap": 55,
+        "Personal Best": 55,
+        "Both": 62
+      },
+      "minimumCalls": 59,
+      "maximumCalls": 63,
+      "maxAudioRms": 0.03445835784098829
+    }
+  ],
+  "reverse": {
+    "speedKph": 8,
+    "direction": "Reverse",
+    "delta": null
+  },
+  "cards": [
+    {
+      "targetId": "T3",
+      "targetLabel": "Turn 3 (Center Hairpin Left)",
+      "runNumber": 1,
+      "isClean": true,
+      "segmentTimeSeconds": 4.308333333333337,
+      "benchmarkTimeSeconds": 4.3083333333333345,
+      "deltaToBenchmarkSeconds": 2.6645352591003757e-15,
+      "personalBestSeconds": 4.308333333333337,
+      "deltaToPersonalBestSeconds": 0,
+      "entrySpeedKph": 27.013785032137775,
+      "minApexSpeedKph": 15.297499474212707,
+      "exitSpeedKph": 27.115732550916245,
+      "targetEntrySpeedKph": 27.013785032137775,
+      "targetMinApexSpeedKph": 15.297499474212707,
+      "targetExitSpeedKph": 27.115732550916245,
+      "apexProximityCm": 0,
+      "turnApexProximities": [
+        {
+          "turnNumber": 3,
+          "distanceCm": 0,
+          "referenceTarget": {
+            "x": 18.493021644615073,
+            "z": -0.04325107000065004
+          }
+        }
+      ],
+      "peakAxleScrub": 0.1845983662362128,
+      "referencePeakAxleScrub": 0.1845983662362128,
+      "excessScrubSeconds": 0,
+      "coachingCategory": "Matched Reference",
+      "coachingInsight": "Clean pass within 0.080s of the Reference Lap segment; all measured tire targets were within 50 cm."
+    },
+    {
+      "targetId": "T6-T7-T8",
+      "targetLabel": "Complex T6\u2013T7\u2013T8 (Esses into Far-Right Sweeper)",
+      "runNumber": 2,
+      "isClean": true,
+      "segmentTimeSeconds": 6.8416666666667965,
+      "benchmarkTimeSeconds": 6.841666666666669,
+      "deltaToBenchmarkSeconds": 1.2789769243681803e-13,
+      "personalBestSeconds": 6.8416666666667965,
+      "deltaToPersonalBestSeconds": 0,
+      "entrySpeedKph": 36.14115862273319,
+      "minApexSpeedKph": 22.547243313127865,
+      "exitSpeedKph": 27.789786413943315,
+      "targetEntrySpeedKph": 36.14115862273319,
+      "targetMinApexSpeedKph": 22.547243313127865,
+      "targetExitSpeedKph": 27.789786413943315,
+      "apexProximityCm": 0,
+      "turnApexProximities": [
+        {
+          "turnNumber": 6,
+          "distanceCm": 0,
+          "referenceTarget": {
+            "x": 22.87586474537133,
+            "z": -24.468286048418662
+          }
+        },
+        {
+          "turnNumber": 7,
+          "distanceCm": 0,
+          "referenceTarget": {
+            "x": 26.46882153435013,
+            "z": -18.112990208369677
+          }
+        },
+        {
+          "turnNumber": 8,
+          "distanceCm": 0,
+          "referenceTarget": {
+            "x": 46.38030489989112,
+            "z": -5.277156436978489
+          }
+        }
+      ],
+      "peakAxleScrub": 0.12582466921812172,
+      "referencePeakAxleScrub": 0.12582466921812172,
+      "excessScrubSeconds": 0,
+      "coachingCategory": "Matched Reference",
+      "coachingInsight": "Clean pass within 0.080s of the Reference Lap segment; all measured tire targets were within 50 cm."
+    }
+  ],
+  "dataImport": true,
+  "fovReviewed": [
+    50,
+    90,
+    64
+  ],
+  "errors": []
+}

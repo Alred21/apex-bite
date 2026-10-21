@@ -194,10 +194,10 @@ function buildRacingLineRibbon(initialSnapshot: SessionSnapshot): {
       const point = snapshot.racingLine.points[i % n], color = palette[point.liveCue];
       const alpha = point.displayed ? 1 : 0;
       const offset = i * 8;
-      for (const side of [0, 4]) {
-        array[offset + side] = color.r; array[offset + side + 1] = color.g;
-        array[offset + side + 2] = color.b; array[offset + side + 3] = alpha;
-      }
+      array[offset] = array[offset + 4] = color.r;
+      array[offset + 1] = array[offset + 5] = color.g;
+      array[offset + 2] = array[offset + 6] = color.b;
+      array[offset + 3] = array[offset + 7] = alpha;
     }
     colorAttribute.needsUpdate = true;
   }

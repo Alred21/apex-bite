@@ -1,5 +1,6 @@
 import { createSimulationSession, FIXED_TIMESTEP_SECONDS } from '../../src/simulation/session';
 import { createCircuitRenderer } from '../../src/render/scene';
+import { analogReferenceCommand } from '../analog-driver';
 import type { CameraMode, RacingLineDisplayMode } from '../../src/simulation/types';
 
 const session = createSimulationSession({ referenceReplay: true });
@@ -20,7 +21,10 @@ function scenario(name: string): void {
     }
   } else if (name === 'recover') {
     for (let tick = 0; tick < 120; tick++) session.step(FIXED_TIMESTEP_SECONDS, { brake: 0.5, steer: -0.7 });
-  } else if (name === 'reverse' || name === 'stopped') {
+  } else if (name === 'stopped') {
+    for (let tick = 0; tick < 300; tick++) session.step(FIXED_TIMESTEP_SECONDS, analogReferenceCommand(session.getSnapshot(), 0.2));
+    for (let tick = 0; tick < 300; tick++) session.step(FIXED_TIMESTEP_SECONDS, { ...analogReferenceCommand(session.getSnapshot(), 0), brake: 1, throttle: 0 });
+  } else if (name === 'reverse') {
     for (let tick = 0; tick < 360; tick++) session.step(FIXED_TIMESTEP_SECONDS, { brake: 1 });
     if (name === 'reverse') {
       session.step(FIXED_TIMESTEP_SECONDS, {});

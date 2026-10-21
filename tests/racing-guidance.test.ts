@@ -124,6 +124,7 @@ describe('Pose-aware Racing Line guidance through SimulationSession', () => {
 
   it('neutralizes forward acceleration colors and forward speed targets during deliberate reverse recovery', () => {
     const session = createSimulationSession();
+    const initialLine = session.getSnapshot().racingLine;
     for (let tick = 0; tick < 360; tick++) session.step(DT, { brake: 1 });
     session.step(DT, { brake: 0 });
     let snapshot = session.getSnapshot();
@@ -134,6 +135,9 @@ describe('Pose-aware Racing Line guidance through SimulationSession', () => {
     expect(snapshot.racingLine.guidance.targetSpeedKph).toBe(0);
     expect(snapshot.racingLine.points.every(point => point.liveCue !== 'Green')).toBe(true);
     expect(snapshot.racingLine.guidance.reason).toMatch(/reverse.*accelerat/i);
+    expect(snapshot.racingLine.points.map(({liveCue, ...point}) => point))
+      .toEqual(initialLine.points.map(({liveCue, ...point}) => point));
+    expect(snapshot.racingLine.benchmarkLapSeconds).toBe(initialLine.benchmarkLapSeconds);
   });
 
   it('cycles Full, Corners Only and Off without changing geometry, guidance or reference timing', () => {

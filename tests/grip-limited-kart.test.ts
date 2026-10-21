@@ -103,7 +103,9 @@ describe('Progressive grip-limited electric Kart', () => {
     for (let tick = 0; tick < 24; tick++) {
       const snapshot = session.step(1 / 120, { brake: 0.7, steer: 0.7 });
       if (!snapshot.kart.barrierContact) {
-        expect(Math.hypot(snapshot.kart.forwardAccelMps2, snapshot.kart.lateralAccelMps2)).toBeLessThanOrEqual(10.6);
+        // Reported deceleration also includes up to 0.22 m/s² rolling drag,
+        // outside the unchanged 10.5 m/s² tire ellipse (10.72 total bound).
+        expect(Math.hypot(snapshot.kart.forwardAccelMps2, snapshot.kart.lateralAccelMps2)).toBeLessThanOrEqual(10.72);
       }
     }
     const lower = createSimulationSession().step(1 / 120, { brake: 0.199, steer: 0.3 });

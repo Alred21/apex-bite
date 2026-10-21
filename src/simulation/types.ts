@@ -163,8 +163,11 @@ export interface ReferenceCandidateEvidence {
   complexes?: ReferenceComplexEvidence[];
   basisCandidate?: string;
   adjustment?: { complexId: string; offsetMeters: number; phaseMeters: number };
+  relaxation?: { passes: number; maxChangeMeters: number };
   turnPlacement?: {
     turnNumber: number; requestedApexDistanceMeters: number; widthUse: number;
+    entryWidthUse?: number; exitWidthUse?: number;
+    family?: 'circuit';
     achievedApexDistanceMeters?: number; insideTireClearanceMeters?: number;
   };
 }

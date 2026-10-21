@@ -30,7 +30,7 @@ The previous drill miss-driver intentionally displaced only the old fixed Apex s
 
 ## Reproduction and current checks
 
-Run `npm run evidence:hairpin` to independently reconstruct the old winner from its retained candidate lineage, execute the later alternative, repeat the selected tape through SimulationSession, and regenerate the SVG and machine-readable [comparison evidence](iteration-3-hairpin-evidence.json). All measurements above use the unchanged handling on the ticket-27 branch.
+This artifact records the ticket-27 branch at commit `284ace5`, before the full-Circuit extension and physical arc-distance correction. Its [comparison evidence](iteration-3-hairpin-evidence.json) remains a historical snapshot. `npm run evidence:hairpin` now aliases the current full-Circuit evidence workflow, independently re-executing the preserved baseline and reporting the latest selected path; see [iteration-3-reference-line.md](iteration-3-reference-line.md). Do not compare this historical table directly with later traversal-protocol measurements.
 
 After merging integration commit `b84a2c5`, **all 70 tests pass**, and the production build (including type checking) succeeds. The focused hairpin tests, all sixteen reference-backed drill replays, line/Ghost/timing checks, reverse regressions, and twelve-lap repetition are green. The regenerated public-session evidence records **twelve completed clean laps**, `Finished`, and zero Barrier contacts, without state resets. The new tape exposed an exact floating-point lap-boundary comparison; ticket #24's shared Session timing guard now uses a 1e-6 m numerical tolerance. No contact checks were relaxed.
 

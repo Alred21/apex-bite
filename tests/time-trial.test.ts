@@ -13,13 +13,15 @@ function driveAlongRacingLine(
 }
 
 describe('Ticket #6: Time Trial Mode — Flying Start, Sector Splits, Time-Delta Bar, Ghost Kart & Persistence', () => {
-  it('spawns in a rolling Flying Start exiting Turn 11 (~36 km/h) and begins timed Lap 1 across the Start/Finish line', () => {
+  it('spawns in a rolling Flying Start exiting Turn 11 at the achieved Reference Lap speed and begins timed Lap 1 across the Start/Finish line', () => {
     const session = createSimulationSession();
     const initial = session.getSnapshot();
 
     expect(initial.mode).toBe('Time Trial');
     expect(initial.kart.speedKph).toBeGreaterThanOrEqual(34.0);
-    expect(initial.kart.speedKph).toBeLessThanOrEqual(38.0);
+    expect(initial.kart.speedKph).toBeLessThanOrEqual(40.0);
+    const replay = session.getReferenceReplay();
+    expect(replay.frames.some((frame) => frame.kart.speedKph === initial.kart.speedKph && frame.kart.position.x === initial.kart.position.x && frame.kart.position.z === initial.kart.position.z)).toBe(true);
     expect(initial.kart.lapDistanceMeters).toBeGreaterThan(initial.circuit.totalLengthMeters - 18);
     expect(initial.kart.lapDistanceMeters).toBeLessThan(initial.circuit.totalLengthMeters - 8);
 
@@ -103,39 +105,33 @@ describe('Ticket #6: Time Trial Mode — Flying Start, Sector Splits, Time-Delta
 });
 
 describe('Time Trial session lifecycle', () => {
-  it('keeps timing the same lap through local Start/Finish loops until a complete Circuit traversal', () => {
-    const session = createSimulationSession();
+  it('keeps timing the same lap through repeated local Start/Finish recrossings until a complete Circuit traversal', () => {
+    const session = createSimulationSession({ referenceReplay: true });
     session.setTimeTrialLapLimit(1);
     let snap = session.getSnapshot();
-    const center = snap.circuit.samples[0].center;
-    for (let i = 0; i < 600 && snap.kart.speedMps > 0.1; i++) {
-      snap = session.step(1 / 120, { brake: 1, steer: 0 });
-    }
-    let forwardCrossings = 0;
-    let previousTimedSeconds = 0;
-    for (let i = 0; i < 3600; i++) {
+    const line = snap.kart.unwrappedDistanceMeters - snap.kart.lapDistanceMeters;
+    let forwardCrossings = 0, previousTimedSeconds = 0;
+    const advance = (input: Parameters<SimulationSession['step']>[1]) => {
       const previous = snap;
-      const kart = snap.kart;
-      const angle = Math.atan2(kart.position.z - center.z, kart.position.x - center.x) + 0.5;
-      const dx = center.x + 2.15 * Math.cos(angle) - kart.position.x;
-      const dz = center.z + 2.15 * Math.sin(angle) - kart.position.z;
-      const alpha = Math.atan2(Math.sin(Math.atan2(dz, dx) - kart.headingRad), Math.cos(Math.atan2(dz, dx) - kart.headingRad));
-      const error = 1.5 - kart.speedMps;
-      snap = session.step(1 / 120, {
-        steer: Math.max(-1, Math.min(1, Math.atan2(2 * 1.06 * Math.sin(alpha), Math.hypot(dx, dz)) / 0.46)),
-        throttle: error > 0 ? Math.min(1, 0.34 + error) : 0,
-        brake: error < -0.05 ? Math.min(1, -error) : 0,
-      });
+      snap = session.step(1 / 120, input);
       if (previous.kart.lapProgress > 0.8 && snap.kart.lapProgress < 0.2) forwardCrossings++;
       expect(snap.lap.currentLapSeconds).toBeGreaterThanOrEqual(previousTimedSeconds);
       previousTimedSeconds = snap.lap.currentLapSeconds;
+    };
+    for (let pass = 0; pass < 2; pass++) {
+      for (let tick = 0; tick < 900 && snap.kart.speedMps > 0; tick++) advance({ brake: 1 });
+      advance({});
+      for (let tick = 0; tick < 1200 && snap.kart.unwrappedDistanceMeters >= line - 0.5; tick++) advance({ brake: 1 });
+      expect(snap.kart.unwrappedDistanceMeters).toBeLessThan(line - 0.5);
+      for (let tick = 0; tick < 1200 && snap.kart.unwrappedDistanceMeters <= line + 0.5; tick++) advance({ throttle: 0.4 });
+      expect(snap.kart.unwrappedDistanceMeters).toBeGreaterThan(line + 0.5);
     }
     expect(forwardCrossings).toBeGreaterThanOrEqual(2);
     expect(snap.lap.lapNumber).toBe(1);
     expect(snap.timeTrial.completedLaps).toEqual([]);
     expect(snap.lap.currentSectorSplits).toEqual([null, null, null]);
     expect(snap.timeTrial.status).toBe('Driving');
-    expect(snap.lap.currentLapSeconds).toBeGreaterThan(20);
+    expect(snap.lap.currentLapSeconds).toBeGreaterThan(10);
   });
 
   it('excludes the Flying Start and finishes exactly once after twelve timed laps with complete results', () => {

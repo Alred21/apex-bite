@@ -163,6 +163,7 @@ export function createKartAudio(): KartAudio {
   function update(snapshot: SessionSnapshot, isActive: boolean): void {
     setActive(isActive && !(snapshot.mode === 'Time Trial' && snapshot.timeTrial.status === 'Finished'));
     const kart = snapshot.kart;
+    const speedMps = Math.abs(kart.speedMps);
     const freshTick = lastTick !== null && snapshot.tick > lastTick;
     const teleported = previousPosition !== null &&
       Math.hypot(kart.position.x - previousPosition.x, kart.position.z - previousPosition.z) > 3;
@@ -170,14 +171,14 @@ export function createKartAudio(): KartAudio {
       (lastTick !== null && snapshot.tick < lastTick);
     const newImpact = lastContactCount !== null && kart.barrierContactCount > lastContactCount;
     if (context && graph && !disposed && active && !muted && volume > 0 && context.state === 'running') {
-      const speed = Math.min(1, Math.max(0, kart.speedMps / 12.5));
-      const load = Math.max(0, Math.min(1, kart.throttleInput));
+      const speed = Math.min(1, Math.max(0, speedMps / 12.5));
+      const load = Math.max(0, Math.min(1, kart.driveDirection === 'Reverse' ? kart.brakeInput : kart.throttleInput));
       const rolling = speed > 0.015 ? Math.sqrt(speed) : 0;
-      fade(graph.motor.oscillator.frequency, 85 + kart.speedMps * 31);
+      fade(graph.motor.oscillator.frequency, 85 + speedMps * 31);
       fade(graph.motor.gain.gain, rolling * (0.035 + load * 0.085));
-      fade(graph.motorHarmonic.oscillator.frequency, 230 + kart.speedMps * 84);
+      fade(graph.motorHarmonic.oscillator.frequency, 230 + speedMps * 84);
       fade(graph.motorHarmonic.gain.gain, rolling * (0.009 + load * 0.019));
-      fade(graph.motorWhine.oscillator.frequency, 620 + kart.speedMps * 135);
+      fade(graph.motorWhine.oscillator.frequency, 620 + speedMps * 135);
       fade(graph.motorWhine.gain.gain, rolling * (0.004 + load * 0.008));
       const gripUse = Math.max(0, Math.min(1, Math.max(kart.slipRatio, kart.axleScrub)));
       const scrub = Math.max(0, Math.min(1, kart.axleScrub));
@@ -190,7 +191,7 @@ export function createKartAudio(): KartAudio {
         graph.impact.gain.gain.setValueAtTime(0, context.currentTime);
       } else if (newImpact && freshTick && active && !muted && volume > 0) {
         const intensity = Math.max(0.12, Math.min(1,
-          (lastSpeed - kart.speedMps) / 5 + Math.max(0, -kart.forwardAccelMps2) / 55));
+          (lastSpeed - speedMps) / 5 + Math.max(0, -kart.forwardAccelMps2) / 55));
         const now = context.currentTime;
         graph.impact.gain.gain.cancelScheduledValues(now);
         graph.impact.gain.gain.setValueAtTime(0, now);
@@ -201,7 +202,7 @@ export function createKartAudio(): KartAudio {
     }
     // Observe even while silent, so activation/focus/reset cannot replay an old impact.
     lastTick = snapshot.tick; lastContactCount = kart.barrierContactCount;
-    lastSpeed = kart.speedMps; previousPosition = { ...kart.position }; previousMode = snapshot.mode;
+    lastSpeed = speedMps; previousPosition = { ...kart.position }; previousMode = snapshot.mode;
   }
 
   function getState(): KartAudioState {

@@ -1,13 +1,13 @@
 import { createKeyboardAssistance } from './keyboard-assistance';
 import { buildReferenceLap, cloneKartState, referenceStateAtDistance, referenceApexTarget, referenceTimeAtDistance, referencePoseAtTime, type ReferenceReplay } from './reference-lap';
 import { insideFrontTirePosition } from './kart-geometry';
-import { buildReferenceDrills, evaluateDrillCoaching } from './corner-drill';
+import { buildReferenceDrills, drillReferenceRevision, evaluateDrillCoaching } from './corner-drill';
 import { createCameraPresentation } from './camera';
 import {
   CURRENT_TRAINING_REVISION,
   parseTrainingData,
   sameRevision,
-  summarizeTrainingRecords,
+  summarizeTrainingRecords, alignDrillReference, type LegacyDrillPersonalBests,
   TrainingRecords,
   TrainingRevision,
   PersistedTrainingData,
@@ -135,6 +135,9 @@ function samplePersonalBestSecondsAtDistance(
   distanceMeters: number,
 ): number | null {
   if (frames.length < 2) return null;
+  // Time playback remains valid after recovery; distance lookup is ambiguous when
+  // the tape visits a Circuit station more than once. Do not invent a delta.
+  if (frames.some((frame, index) => index > 0 && frame.distanceMeters <= frames[index - 1].distanceMeters)) return null;
   let idx = 0;
   while (idx < frames.length - 2 && frames[idx + 1].distanceMeters <= distanceMeters) {
     idx++;
@@ -155,6 +158,7 @@ export function createSimulationSession(
   const flyingStartState = referenceStateAtDistance(reference, circuit.totalLengthMeters - FLYING_START_APPROACH_METERS);
   const referenceDrills = buildReferenceDrills(circuit, reference);
   const drillCatalog = referenceDrills.map((drill) => drill.target);
+  const drillReference = drillReferenceRevision(referenceDrills);
 
   const storage: StorageLike | undefined = options.storage;
   const trainingRevision = { ...(options.trainingRevision ?? CURRENT_TRAINING_REVISION) };
@@ -184,6 +188,7 @@ export function createSimulationSession(
   let drillCurrentSegmentSeconds = 0;
   let drillIsClean = true;
   let drillPersonalBests: Partial<Record<DrillTargetId, number>> = {};
+  let legacyDrillPersonalBests: LegacyDrillPersonalBests[] = [];
   let lastExecutionCard: CornerExecutionCard | null = null;
 
   // Per-pass telemetry accumulators for Corner Drill
@@ -215,6 +220,7 @@ export function createSimulationSession(
 
   let kart = cloneKartState(options.referenceReplay ? reference.initialState : flyingStartState);
   let lapStartProgressMeters = kart.unwrappedDistanceMeters - kart.lapDistanceMeters;
+  let furthestProgressMeters = kart.unwrappedDistanceMeters;
   if (options.referenceReplay) {
     lap.lapNumber = 1;
     timeTrial.status = 'Driving';
@@ -235,6 +241,7 @@ export function createSimulationSession(
     kart = cloneKartState(options.referenceReplay ? reference.initialState : flyingStartState);
     if (options.referenceReplay) { lap.lapNumber = 1; timeTrial.status = 'Driving'; }
     lapStartProgressMeters = kart.unwrappedDistanceMeters - kart.lapDistanceMeters;
+    furthestProgressMeters = kart.unwrappedDistanceMeters;
     cameraPresentation.reset(kart);
   }
 
@@ -252,6 +259,7 @@ export function createSimulationSession(
     }
 
     kart = cloneKartState(referenceDrills.find((drill) => drill.target.id === activeDrillTarget.id)!.initialState);
+    furthestProgressMeters = kart.unwrappedDistanceMeters;
     cameraPresentation.reset(kart);
   }
 
@@ -375,6 +383,7 @@ export function createSimulationSession(
     const previousProgress = kart.unwrappedDistanceMeters;
     const previousDistance = kart.lapDistanceMeters;
     kart = stepKartOnCircuit(circuit, kart, command, dtSeconds);
+    furthestProgressMeters = Math.max(furthestProgressMeters, kart.unwrappedDistanceMeters);
     const nextPosition = kart.position;
     const nextHeading = kart.headingRad;
     const nextSpeedKph = kart.speedKph;
@@ -436,10 +445,10 @@ export function createSimulationSession(
     if (lap.lapNumber >= 1) lap.currentLapSeconds += dtSeconds;
 
     // Record Ghost sample every 3 ticks (~40 Hz) during timed laps
-    if (lap.lapNumber >= 1 && tick % 3 === 0) {
+    if (lap.lapNumber >= 1 && tick % 3 === 0 && kart.unwrappedDistanceMeters < lapStartProgressMeters + circuit.totalLengthMeters) {
       activeLapGhostFrames.push({
         lapSeconds: lap.currentLapSeconds,
-        distanceMeters: nearest.distanceMeters,
+        distanceMeters: Math.max(0, kart.unwrappedDistanceMeters - lapStartProgressMeters),
         position: { ...nextPosition },
         headingRad: nextHeading,
         speedKph: nextSpeedKph,
@@ -477,7 +486,7 @@ export function createSimulationSession(
     // Only a complete traversal may end a timed lap. Incomplete crossings keep its timer running.
     if (previousDistance > circuit.totalLengthMeters * 0.8 && nearest.distanceMeters < circuit.totalLengthMeters * 0.2) {
       if (lap.lapNumber >= 1 && (
-        kart.unwrappedDistanceMeters < lapStartProgressMeters + circuit.totalLengthMeters ||
+        kart.unwrappedDistanceMeters < lapStartProgressMeters + circuit.totalLengthMeters - 1e-6 ||
         lap.currentSectorSplits[0] === null || lap.currentSectorSplits[1] === null
       )) return;
       if (lap.lapNumber >= 1) {
@@ -636,7 +645,8 @@ export function createSimulationSession(
       personalBestSeconds: lap.personalBestSeconds,
       bestSectorSplits: [...lap.bestSectorSplits] as SectorSplitsTuple,
       personalBestGhostFrames,
-      drillPersonalBests: { ...drillPersonalBests },
+      drillPersonalBests: { ...drillPersonalBests }, drillReference,
+      legacyDrillPersonalBests: structuredClone(legacyDrillPersonalBests),
     };
   }
 
@@ -653,7 +663,7 @@ export function createSimulationSession(
     return [
       ...incoming,
       ...existing.filter((record) => !incoming.some((item) => sameRevision(item.revision, record.revision))),
-    ];
+    ].map((record) => sameRevision(record.revision, trainingRevision) ? alignDrillReference(record, drillReference) : record);
   }
 
   function applyTrainingRecords(records: TrainingRecords[]): void {
@@ -664,6 +674,7 @@ export function createSimulationSession(
       lap.bestSectorSplits = current.bestSectorSplits;
       personalBestGhostFrames = current.personalBestGhostFrames;
       drillPersonalBests = current.drillPersonalBests;
+      legacyDrillPersonalBests = structuredClone(current.legacyDrillPersonalBests ?? []);
     }
   }
 
@@ -705,7 +716,9 @@ export function createSimulationSession(
         : null;
     const refBenchmarkSeconds =
       pbAtDist ?? referenceTimeAtDistance(reference, kart.lapDistanceMeters);
-    const liveDelta =
+    const ambiguousComparison = kart.speedMps < -0.001 || kart.unwrappedDistanceMeters < furthestProgressMeters - 0.02 ||
+      (ghostMode === 'Personal Best' && personalBestGhostFrames.length >= 2 && pbAtDist === null);
+    const liveDelta = ambiguousComparison ? null :
       lap.lapNumber >= 1 ? lap.currentLapSeconds - refBenchmarkSeconds : 0;
     lap.timeDeltaSeconds = liveDelta;
 
@@ -716,6 +729,11 @@ export function createSimulationSession(
 
     // Lap replays have no approach tape: reveal them only when the lap clock starts.
     const ghostClockStarted = mode === 'Corner Drill' || lap.lapNumber >= 1;
+    // A recovery tape can revisit a station: keep valid full-lap time playback,
+    // but suppress a drill Ghost when its Flying Entry cannot be aligned.
+    const personalBestDrillStartSeconds = mode === 'Corner Drill'
+      ? samplePersonalBestSecondsAtDistance(personalBestGhostFrames, activeDrillTarget.flyingEntryDistanceMeters)
+      : 0;
     const ghost: GhostState = {
       mode: ghostMode,
       trackRecordPose: showTrackRecord && ghostClockStarted
@@ -726,11 +744,11 @@ export function createSimulationSession(
               : lap.currentLapSeconds,
           )
         : null,
-      personalBestPose: showPersonalBest && ghostClockStarted
+      personalBestPose: showPersonalBest && ghostClockStarted && personalBestDrillStartSeconds !== null
         ? samplePersonalBestGhostPose(
             personalBestGhostFrames,
             mode === 'Corner Drill'
-              ? (samplePersonalBestSecondsAtDistance(personalBestGhostFrames, activeDrillTarget.flyingEntryDistanceMeters) ?? 0) + drillCurrentSegmentSeconds
+              ? personalBestDrillStartSeconds + drillCurrentSegmentSeconds
               : lap.currentLapSeconds,
           )
         : null,

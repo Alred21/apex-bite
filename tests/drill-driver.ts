@@ -8,7 +8,9 @@ export function driveDrillVariant(session: SimulationSession, speedScale: number
   const runNumber = snapshot.drill.runNumber;
   for (let tick = 0; tick < 8000; tick++) {
     const distanceToTurn2 = snapshot.kart.lapDistanceMeters - snapshot.circuit.turns[1].apexDistanceMeters;
-    const offset = turn2Offset * Math.exp(-((distanceToTurn2 / 6) ** 2));
+    // Miss the whole Turn window so this variation remains meaningful when
+    // the selected traversal moves its Apex away from the diagram anchor.
+    const offset = turn2Offset * Math.exp(-((Math.max(0, Math.abs(distanceToTurn2) - 7.5) / 5) ** 2));
     snapshot = session.step(FIXED_TIMESTEP_SECONDS, analogReferenceCommand(snapshot, speedScale, {
       lateralOffsetMeters: offset,
       steeringAdjustment: steeringOscillation * Math.sin(tick * Math.PI / 12),

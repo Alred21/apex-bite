@@ -40,6 +40,24 @@ export function buildReferenceDrills(circuit: CircuitData, reference: ReferenceR
   });
 }
 
+/** Drill PBs depend on their actual Flying Entry and exit gates, unlike full
+ * lap PBs which remain comparable when only the reference technique changes. */
+export function drillReferenceRevision(drills: ReferenceDrill[]): string {
+  // Quantize pose/gates to 0.1mm, velocity to 0.1mm/s and angles to
+  // 0.0001rad. Ignore labels and benchmark speed/time: they do not change
+  // a driver's physical start or finish and must not invalidate a PB.
+  const input = JSON.stringify(drills.map((drill) => ({
+    id: drill.target.id, entry: drill.target.flyingEntryDistanceMeters,
+    exit: drill.target.exitDistanceMeters, initial: {
+    position: drill.initialState.position, heading: drill.initialState.headingRad,
+    velocity: drill.initialState.velocity, yaw: drill.initialState.yawRateRadPerSecond,
+    steering: drill.initialState.steerAngleRad, speed: drill.initialState.speedMps,
+  } })), (_key, value) => typeof value === 'number' ? Math.round(value * 10000) / 10000 : value);
+  let hash = 2166136261;
+  for (let index = 0; index < input.length; index++) hash = Math.imul(hash ^ input.charCodeAt(index), 16777619);
+  return `drills-${(hash >>> 0).toString(16)}`;
+}
+
 
 export function evaluateDrillCoaching(evidence: {
   target: DrillTargetDefinition;

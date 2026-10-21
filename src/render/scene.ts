@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CircuitData, SessionSnapshot } from '../simulation/types';
+import { CircuitData, SessionSnapshot, type GhostPose, type Vector2D } from '../simulation/types';
 import { createIndoorVenue, buildVenueBarriers } from './venue';
 import { applyGraphicsQuality, GraphicsQuality, loadGraphicsQuality } from './graphics';
 import { createKartRig } from './kart';
@@ -148,87 +148,63 @@ function buildRacingLineRibbon(initialSnapshot: SessionSnapshot): {
 } {
   const points = initialSnapshot.racingLine.points;
   const n = points.length;
-  const halfWidth = 0.19;
-  const positions: number[] = [];
-  const colors: number[] = [];
-  const indices: number[] = [];
-
+  const positions: number[] = [], colors: number[] = [], uvs: number[] = [], indices: number[] = [];
+  let distanceMeters = 0;
   for (let i = 0; i <= n; i++) {
-    const pt = points[i % n];
-    const nx = -Math.sin(pt.headingRad);
-    const nz = Math.cos(pt.headingRad);
-    positions.push(
-      pt.position.x - nx * halfWidth,
-      0.025,
-      pt.position.z - nz * halfWidth,
-      pt.position.x + nx * halfWidth,
-      0.025,
-      pt.position.z + nz * halfWidth,
-    );
-    colors.push(0.13, 0.77, 0.37, 1, 0.13, 0.77, 0.37, 1);
-
-    if (i < n) {
-      const base = i * 2;
-      indices.push(base, base + 1, base + 2);
-      indices.push(base + 1, base + 3, base + 2);
-    }
+    const point = points[i % n];
+    if (i) distanceMeters += Math.hypot(point.position.x - points[(i - 1) % n].position.x, point.position.z - points[(i - 1) % n].position.z);
+    const nx = -Math.sin(point.headingRad), nz = Math.cos(point.headingRad);
+    positions.push(point.position.x - nx * 0.17, 0.025, point.position.z - nz * 0.17,
+      point.position.x + nx * 0.17, 0.025, point.position.z + nz * 0.17);
+    colors.push(0, 1, 0, 1, 0, 1, 0, 1);
+    uvs.push(0, distanceMeters / 1.6, 1, distanceMeters / 1.6);
+    if (i < n) { const base = i * 2; indices.push(base, base + 1, base + 2, base + 1, base + 3, base + 2); }
   }
-
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  const colorAttr = new THREE.Float32BufferAttribute(colors, 4);
-  geo.setAttribute('color', colorAttr);
-  geo.setIndex(indices);
-
-  const mat = new THREE.MeshBasicMaterial({
-    vertexColors: true,
-    transparent: true,
-    opacity: 0.88,
-    depthWrite: false,
-    alphaTest: 0.02,
-    side: THREE.DoubleSide,
-  });
-
-  const mesh = new THREE.Mesh(geo, mat);
-
+  // One small, repeatable mask: chevrons point forward along actual path length.
+  // Alpha gaps expose pavement; speed changes affect vertex colors only.
+  const width = 64, height = 128, pixels = new Uint8Array(width * height * 4);
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    const across = Math.abs((x + 0.5) / width * 2 - 1);
+    const centre = 0.28 + 0.35 * (1 - across);
+    const edge = Math.abs((y + 0.5) / height - centre);
+    const alpha = Math.max(0, Math.min(1, (0.10 - edge) / 0.018)) * Math.min(1, (1 - across) / 0.08);
+    const offset = (y * width + x) * 4;
+    pixels[offset] = pixels[offset + 1] = pixels[offset + 2] = 255;
+    pixels[offset + 3] = Math.round(alpha * 255);
+  }
+  const mask = new THREE.DataTexture(pixels, width, height);
+  mask.wrapT = THREE.RepeatWrapping;
+  mask.magFilter = mask.minFilter = THREE.LinearFilter;
+  mask.needsUpdate = true;
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  const colorAttribute = new THREE.Float32BufferAttribute(colors, 4);
+  geometry.setAttribute('color', colorAttribute);
+  geometry.setIndex(indices);
+  const material = new THREE.MeshBasicMaterial({ map: mask, vertexColors: true, transparent: true,
+    opacity: 0.55, depthWrite: false, alphaTest: 0.02, side: THREE.DoubleSide, toneMapped: false });
+  const mesh = new THREE.Mesh(geometry, material);
+  const palette = { Green: new THREE.Color(0x2fdf77), Yellow: new THREE.Color(0xf3bf3f), Red: new THREE.Color(0xf04c46) };
   function updateColors(snapshot: SessionSnapshot): void {
     mesh.visible = snapshot.racingLine.visible;
-    if (!snapshot.racingLine.visible) return;
-
-    const pts = snapshot.racingLine.points;
-    const arr = colorAttr.array as Float32Array;
+    if (!mesh.visible) return;
+    const array = colorAttribute.array as Float32Array;
     for (let i = 0; i <= n; i++) {
-      const cue = pts[i % n].liveCue;
-      let r = 0.133;
-      let g = 0.773;
-      let b = 0.369;
-      if (cue === 'Red') {
-        r = 0.937;
-        g = 0.267;
-        b = 0.267;
-      } else if (cue === 'Yellow') {
-        r = 0.918;
-        g = 0.702;
-        b = 0.031;
-      }
-      const alpha = pts[i % n].displayed ? 1 : 0;
+      const point = snapshot.racingLine.points[i % n], color = palette[point.liveCue];
+      const alpha = point.displayed ? 1 : 0;
       const offset = i * 8;
-      arr[offset] = r;
-      arr[offset + 1] = g;
-      arr[offset + 2] = b;
-      arr[offset + 3] = alpha;
-      arr[offset + 4] = r;
-      arr[offset + 5] = g;
-      arr[offset + 6] = b;
-      arr[offset + 7] = alpha;
+      array[offset] = array[offset + 4] = color.r;
+      array[offset + 1] = array[offset + 5] = color.g;
+      array[offset + 2] = array[offset + 6] = color.b;
+      array[offset + 3] = array[offset + 7] = alpha;
     }
-    colorAttr.needsUpdate = true;
+    colorAttribute.needsUpdate = true;
   }
-
   return { mesh, updateColors };
 }
 
-function buildGhostKartMesh(tintColor: number): THREE.Group {
+function buildGhostKartMesh(tintColor: number): { root: THREE.Group; material: THREE.MeshStandardMaterial } {
   const ghostRoot = new THREE.Group();
   const mat = new THREE.MeshStandardMaterial({
     color: tintColor,
@@ -260,7 +236,7 @@ function buildGhostKartMesh(tintColor: number): THREE.Group {
 
   ghostRoot.add(body, nose, seat);
   ghostRoot.visible = false;
-  return ghostRoot;
+  return { root: ghostRoot, material: mat };
 }
 
 export interface CircuitRenderer {
@@ -316,9 +292,9 @@ export function createCircuitRenderer(
   });
   scene.add(kartRig.root);
 
-  const trackRecordGhostMesh = buildGhostKartMesh(0xfacc15); // Gold executable Reference Lap Ghost
-  const personalBestGhostMesh = buildGhostKartMesh(0x22c55e); // Emerald Personal Best Ghost
-  scene.add(trackRecordGhostMesh, personalBestGhostMesh);
+  const trackRecordGhost = buildGhostKartMesh(0xfacc15); // Gold executable Reference Lap Ghost
+  const personalBestGhost = buildGhostKartMesh(0x22c55e); // Emerald Personal Best Ghost
+  scene.add(trackRecordGhost.root, personalBestGhost.root);
 
   // Dynamic rear-tire scrub / skid marks pool on the indoor floor
   const maxSkidMarks = 320;
@@ -341,6 +317,19 @@ export function createCircuitRenderer(
     applyGraphicsQuality(renderer, venue.keyLight, graphicsQuality);
   });
 
+  function updateGhost(rig: ReturnType<typeof buildGhostKartMesh>, pose: GhostPose | null, player: Vector2D): void {
+    if (!pose) { rig.root.visible = false; return; }
+    rig.root.position.set(pose.position.x, 0, pose.position.z);
+    rig.root.rotation.y = -pose.headingRad;
+    // The combined Kart/Ghost footprint fits inside 2.2 m at any heading.
+    // Keep intersecting geometry invisible, then restore it over 1.3 m of clearance.
+    // Smoothstep has flat endpoints; tiny boundary motion cannot produce a pop.
+    const distance = Math.hypot(pose.position.x - player.x, pose.position.z - player.z);
+    const separation = THREE.MathUtils.clamp((distance - 2.2) / 1.3, 0, 1);
+    rig.material.opacity = 0.42 * separation * separation * (3 - 2 * separation);
+    rig.root.visible = separation > 0;
+  }
+
   function render(snapshot: SessionSnapshot): void {
     const { kart, camera: camState, ghost } = snapshot;
     venue.keyLight.position.set(kart.position.x + 4, 14, kart.position.z + 7);
@@ -349,29 +338,8 @@ export function createCircuitRenderer(
 
     kartRig.update(snapshot);
 
-    if (ghost.trackRecordPose) {
-      trackRecordGhostMesh.visible = true;
-      trackRecordGhostMesh.position.set(
-        ghost.trackRecordPose.position.x,
-        0,
-        ghost.trackRecordPose.position.z,
-      );
-      trackRecordGhostMesh.rotation.y = -ghost.trackRecordPose.headingRad;
-    } else {
-      trackRecordGhostMesh.visible = false;
-    }
-
-    if (ghost.personalBestPose) {
-      personalBestGhostMesh.visible = true;
-      personalBestGhostMesh.position.set(
-        ghost.personalBestPose.position.x,
-        0,
-        ghost.personalBestPose.position.z,
-      );
-      personalBestGhostMesh.rotation.y = -ghost.personalBestPose.headingRad;
-    } else {
-      personalBestGhostMesh.visible = false;
-    }
+    updateGhost(trackRecordGhost, ghost.trackRecordPose, kart.position);
+    updateGhost(personalBestGhost, ghost.personalBestPose, kart.position);
 
     // Emit rear-tire scrub/skid marks when sliding or experiencing heavy Axle Scrub
     if (

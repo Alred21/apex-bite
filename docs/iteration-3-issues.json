@@ -1,0 +1,86 @@
+{
+  "repository": "Alred21/apex-bite",
+  "spec": {
+    "number": 23,
+    "url": "https://github.com/Alred21/apex-bite/issues/23"
+  },
+  "tickets": [
+    {
+      "number": 24,
+      "url": "https://github.com/Alred21/apex-bite/issues/24",
+      "ordinal": 1,
+      "title": "Recover from mistakes with progressive Brake/Reverse",
+      "local_file": "docs/iteration-3-tickets/01-brake-reverse.md",
+      "blocked_by": []
+    },
+    {
+      "number": 25,
+      "url": "https://github.com/Alred21/apex-bite/issues/25",
+      "ordinal": 2,
+      "title": "Choose comfortable keyboard driving bindings",
+      "local_file": "docs/iteration-3-tickets/02-control-remapping.md",
+      "blocked_by": [
+        24
+      ]
+    },
+    {
+      "number": 26,
+      "url": "https://github.com/Alred21/apex-bite/issues/26",
+      "ordinal": 3,
+      "title": "Drive with a correctly seated driver in both camera views",
+      "local_file": "docs/iteration-3-tickets/03-driver-and-cameras.md",
+      "blocked_by": []
+    },
+    {
+      "number": 27,
+      "url": "https://github.com/Alred21/apex-bite/issues/27",
+      "ordinal": 4,
+      "title": "Practice a hairpin against an executable movable Apex",
+      "local_file": "docs/iteration-3-tickets/04-movable-hairpin-apex.md",
+      "blocked_by": []
+    },
+    {
+      "number": 28,
+      "url": "https://github.com/Alred21/apex-bite/issues/28",
+      "ordinal": 5,
+      "title": "Follow a faster Racing Line across the complete Circuit",
+      "local_file": "docs/iteration-3-tickets/05-connected-turn-racing-line.md",
+      "blocked_by": [
+        27
+      ]
+    },
+    {
+      "number": 29,
+      "url": "https://github.com/Alred21/apex-bite/issues/29",
+      "ordinal": 6,
+      "title": "Read translucent Racing Line cues driven by live speed",
+      "local_file": "docs/iteration-3-tickets/06-line-speed-colors.md",
+      "blocked_by": [
+        24,
+        28
+      ]
+    },
+    {
+      "number": 30,
+      "url": "https://github.com/Alred21/apex-bite/issues/30",
+      "ordinal": 7,
+      "title": "Verify the complete iteration-3 training experience",
+      "local_file": "docs/iteration-3-tickets/07-integrated-verification.md",
+      "blocked_by": [
+        25,
+        26,
+        28,
+        29,
+        32
+      ]
+    },
+    {
+      "number": 32,
+      "url": "https://github.com/Alred21/apex-bite/issues/32",
+      "ordinal": 8,
+      "title": "Keep the player Kart readable when Ghost Karts overlap",
+      "local_file": "docs/iteration-3-tickets/08-ghost-overlap.md",
+      "blocked_by": []
+    }
+  ]
+}

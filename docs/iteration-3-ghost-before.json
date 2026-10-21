@@ -1,0 +1,21 @@
+{
+  "browser": "155.0.8059.85",
+  "stage": "before",
+  "errors": [],
+  "results": [
+    {
+      "camera": "Chase Cam",
+      "changedPixels": 24881,
+      "maxDifference": 184,
+      "snapshotUnchanged": true,
+      "ghostDistanceMeters": 4.608268174547749e-14
+    },
+    {
+      "camera": "Helmet Cam",
+      "changedPixels": 146563,
+      "maxDifference": 154,
+      "snapshotUnchanged": true,
+      "ghostDistanceMeters": 4.608268174547749e-14
+    }
+  ]
+}

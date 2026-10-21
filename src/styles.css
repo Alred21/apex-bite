@@ -569,3 +569,26 @@ body,
 .line-guidance { display: grid; gap: 5px; max-width: 180px; font-size: 0.72rem; line-height: 1.3; }
 .line-guidance span { color: var(--text-muted); font-size: 0.65rem; }
 .line-guidance[hidden] { display: none; }
+
+.driving-hint { margin: 0 0 8px; color: var(--text-muted); font-size: 10px; line-height: 1.4; }
+.driving-bindings { display: grid; gap: 10px; margin: 0; padding: 12px; border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 8px; }
+.driving-bindings legend { padding: 0 6px; font-weight: 600; }
+.driving-binding-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.driving-binding-row button { min-width: 155px; }
+
+/* Keep the Helmet Cam's hands and wheel clear without losing training telemetry. */
+#hud-root[data-camera-mode="helmet"] .hud-bottom-cluster {
+  justify-self: end;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  width: 300px;
+  min-width: 0;
+  gap: 10px 16px;
+  padding: 10px 14px;
+}
+#hud-root[data-camera-mode="helmet"] .speedometer { min-width: 90px; }
+#hud-root[data-camera-mode="helmet"] .speed-value { font-size: 2rem; }
+#hud-root[data-camera-mode="helmet"] .line-guidance { grid-column: 1 / -1; max-width: none; }
+#hud-root[data-camera-mode="helmet"] .dynamics-indicators { grid-column: 1 / -1; width: auto; flex-direction: row; align-items: center; gap: 10px; }
+#hud-root[data-camera-mode="helmet"] .status-pill { white-space: nowrap; font-size: 0.6rem; }
+#hud-root[data-camera-mode="helmet"] .scrub-meter-row { flex: 1; min-width: 0; }

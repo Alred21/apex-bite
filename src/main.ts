@@ -35,7 +35,13 @@ function bootstrap(): void {
     } : undefined,
   });
   const audio = createKartAudio();
-  const reset = (): void => { session.reset(); audio.reset(); };
+  let controls: ReturnType<typeof bindDriverControls>;
+  let gamepadNeedsNeutral = false;
+  const releaseInputs = (): void => {
+    session.releaseDriverInputs();
+    gamepadNeedsNeutral = true;
+  };
+  const reset = (): void => { controls?.release(); session.reset(); audio.reset(); };
   window.addEventListener('blur', () => audio.setActive(false));
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) audio.setActive(false);
@@ -47,11 +53,23 @@ function bootstrap(): void {
   const togglePracticeMode = (): void => {
     const next =
       session.getSnapshot().mode === 'Time Trial' ? 'Corner Drill' : 'Time Trial';
+    controls?.release();
     session.setPracticeMode(next);
     audio.reset();
   };
   const renderer = createCircuitRenderer(canvas, session.getSnapshot());
+  controls = bindDriverControls((shortcut) => {
+    if (shortcut === 'camera') session.toggleCamera();
+    else if (shortcut === 'line') session.toggleRacingLine();
+    else if (shortcut === 'ghost') session.cycleGhostMode();
+    else if (shortcut === 'mode') togglePracticeMode();
+    else if (shortcut === 'reset') reset();
+  }, releaseInputs);
+
   const hud = createHudView(hudRoot, {
+    getDrivingBindings: () => controls.getBindings(),
+    onSetDrivingBinding: (action, code) => controls.setBinding(action, code),
+    onRestoreDrivingBindings: () => controls.restoreDefaultBindings(),
     getAudioState: () => audio.getState(),
     onToggleAudio: () => { void audio.toggle(); },
     onAudioVolume: (volume) => audio.setVolume(volume),
@@ -72,10 +90,12 @@ function bootstrap(): void {
     },
     onToggleMode: togglePracticeMode,
     onSelectTimeTrialLapLimit: (lapLimit) => {
+      controls?.release();
       session.setTimeTrialLapLimit(lapLimit);
       audio.reset();
     },
     onSelectDrillTarget: (targetId) => {
+      controls?.release();
       session.selectDrillTarget(targetId);
       audio.reset();
     },
@@ -86,14 +106,6 @@ function bootstrap(): void {
     },
   });
 
-  const controls = bindDriverControls((shortcut) => {
-    if (shortcut === 'camera') session.toggleCamera();
-    else if (shortcut === 'line') session.toggleRacingLine();
-    else if (shortcut === 'ghost') session.cycleGhostMode();
-    else if (shortcut === 'mode') togglePracticeMode();
-    else if (shortcut === 'reset') reset();
-  }, () => session.releaseDriverInputs());
-
   let lastTimeMs = performance.now();
   let accumulatorSeconds = 0;
 
@@ -102,9 +114,17 @@ function bootstrap(): void {
     lastTimeMs = nowMs;
     accumulatorSeconds += frameSeconds;
 
-    const gamepad = pollGamepad();
+    let gamepad = pollGamepad();
     const paused = controls.isPaused();
     const keys = controls.readKeys();
+    // Returning from pause/reset requires a neutral gamepad, just as held keys
+    // require a fresh press. Otherwise a trigger held over a dialog drives away.
+    if (gamepadNeedsNeutral) {
+      const neutral = !gamepad || (Math.abs(gamepad.steer ?? 0) <= (gamepad.deadzone ?? 0.06) &&
+        (gamepad.throttle ?? 0) <= 0.05 && (gamepad.brake ?? 0) <= 0.05);
+      if (neutral && !paused) gamepadNeedsNeutral = false;
+      gamepad = undefined;
+    }
     while (accumulatorSeconds >= FIXED_TIMESTEP_SECONDS) {
       if (!paused) session.step(FIXED_TIMESTEP_SECONDS, { keys, gamepad });
       accumulatorSeconds -= FIXED_TIMESTEP_SECONDS;

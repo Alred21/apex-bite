@@ -15,7 +15,7 @@ const baselineData = {
 };
 
 describe('Revision-aware portable training records', () => {
-  it('loads compatible baseline Personal Bests, Sector splits, Corner Drills, and Ghost Kart without discarding them', () => {
+  it('preserves compatible lap records and archives drill results whose Flying Entry is unversioned', () => {
     const session = createSimulationSession({ referenceReplay: true, trainingRevision: baselineRevision, storage: {
       getItem: () => JSON.stringify(baselineData),
       setItem: () => {},
@@ -23,7 +23,8 @@ describe('Revision-aware portable training records', () => {
     const snapshot = session.cycleGhostMode();
     expect(snapshot.lap.personalBestSeconds).toBe(31);
     expect(snapshot.lap.bestSectorSplits).toEqual([10, 12, 9]);
-    expect(snapshot.drill.personalBests).toEqual({ T3: 4.25, 'T4-T5': 5.5 });
+    expect(snapshot.drill.personalBests).toEqual({});
+    expect(snapshot.trainingData.current.legacyDrillPersonalBests![0].personalBests).toEqual({ T3: 4.25, 'T4-T5': 5.5 });
     expect(snapshot.ghost.personalBestPose?.position).toEqual({ x: 1, z: 2 });
     const exported = JSON.parse(session.exportTrainingDataJson());
     expect(exported.version).toBe(2);
@@ -118,4 +119,29 @@ describe('Revision-aware portable training records', () => {
     expect(migrated.trainingData.legacy[0].ghostFrameCount).toBe(2);
   });
 
+});
+
+it('archives obsolete drill benchmarks while preserving compatible lap, Sector and Ghost records across portable round trips', () => {
+  const source = createSimulationSession();
+  const data = JSON.parse(source.exportTrainingDataJson());
+  const current = data.records[0];
+  const activeReference = current.drillReference;
+  current.personalBestSeconds = 31;
+  current.bestSectorSplits = [10, 12, 9];
+  current.personalBestGhostFrames = baselineData.personalBestGhostFrames;
+  current.drillPersonalBests = { T3: 4.25, 'T4-T5': 5.5 };
+  delete current.drillReference; // An iteration-2 export predates reference stamps.
+  const imported = source.importTrainingDataJson(JSON.stringify(data));
+  expect(imported.lap.personalBestSeconds).toBe(31);
+  expect(imported.lap.bestSectorSplits).toEqual([10, 12, 9]);
+  expect(imported.drill.personalBests).toEqual({});
+  expect(imported.trainingData.current.legacyDrillPersonalBests).toEqual([{ reference: 'unversioned-reference', personalBests: { T3: 4.25, 'T4-T5': 5.5 } }]);
+  const restored = createSimulationSession();
+  const roundTrip = restored.importTrainingDataJson(source.exportTrainingDataJson());
+  expect(roundTrip.trainingData.current.legacyDrillPersonalBests).toEqual(imported.trainingData.current.legacyDrillPersonalBests);
+  expect(JSON.parse(restored.exportTrainingDataJson()).records[0].personalBestGhostFrames).toEqual(baselineData.personalBestGhostFrames);
+  const compatible = JSON.parse(restored.exportTrainingDataJson());
+  expect(compatible.records[0].drillReference).toBe(activeReference);
+  compatible.records[0].drillPersonalBests.T3 = 3.9;
+  expect(restored.importTrainingDataJson(JSON.stringify(compatible)).drill.personalBests.T3).toBe(3.9);
 });

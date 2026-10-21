@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createSimulationSession } from '../src/simulation/session';
 
 describe('Ticket #3: Solid-Axle Kart Physics, Trail Braking, Barrier Collisions & Progressive Controls', () => {
-  it('shapes keyboard S brake through a progressive Trail Braking window while Spacebar commands immediate 100% rear brake', () => {
+  it('shapes S and Space through the same progressive Trail Braking window', () => {
     const session = createSimulationSession();
     // Accelerate down the main straight to ~40 km/h at Turn 1 entry
     for (let i = 0; i < 40; i++) {
@@ -24,10 +24,11 @@ describe('Ticket #3: Solid-Axle Kart Physics, Trail Braking, Barrier Collisions 
     }
     expect(snap.kart.brakeInput).toBeGreaterThan(0.9);
 
-    // Spacebar commands immediate 1.0 rear brake on the very first tick after release
-    session.step(1 / 120, {});
+    // Switching aliases preserves pedal pressure rather than bypassing the ramp.
+    const released = session.step(1 / 120, {});
     const spaceSnap = session.step(1 / 120, { keys: { space: true } });
-    expect(spaceSnap.kart.brakeInput).toBe(1.0);
+    expect(spaceSnap.kart.brakeInput).toBeGreaterThan(released.kart.brakeInput);
+    expect(spaceSnap.kart.brakeInput).toBeLessThan(1);
   });
 
   it('models continuous Axle Scrub and rear-braking response with equal analog steering', () => {

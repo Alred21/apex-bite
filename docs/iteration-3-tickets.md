@@ -22,8 +22,8 @@ The accepted design and full specification remain available in the adjacent iter
 
 Tracked in [PR #31](https://github.com/Alred21/apex-bite/pull/31) on feat/iteration-3.
 
-- #24, #25, #26, and #27 are implemented, validated, and merged into the integration branch.
-- #28 and #29 are in progress in isolated worktrees; saved work was retained across the interruption.
-- #30 remains gated by the complete reference-line and cue implementations. Final branch review follows integrated verification.
+- #24–#29 are implemented, validated, and merged into the integration branch.
+- #30 is performing final integration, production performance measurement, and the narrow Helmet Cam HUD visibility repair.
+- Final Standards and Spec review follows integrated verification. PR #31 remains draft until those checks and any review fixes pass.
 
 Implementation dependency correction: #29 also depends on #28 because live braking lookahead must share the selected path's physical arc-distance calculation. The native tracker edge and manifest reflect this discovered correctness dependency.

@@ -1,4 +1,5 @@
 import { referenceMetadata } from './reference-metadata';
+import { pathMetric } from './path-distance';
 import { buildReferenceLap } from './reference-lap';
 import { wrapAngleRad } from './planar-math';
 import { FIXED_TIMESTEP_SECONDS, MAX_TIRE_ACCEL_MPS2 } from './kart-parameters';
@@ -7,8 +8,8 @@ import type { CircuitData, KartState, RacingLineCue, RacingLineDisplayMode, Raci
 const displayGeometry = new WeakMap<CircuitData, {
   reference: ReturnType<typeof buildReferenceLap>;
   corners: boolean[];
-  cumulativeMeters: number[];
-  lengthMeters: number;
+  positions: KartState['position'][];
+  metric: ReturnType<typeof pathMetric>;
 }>();
 
 /** Display cues over one immutable, physically executed Reference Lap. */
@@ -16,13 +17,9 @@ export function evaluateLiveRacingLine(circuit: CircuitData, kart: KartState, di
   const reference = buildReferenceLap(circuit);
   let geometry = displayGeometry.get(circuit);
   if (!geometry || geometry.reference !== reference) {
-    const cumulativeMeters = [0];
-    reference.points.forEach((point, index) => {
-      const next = reference.points[(index + 1) % reference.points.length];
-      cumulativeMeters.push(cumulativeMeters[index] + Math.hypot(next.position.x - point.position.x, next.position.z - point.position.z));
-    });
+    const positions = reference.points.map(point => point.position);
     geometry = {
-      reference, cumulativeMeters, lengthMeters: cumulativeMeters.at(-1)!,
+      reference, positions, metric: pathMetric(circuit.totalLengthMeters, positions),
       corners: reference.points.map(point => circuit.turns.some(turn => {
         const start = turn.entryDistanceMeters - 8;
         const span = (turn.exitDistanceMeters - turn.entryDistanceMeters + circuit.totalLengthMeters) % circuit.totalLengthMeters + 11;
@@ -47,18 +44,16 @@ export function evaluateLiveRacingLine(circuit: CircuitData, kart: KartState, di
   const speed = Math.max(0, kart.speedMps);
   // Reference lookup stays in Circuit stations. Braking distances instead follow
   // the executed path: a wider Turn or a Late Apex changes actual travel length.
-  const currentPathMeters = geometry.cumulativeMeters[currentIndex]
-    + (geometry.cumulativeMeters[currentIndex + 1] - geometry.cumulativeMeters[currentIndex]) * ratio;
   const remainingGrip = Math.sqrt(Math.max(0.1, MAX_TIRE_ACCEL_MPS2 ** 2 - kart.lateralAccelMps2 ** 2));
   const deceleration = Math.max(0.8, Math.min(MAX_TIRE_ACCEL_MPS2 * 0.43, remainingGrip) * 0.65);
   const reactionDistance = speed * 0.28 + 0.8;
-  const horizon = Math.min(geometry.lengthMeters * 0.45, Math.max(18, speed ** 2 / (2 * deceleration) + reactionDistance + 6));
+  const horizon = Math.min(geometry.metric.lengthMeters * 0.45, Math.max(18, speed ** 2 / (2 * deceleration) + reactionDistance + 6));
   const ahead: Array<{ index: number; allowedSquared: number }> = [];
   let allowedSquared = (current.targetSpeedMps + (next.targetSpeedMps - current.targetSpeedMps) * ratio) ** 2;
   let limitingPoint = current;
   for (let offset = 1; offset < count; offset++) {
     const index = (currentIndex + offset) % count;
-    const distance = (geometry.cumulativeMeters[index] - currentPathMeters + geometry.lengthMeters) % geometry.lengthMeters;
+    const distance = geometry.metric.distance(kart.lapDistanceMeters, reference.points[index].distanceMeters);
     if (distance > horizon) break;
     const point = reference.points[index];
     const arrivalBudget = point.targetSpeedMps ** 2 + 2 * deceleration * Math.max(0, distance - reactionDistance);

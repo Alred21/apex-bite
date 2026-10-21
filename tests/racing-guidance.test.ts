@@ -53,7 +53,7 @@ describe('Pose-aware Racing Line guidance through SimulationSession', () => {
         heading: Math.abs(Math.atan2(Math.sin(snapshot.kart.headingRad - nearest.headingRad), Math.cos(snapshot.kart.headingRad - nearest.headingRad))) };
     };
     const aligned = approach(0);
-    const displaced = approach(1.1);
+    const displaced = approach(-1.1);
     expect(aligned.snapshot.kart.speedMps).toBeLessThan(0.1);
     expect(displaced.snapshot.kart.speedMps).toBeLessThan(0.1);
     expect(displaced.snapshot.kart.barrierContactCount).toBe(0);

@@ -1,82 +1,105 @@
 import { referenceMetadata } from './reference-metadata';
+import { pathMetric } from './path-distance';
 import { buildReferenceLap } from './reference-lap';
 import { wrapAngleRad } from './planar-math';
 import { FIXED_TIMESTEP_SECONDS, MAX_TIRE_ACCEL_MPS2 } from './kart-parameters';
 import type { CircuitData, KartState, RacingLineCue, RacingLineDisplayMode, RacingLineState } from './types';
 
-const cornerMasks = new WeakMap<CircuitData, boolean[]>();
+const displayGeometry = new WeakMap<CircuitData, {
+  reference: ReturnType<typeof buildReferenceLap>;
+  corners: boolean[];
+  positions: KartState['position'][];
+  metric: ReturnType<typeof pathMetric>;
+}>();
 
 /** Display cues over one immutable, physically executed Reference Lap. */
 export function evaluateLiveRacingLine(circuit: CircuitData, kart: KartState, displayMode: RacingLineDisplayMode): RacingLineState {
   const reference = buildReferenceLap(circuit);
-  let cornerMask = cornerMasks.get(circuit);
-  if (!cornerMask) {
-    cornerMask = reference.points.map((point) => circuit.turns.some((turn) => {
-      const start = turn.entryDistanceMeters - 8;
-      const span = (turn.exitDistanceMeters - turn.entryDistanceMeters + circuit.totalLengthMeters) % circuit.totalLengthMeters + 11;
-      const offset = (point.distanceMeters - start + circuit.totalLengthMeters) % circuit.totalLengthMeters;
-      return offset <= span;
-    }));
-    cornerMasks.set(circuit, cornerMask);
+  let geometry = displayGeometry.get(circuit);
+  if (!geometry || geometry.reference !== reference) {
+    const positions = reference.points.map(point => point.position);
+    geometry = {
+      reference, positions, metric: pathMetric(circuit.totalLengthMeters, positions),
+      corners: reference.points.map(point => circuit.turns.some(turn => {
+        const start = turn.entryDistanceMeters - 8;
+        const span = (turn.exitDistanceMeters - turn.entryDistanceMeters + circuit.totalLengthMeters) % circuit.totalLengthMeters + 11;
+        return (point.distanceMeters - start + circuit.totalLengthMeters) % circuit.totalLengthMeters <= span;
+      })),
+    };
+    displayGeometry.set(circuit, geometry);
   }
   const count = reference.points.length;
   const fractional = kart.lapProgress * count;
-  const current = reference.points[Math.floor(fractional) % count];
-  const next = reference.points[(Math.floor(fractional) + 1) % count];
+  const currentIndex = Math.floor(fractional) % count;
+  const current = reference.points[currentIndex];
+  const next = reference.points[(currentIndex + 1) % count];
   const ratio = fractional - Math.floor(fractional);
   const lineX = current.position.x + (next.position.x - current.position.x) * ratio;
   const lineZ = current.position.z + (next.position.z - current.position.z) * ratio;
   const heading = current.headingRad + wrapAngleRad(next.headingRad - current.headingRad) * ratio;
   const positionError = Math.hypot(kart.position.x - lineX, kart.position.z - lineZ);
   const headingError = Math.abs(wrapAngleRad(kart.headingRad - heading));
-  const recovering = kart.driveDirection === 'Reverse' || positionError > 0.8 || headingError > 0.35 || kart.barrierContact || kart.slipRatio > 0.5;
-  const poseAllowance = Math.max(0.65, 1 - positionError * 0.16 - headingError * 0.45);
-  // Rear-only braking and cornering share grip. Reserve time to react and use a
-  // conservative fraction of available braking rather than waiting at an apex.
+  const reversing = kart.driveDirection === 'Reverse' || kart.speedMps < -0.05;
+  const recovering = reversing || positionError > 0.8 || headingError > 0.35 || kart.barrierContact || kart.slipRatio > 0.5;
+  const speed = Math.max(0, kart.speedMps);
+  // Reference lookup stays in Circuit stations. Braking distances instead follow
+  // the executed path: a wider Turn or a Late Apex changes actual travel length.
   const remainingGrip = Math.sqrt(Math.max(0.1, MAX_TIRE_ACCEL_MPS2 ** 2 - kart.lateralAccelMps2 ** 2));
   const deceleration = Math.max(0.8, Math.min(MAX_TIRE_ACCEL_MPS2 * 0.43, remainingGrip) * 0.65);
-  const reactionDistance = kart.speedMps * 0.28 + 0.8;
-  const horizon = Math.min(circuit.totalLengthMeters * 0.45, Math.max(18, kart.speedMps ** 2 / (2 * deceleration) + reactionDistance + 6));
-  let allowedSpeed = current.targetSpeedMps * poseAllowance;
+  const reactionDistance = speed * 0.28 + 0.8;
+  const horizon = Math.min(geometry.metric.lengthMeters * 0.45, Math.max(18, speed ** 2 / (2 * deceleration) + reactionDistance + 6));
+  const ahead: Array<{ index: number; allowedSquared: number }> = [];
+  let allowedSquared = (current.targetSpeedMps + (next.targetSpeedMps - current.targetSpeedMps) * ratio) ** 2;
   let limitingPoint = current;
-  let limitingDistance = 0;
-  for (const point of reference.points) {
-    const distance = (point.distanceMeters - kart.lapDistanceMeters + circuit.totalLengthMeters) % circuit.totalLengthMeters;
-    if (distance > horizon) continue;
-    const achievable = Math.sqrt((point.targetSpeedMps * poseAllowance) ** 2 + 2 * deceleration * Math.max(0, distance - reactionDistance));
-    if (achievable < allowedSpeed) {
-      allowedSpeed = achievable;
+  for (let offset = 1; offset < count; offset++) {
+    const index = (currentIndex + offset) % count;
+    const distance = geometry.metric.distance(kart.lapDistanceMeters, reference.points[index].distanceMeters);
+    if (distance > horizon) break;
+    const point = reference.points[index];
+    const arrivalBudget = point.targetSpeedMps ** 2 + 2 * deceleration * Math.max(0, distance - reactionDistance);
+    ahead.push({ index, allowedSquared: arrivalBudget });
+    if (arrivalBudget < allowedSquared) {
+      allowedSquared = arrivalBudget;
       limitingPoint = point;
-      limitingDistance = distance;
     }
   }
+  // A section includes its own speed demand and the next constraints. A single
+  // backwards pass propagates advance braking warning up to the approach;
+  // recovery's low HUD target does not paint a false speed warning onto the line.
+  const pointCues = new Map<number, RacingLineCue>();
+  let futureBudget = Infinity;
+  for (let index = ahead.length - 1; index >= 0; index--) {
+    const section = ahead[index];
+    futureBudget = Math.min(futureBudget, section.allowedSquared);
+    const allowed = Math.sqrt(futureBudget);
+    const cue: RacingLineCue = reversing ? 'Yellow' : speed > allowed + 0.45 ? 'Red'
+      : recovering || speed >= allowed - 0.5 ? 'Yellow' : 'Green';
+    pointCues.set(section.index, cue);
+  }
+  let allowedSpeed = Math.sqrt(allowedSquared);
   if (recovering) allowedSpeed = Math.min(allowedSpeed, 2.2);
+  if (reversing) allowedSpeed = 0;
   const plannedCommand = reference.commands[Math.min(reference.commands.length - 1,
     Math.floor(current.benchmarkTimeSeconds / FIXED_TIMESTEP_SECONDS))];
-  // At the achieved local speed, the retained pedal command distinguishes an
-  // accelerating straight from coasting. Pose and future braking still gate it.
   const plannedAcceleration = plannedCommand.throttle > 0.15 && plannedCommand.brake < 0.04;
-  const cue: RacingLineCue = kart.speedMps > allowedSpeed + 0.45 ? 'Red'
+  const cue: RacingLineCue = reversing ? 'Yellow' : speed > allowedSpeed + 0.45 ? 'Red'
     : recovering ? 'Yellow'
-    : kart.speedMps < allowedSpeed - 0.5 || (plannedAcceleration && kart.speedMps < allowedSpeed + 0.1) ? 'Green' : 'Yellow';
-  const upcomingTurn = circuit.turns.find((turn) => limitingPoint.distanceMeters >= turn.entryDistanceMeters - 3 && limitingPoint.distanceMeters <= turn.exitDistanceMeters + 3);
+    : speed < allowedSpeed - 0.5 || (plannedAcceleration && speed < allowedSpeed + 0.1) ? 'Green' : 'Yellow';
+  const upcomingTurn = circuit.turns.find(turn => limitingPoint.distanceMeters >= turn.entryDistanceMeters - 3 && limitingPoint.distanceMeters <= turn.exitDistanceMeters + 3);
   const turnLabel = upcomingTurn ? `Turn ${upcomingTurn.number}` : 'the Turns';
   return {
     visible: displayMode !== 'Off', displayMode, benchmarkLapSeconds: reference.lapSeconds,
     guidance: {
       cue, action: cue === 'Red' ? 'Brake' : cue === 'Yellow' ? 'Coast' : 'Accelerate',
-      reason: kart.driveDirection === 'Reverse' ? 'Reverse recovery · release brake, then accelerate to move forward' : recovering ? 'Recover alignment before accelerating' : cue === 'Red' ? `Slow for ${turnLabel} ahead` : cue === 'Yellow' ? `Prepare for ${turnLabel} ahead` : 'Room to build speed progressively',
+      reason: reversing ? 'Reverse recovery · release brake, then accelerate to move forward'
+        : recovering ? 'Recover alignment before accelerating'
+        : cue === 'Red' ? `Slow for ${turnLabel} ahead` : cue === 'Yellow' ? `Prepare for ${turnLabel} ahead` : 'Room to build speed progressively',
       targetSpeedKph: allowedSpeed * 3.6,
     },
     reference: referenceMetadata(circuit, reference),
-    points: reference.points.map((point, index) => {
-      const ahead = ((point.distanceMeters - kart.lapDistanceMeters) % circuit.totalLengthMeters + circuit.totalLengthMeters) % circuit.totalLengthMeters;
-      const requiredDeceleration = (kart.speedMps ** 2 - (point.targetSpeedMps * poseAllowance) ** 2) / (2 * Math.max(0.5, ahead - reactionDistance));
-      const liveCue: RacingLineCue = ahead <= Math.max(7, limitingDistance + 1) || (recovering && ahead < horizon) ? cue
-        : ahead < horizon && requiredDeceleration > deceleration * 0.8 ? 'Red'
-        : ahead < horizon && requiredDeceleration > deceleration * 0.25 ? 'Yellow' : 'Green';
-      const displayed = displayMode === 'Full' || (displayMode === 'Corners Only' && cornerMask![index]);
-      return { ...point, position: { ...point.position }, liveCue, displayed };
-    }),
+    points: reference.points.map((point, index) => ({
+      ...point, position: { ...point.position }, liveCue: reversing ? 'Yellow' : pointCues.get(index) ?? 'Green',
+      displayed: displayMode === 'Full' || (displayMode === 'Corners Only' && geometry.corners[index]),
+    })),
   };
 }

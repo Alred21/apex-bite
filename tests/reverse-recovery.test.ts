@@ -130,6 +130,37 @@ describe('deliberate reverse recovery through SimulationSession', () => {
     expect(snapshot.ghost.personalBestPose).not.toBeNull();
     expect(snapshot.lap.timeDeltaSeconds).toBeNull();
     expect(JSON.parse(imported.exportTrainingDataJson()).records[0].personalBestGhostFrames).toEqual(frames);
+
+    // A backward tape has no unambiguous Flying Entry time. Do not substitute
+    // the full-lap start when selecting a Corner Drill.
+    const records = imported.exportTrainingDataJson();
+    const personalBestDrill = imported.selectDrillTarget('T3');
+    expect(personalBestDrill.drill.target.id).toBe('T3');
+    expect(personalBestDrill.ghost.mode).toBe('Personal Best');
+    expect(personalBestDrill.ghost.personalBestPose).toBeNull();
+    const bothDrill = imported.cycleGhostMode();
+    expect(bothDrill.ghost.mode).toBe('Both');
+    expect(bothDrill.ghost.personalBestPose).toBeNull();
+    expect(bothDrill.ghost.trackRecordPose).not.toBeNull();
+    expect(bothDrill.kart).toEqual(personalBestDrill.kart);
+    expect(bothDrill.drill).toEqual(personalBestDrill.drill);
+    const advancingDrill = hold(imported, {}, 120);
+    expect(advancingDrill.ghost.personalBestPose).toBeNull();
+    expect(advancingDrill.ghost.trackRecordPose?.position).not.toEqual(bothDrill.ghost.trackRecordPose?.position);
+    imported.cycleGhostMode(); // Off
+    const referenceDrill = imported.cycleGhostMode();
+    expect(referenceDrill.ghost.trackRecordPose).toEqual(advancingDrill.ghost.trackRecordPose);
+    expect(referenceDrill.kart).toEqual(advancingDrill.kart);
+    expect(referenceDrill.drill).toEqual(advancingDrill.drill);
+
+    // Whole-lap replay still has a valid time clock, including its backward poses.
+    imported.cycleGhostMode(); // Personal Best
+    const timeTrial = imported.setPracticeMode('Time Trial');
+    expect(timeTrial.ghost.personalBestPose).not.toBeNull();
+    const advancingLap = hold(imported, {}, 120);
+    expect(advancingLap.ghost.personalBestPose).not.toBeNull();
+    expect(advancingLap.ghost.personalBestPose?.position).not.toEqual(timeTrial.ghost.personalBestPose?.position);
+    expect(imported.exportTrainingDataJson()).toBe(records);
   });
 
   it('clears reverse engagement on input release, reset and practice changes', () => {

@@ -729,6 +729,11 @@ export function createSimulationSession(
 
     // Lap replays have no approach tape: reveal them only when the lap clock starts.
     const ghostClockStarted = mode === 'Corner Drill' || lap.lapNumber >= 1;
+    // A recovery tape can revisit a station: keep valid full-lap time playback,
+    // but suppress a drill Ghost when its Flying Entry cannot be aligned.
+    const personalBestDrillStartSeconds = mode === 'Corner Drill'
+      ? samplePersonalBestSecondsAtDistance(personalBestGhostFrames, activeDrillTarget.flyingEntryDistanceMeters)
+      : 0;
     const ghost: GhostState = {
       mode: ghostMode,
       trackRecordPose: showTrackRecord && ghostClockStarted
@@ -739,11 +744,11 @@ export function createSimulationSession(
               : lap.currentLapSeconds,
           )
         : null,
-      personalBestPose: showPersonalBest && ghostClockStarted
+      personalBestPose: showPersonalBest && ghostClockStarted && personalBestDrillStartSeconds !== null
         ? samplePersonalBestGhostPose(
             personalBestGhostFrames,
             mode === 'Corner Drill'
-              ? (samplePersonalBestSecondsAtDistance(personalBestGhostFrames, activeDrillTarget.flyingEntryDistanceMeters) ?? 0) + drillCurrentSegmentSeconds
+              ? personalBestDrillStartSeconds + drillCurrentSegmentSeconds
               : lap.currentLapSeconds,
           )
         : null,

@@ -5,35 +5,6 @@ import { applyGraphicsQuality, GraphicsQuality, loadGraphicsQuality } from './gr
 import { createKartRig } from './kart';
 import { createTireMarkMaterial } from './materials';
 
-function createTextSprite(label: string, bgColor = '#e11d48'): THREE.Sprite {
-  const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 128;
-  const ctx = canvas.getContext('2d')!;
-
-  ctx.fillStyle = bgColor;
-  ctx.beginPath();
-  ctx.arc(64, 64, 54, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.lineWidth = 8;
-  ctx.strokeStyle = '#ffffff';
-  ctx.stroke();
-
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 58px Inter, Arial, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(label, 64, 67);
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  const material = new THREE.SpriteMaterial({ map: texture, depthTest: true, toneMapped: false });
-  const sprite = new THREE.Sprite(material);
-  sprite.scale.set(0.95, 0.95, 1);
-  return sprite;
-}
-
 function buildTrackRibbonMesh(circuit: CircuitData, material: THREE.MeshStandardMaterial): THREE.Mesh {
   const samples = circuit.samples;
   const n = samples.length;
@@ -278,13 +249,6 @@ export function createCircuitRenderer(
 
   const racingLineRibbon = buildRacingLineRibbon(initialSnapshot);
   scene.add(racingLineRibbon.mesh);
-
-  // Numbered Turn markers (1–11)
-  for (const turn of circuit.turns) {
-    const sprite = createTextSprite(String(turn.number));
-    sprite.position.set(turn.apexPoint.x, 1.75, turn.apexPoint.z);
-    scene.add(sprite);
-  }
 
   const kartRig = createKartRig();
   kartRig.root.traverse((object) => {

@@ -331,7 +331,9 @@ export function createKartRig(): KartRig {
     root.position.set(kart.position.x, 0, kart.position.z);
     root.rotation.y = -kart.headingRad;
     frontPivots.forEach((pivot) => { pivot.rotation.y = -kart.steerAngleRad; });
-    steeringWheel.rotation.x = -kart.steeringWheelAngleRad;
+    // +X is forward: positive rim rotation moves its top toward +Z/right.
+    // Front-tire yaw uses the opposite axis convention; do not copy its sign.
+    steeringWheel.rotation.x = kart.steeringWheelAngleRad;
     driver.update(snapshot);
     const dt = lastElapsed === undefined ? 0 : elapsedSeconds - lastElapsed;
     const distance = lastPosition ? Math.hypot(kart.position.x - lastPosition.x, kart.position.z - lastPosition.z) : 0;

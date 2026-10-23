@@ -1,0 +1,111 @@
+{
+  "specification": {
+    "number": 33,
+    "url": "https://github.com/Alred21/apex-bite/issues/33"
+  },
+  "tickets": [
+    {
+      "draftNumber": 1,
+      "number": 34,
+      "title": "Make visible steering agree with driving direction",
+      "url": "https://github.com/Alred21/apex-bite/issues/34",
+      "blockedBy": [],
+      "localFile": "iteration-4-tickets/01-steering-direction.md"
+    },
+    {
+      "draftNumber": 2,
+      "number": 35,
+      "title": "Render Ghost Karts with the current Kart and driver",
+      "url": "https://github.com/Alred21/apex-bite/issues/35",
+      "blockedBy": [],
+      "localFile": "iteration-4-tickets/02-current-model-ghosts.md"
+    },
+    {
+      "draftNumber": 3,
+      "number": 36,
+      "title": "Replay recorded ghost steering while preserving older laps",
+      "url": "https://github.com/Alred21/apex-bite/issues/36",
+      "blockedBy": [
+        34,
+        35
+      ],
+      "localFile": "iteration-4-tickets/03-ghost-steering-replay.md"
+    },
+    {
+      "draftNumber": 4,
+      "number": 37,
+      "title": "Drive a more realistic indoor rental Kart in both views",
+      "url": "https://github.com/Alred21/apex-bite/issues/37",
+      "blockedBy": [
+        35
+      ],
+      "localFile": "iteration-4-tickets/04-realistic-kart.md"
+    },
+    {
+      "draftNumber": 5,
+      "number": 38,
+      "title": "Drive with a realistic seated driver and review the complete model",
+      "url": "https://github.com/Alred21/apex-bite/issues/38",
+      "blockedBy": [
+        34,
+        37
+      ],
+      "localFile": "iteration-4-tickets/05-realistic-driver-review.md"
+    },
+    {
+      "draftNumber": 6,
+      "number": 39,
+      "title": "Remove floating Turn numbers while preserving training labels",
+      "url": "https://github.com/Alred21/apex-bite/issues/39",
+      "blockedBy": [],
+      "localFile": "iteration-4-tickets/06-turn-labels.md"
+    },
+    {
+      "draftNumber": 7,
+      "number": 40,
+      "title": "Compare stronger Racing Line geometry searches with iteration 3",
+      "url": "https://github.com/Alred21/apex-bite/issues/40",
+      "blockedBy": [],
+      "localFile": "iteration-4-tickets/07-geometry-experiment.md"
+    },
+    {
+      "draftNumber": 8,
+      "number": 41,
+      "title": "Compare reference speed and control choices on candidate Racing Lines",
+      "url": "https://github.com/Alred21/apex-bite/issues/41",
+      "blockedBy": [
+        40
+      ],
+      "localFile": "iteration-4-tickets/08-control-experiment.md"
+    },
+    {
+      "draftNumber": 9,
+      "number": 42,
+      "title": "Practice against the improved coherent Reference Lap",
+      "url": "https://github.com/Alred21/apex-bite/issues/42",
+      "blockedBy": [
+        41
+      ],
+      "localFile": "iteration-4-tickets/09-adopt-reference.md"
+    },
+    {
+      "draftNumber": 10,
+      "number": 43,
+      "title": "Verify the complete iteration-4 training experience",
+      "url": "https://github.com/Alred21/apex-bite/issues/43",
+      "blockedBy": [
+        36,
+        38,
+        39,
+        42
+      ],
+      "localFile": "iteration-4-tickets/10-integrated-verification.md"
+    }
+  ],
+  "verification": {
+    "bodiesMatch": true,
+    "labels": "ready-for-agent",
+    "nativeSubIssues": 10,
+    "nativeBlockingEdges": 11
+  }
+}

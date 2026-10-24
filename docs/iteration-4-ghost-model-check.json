@@ -1,0 +1,140 @@
+{
+  "browser": "155.0.8059.85",
+  "viewport": [
+    1440,
+    900
+  ],
+  "dpr": 1,
+  "quality": "Balanced",
+  "results": [
+    {
+      "camera": "Chase Cam",
+      "mode": "Reference Lap",
+      "helmet": {
+        "x": 1037.7763566985145,
+        "y": 340.9848138078684
+      },
+      "helmetPixels": 188,
+      "outsideGhostPixels": 0,
+      "changedPixels": 1309,
+      "onDiagnostics": {
+        "calls": 106,
+        "triangles": 61580,
+        "geometries": 101,
+        "textures": 20,
+        "programs": 22,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "offDiagnostics": {
+        "calls": 61,
+        "triangles": 39130,
+        "geometries": 101,
+        "textures": 20,
+        "programs": 22,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "separationMeters": 14.13286106616123,
+      "snapshotUnchanged": true,
+      "recordsUnchanged": true
+    },
+    {
+      "camera": "Chase Cam",
+      "mode": "Personal Best",
+      "helmet": {
+        "x": 1007.8212069021571,
+        "y": 358.042691355829
+      },
+      "helmetPixels": 268,
+      "outsideGhostPixels": 0,
+      "changedPixels": 2304,
+      "onDiagnostics": {
+        "calls": 106,
+        "triangles": 61580,
+        "geometries": 145,
+        "textures": 24,
+        "programs": 22,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "offDiagnostics": {
+        "calls": 61,
+        "triangles": 39130,
+        "geometries": 145,
+        "textures": 24,
+        "programs": 22,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "separationMeters": 9.396564007130099,
+      "snapshotUnchanged": true,
+      "recordsUnchanged": true
+    },
+    {
+      "camera": "Helmet Cam",
+      "mode": "Reference Lap",
+      "helmet": {
+        "x": 1152.9260237826072,
+        "y": 247.38502854697384
+      },
+      "helmetPixels": 291,
+      "outsideGhostPixels": 0,
+      "changedPixels": 2331,
+      "onDiagnostics": {
+        "calls": 91,
+        "triangles": 56248,
+        "geometries": 145,
+        "textures": 24,
+        "programs": 22,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "offDiagnostics": {
+        "calls": 46,
+        "triangles": 33798,
+        "geometries": 145,
+        "textures": 24,
+        "programs": 22,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "separationMeters": 14.13286106616123,
+      "snapshotUnchanged": true,
+      "recordsUnchanged": true
+    },
+    {
+      "camera": "Helmet Cam",
+      "mode": "Personal Best",
+      "helmet": {
+        "x": 1164.2698483297263,
+        "y": 246.3886172279277
+      },
+      "helmetPixels": 495,
+      "outsideGhostPixels": 0,
+      "changedPixels": 5390,
+      "onDiagnostics": {
+        "calls": 91,
+        "triangles": 56248,
+        "geometries": 145,
+        "textures": 24,
+        "programs": 22,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "offDiagnostics": {
+        "calls": 46,
+        "triangles": 33798,
+        "geometries": 145,
+        "textures": 24,
+        "programs": 22,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "separationMeters": 9.396564007130099,
+      "snapshotUnchanged": true,
+      "recordsUnchanged": true
+    }
+  ],
+  "errors": []
+}

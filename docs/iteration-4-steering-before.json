@@ -1,0 +1,228 @@
+{
+  "browser": "155.0.8059.85",
+  "errors": [],
+  "samples": [
+    {
+      "name": "centre",
+      "steer": 0,
+      "markerPixels": 214,
+      "markerX": 719.2196261682243,
+      "kart": {
+        "position": {
+          "x": -40.46367655758254,
+          "z": -2.044017398809005
+        },
+        "headingRad": 11.13211136819785,
+        "velocity": {
+          "x": 0,
+          "z": 0
+        },
+        "yawRateRadPerSecond": 0,
+        "speedMps": 0,
+        "driveDirection": "Forward",
+        "forwardAccelMps2": 0,
+        "lateralAccelMps2": 0,
+        "steerAngleRad": 0,
+        "isTrailBraking": false,
+        "axleScrub": 0,
+        "slipRatio": 0,
+        "throttleInput": 0,
+        "brakeInput": 1,
+        "speedKph": 0,
+        "steeringWheelAngleRad": 0,
+        "barrierContact": false,
+        "barrierContactCount": 0,
+        "lapDistanceMeters": 14.188209899829525,
+        "unwrappedDistanceMeters": 740.4020383761102,
+        "lapProgress": 0.03907446909844373,
+        "currentSector": 1,
+        "currentTurn": 1
+      }
+    },
+    {
+      "name": "left",
+      "steer": -1,
+      "markerPixels": 309,
+      "markerX": 862.6731391585761,
+      "kart": {
+        "position": {
+          "x": -40.46367655758254,
+          "z": -2.044017398809005
+        },
+        "headingRad": 11.13211136819785,
+        "velocity": {
+          "x": 0,
+          "z": 0
+        },
+        "yawRateRadPerSecond": 0,
+        "speedMps": 0,
+        "driveDirection": "Forward",
+        "forwardAccelMps2": 0,
+        "lateralAccelMps2": 0,
+        "steerAngleRad": -0.46,
+        "isTrailBraking": false,
+        "axleScrub": 0,
+        "slipRatio": 0,
+        "throttleInput": 0,
+        "brakeInput": 1,
+        "speedKph": 0,
+        "steeringWheelAngleRad": -1.0120000000000002,
+        "barrierContact": false,
+        "barrierContactCount": 0,
+        "lapDistanceMeters": 14.188209899829525,
+        "unwrappedDistanceMeters": 740.4020383761102,
+        "lapProgress": 0.03907446909844373,
+        "currentSector": 1,
+        "currentTurn": 1
+      }
+    },
+    {
+      "name": "right",
+      "steer": 1,
+      "markerPixels": 561,
+      "markerX": 570.7272727272727,
+      "kart": {
+        "position": {
+          "x": -40.46367655758254,
+          "z": -2.044017398809005
+        },
+        "headingRad": 11.13211136819785,
+        "velocity": {
+          "x": 0,
+          "z": 0
+        },
+        "yawRateRadPerSecond": 0,
+        "speedMps": 0,
+        "driveDirection": "Forward",
+        "forwardAccelMps2": 0,
+        "lateralAccelMps2": 0,
+        "steerAngleRad": 0.46,
+        "isTrailBraking": false,
+        "axleScrub": 0,
+        "slipRatio": 0,
+        "throttleInput": 0,
+        "brakeInput": 1,
+        "speedKph": 0,
+        "steeringWheelAngleRad": 1.0120000000000002,
+        "barrierContact": false,
+        "barrierContactCount": 0,
+        "lapDistanceMeters": 14.188209899829525,
+        "unwrappedDistanceMeters": 740.4020383761102,
+        "lapProgress": 0.03907446909844373,
+        "currentSector": 1,
+        "currentTurn": 1
+      }
+    },
+    {
+      "name": "return-centre",
+      "steer": 0,
+      "markerPixels": 214,
+      "markerX": 719.2196261682243,
+      "kart": {
+        "position": {
+          "x": -40.46367655758254,
+          "z": -2.044017398809005
+        },
+        "headingRad": 11.13211136819785,
+        "velocity": {
+          "x": 0,
+          "z": 0
+        },
+        "yawRateRadPerSecond": 0,
+        "speedMps": 0,
+        "driveDirection": "Forward",
+        "forwardAccelMps2": 0,
+        "lateralAccelMps2": 0,
+        "steerAngleRad": 0,
+        "isTrailBraking": false,
+        "axleScrub": 0,
+        "slipRatio": 0,
+        "throttleInput": 0,
+        "brakeInput": 1,
+        "speedKph": 0,
+        "steeringWheelAngleRad": 0,
+        "barrierContact": false,
+        "barrierContactCount": 0,
+        "lapDistanceMeters": 14.188209899829525,
+        "unwrappedDistanceMeters": 740.4020383761102,
+        "lapProgress": 0.03907446909844373,
+        "currentSector": 1,
+        "currentTurn": 1
+      }
+    },
+    {
+      "name": "reverse-left",
+      "steer": -1,
+      "markerPixels": 283,
+      "markerX": 862.0070671378091,
+      "kart": {
+        "position": {
+          "x": -41.19241361032282,
+          "z": 2.3746223679304244
+        },
+        "headingRad": 11.48196806158271,
+        "velocity": {
+          "x": -1.0387576515083872,
+          "z": 1.9644984465178517
+        },
+        "yawRateRadPerSecond": 1.0386488062064312,
+        "speedMps": -2.2222222222222223,
+        "driveDirection": "Reverse",
+        "forwardAccelMps2": -5.3290705182007514e-14,
+        "lateralAccelMps2": -2.308108458236514,
+        "steerAngleRad": -0.46,
+        "isTrailBraking": false,
+        "axleScrub": 0,
+        "slipRatio": 0,
+        "throttleInput": 0,
+        "brakeInput": 1,
+        "speedKph": 8,
+        "steeringWheelAngleRad": -1.0120000000000002,
+        "barrierContact": false,
+        "barrierContactCount": 0,
+        "lapDistanceMeters": 9.920786347559606,
+        "unwrappedDistanceMeters": 736.1346148238417,
+        "lapProgress": 0.027321942817792537,
+        "currentSector": 1,
+        "currentTurn": null
+      }
+    },
+    {
+      "name": "reverse-right",
+      "steer": 1,
+      "markerPixels": 328,
+      "markerX": 575.6341463414634,
+      "kart": {
+        "position": {
+          "x": -39.57271694415898,
+          "z": 1.5764264728063198
+        },
+        "headingRad": 9.59342912321051,
+        "velocity": {
+          "x": 2.1906934883980194,
+          "z": 0.3730062262600844
+        },
+        "yawRateRadPerSecond": -1.0386488062064312,
+        "speedMps": -2.2222222222222223,
+        "driveDirection": "Reverse",
+        "forwardAccelMps2": 0,
+        "lateralAccelMps2": 2.308108458236514,
+        "steerAngleRad": 0.46,
+        "isTrailBraking": false,
+        "axleScrub": 0,
+        "slipRatio": 0,
+        "throttleInput": 0,
+        "brakeInput": 1,
+        "speedKph": 8,
+        "steeringWheelAngleRad": 1.0120000000000002,
+        "barrierContact": false,
+        "barrierContactCount": 0,
+        "lapDistanceMeters": 9.91445597062679,
+        "unwrappedDistanceMeters": 736.1282844469082,
+        "lapProgress": 0.027304508897686396,
+        "currentSector": 1,
+        "currentTurn": null
+      }
+    }
+  ]
+}

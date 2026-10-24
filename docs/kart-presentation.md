@@ -1,5 +1,7 @@
 # Electric rental Kart presentation
 
+Iteration 4 refines the moulded bodywork, tire materials, steering hardware and binnacle while retaining the physical dimensions; see [Kart refinement and matching evidence](iteration-4-kart.md). The fitted driver is refined separately; see the [complete visual review packet](iteration-4-driver-review.md), whose user acceptance is pending.
+
 Iteration 3 adds the seated driver and recalibrates the wheel, binnacle and Helmet Cam together; see [driver review](iteration-3-driver.md). The original iteration-2 model review below is retained as baseline evidence.
 
 The Kart is custom geometry authored for Apex Bite. No downloaded models, paid assets, fonts, photographs, or third-party texture images are included. Rubber micrograin, seat weave, APEX/ELECTRIC labels, and the digital instrument display are drawn procedurally using Canvas; their source is part of the project. Browser system fonts are used when rasterizing labels. Three.js supplies the geometry and rendering utilities under the project's existing dependency license.

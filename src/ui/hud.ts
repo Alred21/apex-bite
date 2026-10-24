@@ -778,14 +778,20 @@ export function createHudView(root: HTMLElement, callbacks: HudCallbacks = {}): 
     }
 
     // Time-Delta Bar: negative = ahead (green), positive = behind (red)
-    const delta = lap.timeDeltaSeconds ?? 0;
+    // Drills expose completed segment evidence, not a live full-lap comparison.
+    const drillCard = mode === 'Corner Drill' ? drill.lastExecutionCard : null;
+    const comparisonDelta = mode === 'Corner Drill' ? drillCard?.deltaToBenchmarkSeconds ?? null : lap.timeDeltaSeconds;
+    const delta = comparisonDelta ?? 0;
     const signStr = delta >= 0 ? '+' : '';
-    const refLabel =
-      ghost.mode === 'Personal Best' && lap.personalBestSeconds !== null
+    const refLabel = mode === 'Corner Drill'
+      ? `vs ${(drillCard?.benchmarkTimeSeconds ?? drill.target.benchmarkTimeSeconds).toFixed(3)}s REFERENCE`
+      : ghost.mode === 'Personal Best' && lap.personalBestSeconds !== null
         ? `vs ${lap.personalBestSeconds.toFixed(3)}s PB`
         : `vs ${snapshot.racingLine.benchmarkLapSeconds.toFixed(3)}s REFERENCE`;
-    deltaText.textContent = lap.timeDeltaSeconds === null ? 'COMPARISON UNAVAILABLE · RECOVERY' : `${signStr}${delta.toFixed(3)}s ${refLabel}`;
-    deltaText.style.color = lap.timeDeltaSeconds === null ? 'var(--text-muted)' : delta <= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+    deltaText.textContent = mode === 'Corner Drill'
+      ? drillCard ? `LAST PASS: ${signStr}${delta.toFixed(3)}s ${refLabel}` : `TARGET ${drill.target.benchmarkTimeSeconds.toFixed(3)}s REFERENCE · DELTA AFTER PASS`
+      : comparisonDelta === null ? 'COMPARISON UNAVAILABLE · RECOVERY' : `${signStr}${delta.toFixed(3)}s ${refLabel}`;
+    deltaText.style.color = comparisonDelta === null ? 'var(--text-muted)' : delta <= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
 
     const clampedDelta = Math.max(-2.5, Math.min(2.5, delta));
     const pct = Math.abs(clampedDelta / 2.5) * 50;

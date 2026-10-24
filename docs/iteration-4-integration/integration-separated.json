@@ -1,0 +1,150 @@
+{
+  "capturedAt": "2026-10-24T16:15:14.768Z",
+  "browser": "156.0.8078.47",
+  "initial": {
+    "pb": 40.241666666665026,
+    "reference": 38.225,
+    "mode": "Both"
+  },
+  "separated": [
+    {
+      "camera": "Chase Cam",
+      "frames": 600,
+      "meanMs": 8.324999999990066,
+      "averageFps": 120.12012012026345,
+      "medianMs": 8.300000000000182,
+      "p95Ms": 9.100000000000364,
+      "p99Ms": 9.300000000000182,
+      "maxMs": 9.399999999999636,
+      "over25ms": 0,
+      "over50ms": 0,
+      "start": {
+        "calls": 177,
+        "triangles": 124090,
+        "geometries": 168,
+        "textures": 25,
+        "programs": 24,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320,
+        "audio": {
+          "status": "Running",
+          "volume": 0.35,
+          "outputLevel": 0.03446827959485533
+        }
+      },
+      "end": {
+        "calls": 178,
+        "triangles": 124092,
+        "geometries": 168,
+        "textures": 25,
+        "programs": 24,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320,
+        "audio": {
+          "status": "Running",
+          "volume": 0.35,
+          "outputLevel": 0.02542534250978054
+        }
+      },
+      "startPose": {
+        "mode": "Both",
+        "referenceDistanceMeters": 7.813246309132331,
+        "personalBestDistanceMeters": 4.308607886271761,
+        "speedKph": 38.61435105266379,
+        "contacts": 0
+      },
+      "endPose": {
+        "mode": "Both",
+        "referenceDistanceMeters": 10.162142931039131,
+        "personalBestDistanceMeters": 4.618642074278566,
+        "speedKph": 20.62299015868334,
+        "contacts": 0
+      },
+      "startCalls": {
+        "Off": 67,
+        "Reference Lap": 122,
+        "Personal Best": 122,
+        "Both": 177
+      },
+      "endCalls": {
+        "Off": 68,
+        "Reference Lap": 123,
+        "Personal Best": 123,
+        "Both": 178
+      },
+      "minimumCalls": 177,
+      "maximumCalls": 178,
+      "maxAudioRms": 0.03465724948708167
+    },
+    {
+      "camera": "Helmet Cam",
+      "frames": 600,
+      "meanMs": 8.329000000000002,
+      "averageFps": 120.06243246488171,
+      "medianMs": 8.300000000001091,
+      "p95Ms": 9,
+      "p99Ms": 9.299999999999272,
+      "maxMs": 9.400000000001455,
+      "over25ms": 0,
+      "over50ms": 0,
+      "start": {
+        "calls": 162,
+        "triangles": 114376,
+        "geometries": 168,
+        "textures": 25,
+        "programs": 24,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320,
+        "audio": {
+          "status": "Running",
+          "volume": 0.35,
+          "outputLevel": 0.01151350912025376
+        }
+      },
+      "end": {
+        "calls": 161,
+        "triangles": 114374,
+        "geometries": 168,
+        "textures": 25,
+        "programs": 24,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320,
+        "audio": {
+          "status": "Running",
+          "volume": 0.35,
+          "outputLevel": 0.014236354433602829
+        }
+      },
+      "startPose": {
+        "mode": "Both",
+        "referenceDistanceMeters": 9.999394921706822,
+        "personalBestDistanceMeters": 5.329229894152237,
+        "speedKph": 22.394571682355767,
+        "contacts": 0
+      },
+      "endPose": {
+        "mode": "Both",
+        "referenceDistanceMeters": 19.74618468543845,
+        "personalBestDistanceMeters": 10.312253474178574,
+        "speedKph": 34.67966375464267,
+        "contacts": 0
+      },
+      "startCalls": {
+        "Off": 52,
+        "Reference Lap": 107,
+        "Personal Best": 107,
+        "Both": 162
+      },
+      "endCalls": {
+        "Off": 51,
+        "Reference Lap": 106,
+        "Personal Best": 106,
+        "Both": 161
+      },
+      "minimumCalls": 161,
+      "maximumCalls": 162,
+      "maxAudioRms": 0.037520299941403934
+    }
+  ],
+  "errors": []
+}

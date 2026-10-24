@@ -104,6 +104,7 @@ Object.assign(window, { guidanceReview: {
     for (let tick = 0; tick < ticks; tick++) session.step(FIXED_TIMESTEP_SECONDS, command);
   },
   portableRecords() { return session.exportTrainingDataJson(); },
+  importRecords(json: string) { session.importTrainingDataJson(json); },
   view(mode: CameraMode) { if (session.getSnapshot().camera.mode !== mode) session.toggleCamera(); },
   mode(mode: RacingLineDisplayMode) { for (let i = 0; i < 3 && session.getSnapshot().racingLine.displayMode !== mode; i++) session.toggleRacingLine(); },
   read() { return { snapshot: session.getSnapshot(), diagnostics: renderer.getDiagnostics() }; },

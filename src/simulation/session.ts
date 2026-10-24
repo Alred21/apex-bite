@@ -40,6 +40,8 @@ import {
 import {
   FIXED_TIMESTEP_SECONDS,
   FLYING_START_APPROACH_METERS,
+  MAX_STEER_ANGLE_RAD,
+  WHEELBASE_METERS,
 } from './kart-parameters';
 import { stepKartOnCircuit } from './kart-world';
 export {
@@ -91,8 +93,11 @@ function interpolateGhostPose(
   aSpeedKph: number,
   bSpeedKph: number,
   ratio: number,
+  aSteer = 0,
+  bSteer = 0,
 ): GhostPose {
   const clamped = Math.max(0, Math.min(1, ratio));
+  const steerAngleRad = aSteer + (bSteer - aSteer) * clamped;
   return {
     position: {
       x: aPos.x + (bPos.x - aPos.x) * clamped,
@@ -100,6 +105,8 @@ function interpolateGhostPose(
     },
     headingRad: aHeading + wrapAngleRad(bHeading - aHeading) * clamped,
     speedKph: aSpeedKph + (bSpeedKph - aSpeedKph) * clamped,
+    steerAngleRad,
+    steeringWheelAngleRad: steerAngleRad * 2.2,
   };
 }
 
@@ -119,6 +126,13 @@ function samplePersonalBestGhostPose(
   const a = frames[idx];
   const b = frames[Math.min(frames.length - 1, idx + 1)];
   const span = Math.max(1e-6, b.lapSeconds - a.lapSeconds);
+  // Historical tapes have no steering channel. Approximate it from the signed
+  // path curvature for presentation only; never rewrite the replay trajectory.
+  const dx = b.position.x - a.position.x, dz = b.position.z - a.position.z;
+  const distance = Math.hypot(dx, dz);
+  const direction = Math.sign(dx * Math.cos(a.headingRad) + dz * Math.sin(a.headingRad));
+  const inferredSteer = distance < .01 || direction === 0 ? 0 : Math.max(-MAX_STEER_ANGLE_RAD, Math.min(MAX_STEER_ANGLE_RAD,
+    Math.atan(WHEELBASE_METERS * wrapAngleRad(b.headingRad - a.headingRad) / (distance * direction))));
   return interpolateGhostPose(
     a.position,
     b.position,
@@ -127,6 +141,8 @@ function samplePersonalBestGhostPose(
     a.speedKph,
     b.speedKph,
     (t - a.lapSeconds) / span,
+    a.steerAngleRad ?? inferredSteer,
+    b.steerAngleRad ?? inferredSteer,
   );
 }
 
@@ -452,6 +468,7 @@ export function createSimulationSession(
         position: { ...nextPosition },
         headingRad: nextHeading,
         speedKph: nextSpeedKph,
+        steerAngleRad: kart.steerAngleRad,
       });
     }
 
@@ -525,6 +542,7 @@ export function createSimulationSession(
                 position: { ...nextPosition },
                 headingRad: nextHeading,
                 speedKph: nextSpeedKph,
+                steerAngleRad: kart.steerAngleRad,
               },
             ];
           }
@@ -550,6 +568,7 @@ export function createSimulationSession(
           position: { ...nextPosition },
           headingRad: nextHeading,
           speedKph: nextSpeedKph,
+          steerAngleRad: kart.steerAngleRad,
         },
       ];
     }

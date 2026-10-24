@@ -1,6 +1,6 @@
 # Iteration 4: Kart and driver visual review
 
-**Status: technical implementation prepared; user visual acceptance pending.** This is the concrete review packet for #38, before completing final visual integration. The user can accept the proposed appearance or identify specific remaining changes; automated checks do not decide whether the realism target is met.
+**Status: user visual acceptance received on 2026-10-24.** The user explicitly approved this concrete #38 review packet in the current conversation before final visual integration. The acceptance applies to the retained images and motion evidence below; automated checks supplement that visual decision.
 
 ## What changed
 
@@ -20,7 +20,7 @@ These matched pairs use the production renderer and full game HUD through the ex
 
 Steering motion with the game HUD: [previous](iteration-4-driver/before-hud-motion.webm) / [proposed](iteration-4-driver/after-hud-motion.webm). These videos exercise left, centre, right, return, Chase Cam and separated ghosts through ordinary public commands. Still samples show [left grip](iteration-4-driver/after-hud-helmet-left.png), [right grip](iteration-4-driver/after-hud-helmet-right.png), and [separated current-model ghosts with the HUD](iteration-4-driver/after-hud-ghost-chase.png). A [closer separated-ghost view](iteration-4-driver/after-ghost-chase.png) uses the same production renderer in the guidance harness.
 
-Please judge the helmet/chin silhouette, seated body proportions, glove grip through steering, suit/material appearance, and whether Helmet Cam remains clear and comfortable. This packet does not replace the final integrated behavior and four-lap performance checks.
+The accepted packet covers the helmet/chin silhouette, seated body proportions, glove grip through steering, suit/material appearance, and Helmet Cam clarity and comfort. This packet does not replace the final integrated behavior and four-lap performance checks.
 
 ## Asset inspection and authorship
 
@@ -38,4 +38,4 @@ The known visual defects were retained as the before-review evidence, then check
 
 After merging the adopted reference through `bae3dbb`, all **88 tests across 21 files**, type checking and the production build pass. Six rendered steering samples, two ghost-steering comparisons and four current-model ghost cases also pass. The faster reference exposed an old reverse-overlap fixture assumption: during the original stop, the ghost now travels 2.55 m away and no longer intersects the player's 2.2 m suppression region. The QA fixture retains its original public braking input, holds the stopped Kart until the reference naturally laps and approaches within 1.5 m, then releases/represses reverse. Its wait is bounded to one reference lap; it injects no pose or clock. All sixteen overlap cases now pass, with both reverse samples actually reversing at 1.394 m separation and zero changed pixels. This adapts the test setup without changing production fading or physics.
 
-The review images and videos deliberately retain their original matching reference/session conditions for a fair art comparison. Final rendering regressions use the newly adopted reference; the overall integrated production run remains #43. **User visual acceptance is still pending.**
+The review images and videos deliberately retain their original matching reference/session conditions for a fair art comparison. Final rendering regressions use the newly adopted reference; the overall integrated production run remains #43. **The user explicitly approved this visual packet in the current conversation on 2026-10-24.** No review image, video, or measured artifact was changed to record that approval.

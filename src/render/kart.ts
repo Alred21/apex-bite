@@ -19,23 +19,25 @@ export interface KartRig {
 
 function surfaceTexture(kind: 'rubber' | 'weave'): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 128;
+  const size = kind === 'rubber' ? 256 : 128;
+  canvas.width = canvas.height = size;
   const ctx = canvas.getContext('2d')!;
   ctx.fillStyle = kind === 'rubber' ? '#b8b8b8' : '#505050';
-  ctx.fillRect(0, 0, 128, 128);
+  ctx.fillRect(0, 0, size, size);
   // Fixed seed keeps the material repeatable and avoids a downloaded asset.
   let seed = 7129;
-  for (let y = 0; y < 128; y += 2) {
-    for (let x = 0; x < 128; x += 2) {
+  const step = kind === 'rubber' ? 1 : 2;
+  for (let y = 0; y < size; y += step) {
+    for (let x = 0; x < size; x += step) {
       seed = (seed * 16807) % 2147483647;
-      const shade = kind === 'rubber' ? 130 + seed % 100 : 65 + ((x + y) % 8) * 12;
+      const shade = kind === 'rubber' ? 170 + seed % 45 : 65 + ((x + y) % 8) * 12;
       ctx.fillStyle = `rgb(${shade},${shade},${shade})`;
-      ctx.fillRect(x, y, 2, kind === 'weave' ? 4 : 2);
+      ctx.fillRect(x, y, step, kind === 'weave' ? 4 : 1);
     }
   }
   const texture = new THREE.CanvasTexture(canvas);
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(kind === 'weave' ? 4 : 2, kind === 'weave' ? 4 : 1);
+  texture.repeat.set(4, kind === 'weave' ? 4 : 2);
   return texture;
 }
 
@@ -82,6 +84,56 @@ function tube(points: number[][], radius: number, closed = false): THREE.TubeGeo
     new THREE.CatmullRomCurve3(points.map((p) => new THREE.Vector3(...p)), closed),
     Math.max(12, points.length * 5), radius, 7, closed,
   );
+}
+
+/** Closed moulded plastic with a rounded cross-section, rather than an extruded slab. */
+function bodyShell(sections: [x: number, halfWidth: number, top: number][], bottom: number): THREE.BufferGeometry {
+  const positions: number[] = [], indices: number[] = [], uvs: number[] = [];
+  const sides = 20;
+  for (let row = 0; row < sections.length; row++) {
+    const [x, width, top] = sections[row];
+    for (let side = 0; side <= sides; side++) {
+      const angle = side / sides * Math.PI * 2;
+      const crown = Math.sign(Math.cos(angle)) * Math.pow(Math.abs(Math.cos(angle)), 0.45);
+      const shoulder = Math.sign(Math.sin(angle)) * Math.pow(Math.abs(Math.sin(angle)), 0.65);
+      positions.push(x, bottom + (top - bottom) * (0.5 + crown * 0.5), shoulder * width);
+      uvs.push(row / (sections.length - 1), side / sides);
+      if (row && side < sides) {
+        const a = (row - 1) * (sides + 1) + side, b = row * (sides + 1) + side;
+        indices.push(a, a + 1, b, a + 1, b + 1, b);
+      }
+    }
+  }
+  for (const end of [0, sections.length - 1]) {
+    const [x, , top] = sections[end], centre = positions.length / 3;
+    positions.push(x, (bottom + top) * 0.5, 0); uvs.push(0.5, 0.5);
+    for (let side = 0; side < sides; side++) {
+      const a = end * (sides + 1) + side;
+      indices.push(centre, end ? a : a + 1, end ? a + 1 : a);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setIndex(indices); geometry.computeVertexNormals();
+  return geometry;
+}
+
+function sidewallTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas'); canvas.width = canvas.height = 256;
+  const context = canvas.getContext('2d')!;
+  context.translate(128, 128); context.fillStyle = '#a5aaa4';
+  context.font = 'bold 15px Arial'; context.textAlign = 'center';
+  for (const [text, offset] of [['APEX', -0.23], ['INDOOR SLICK', Math.PI - 0.55]] as const) {
+    [...text].forEach((letter, index) => {
+      context.save(); context.rotate(offset + index * 0.11);
+      context.fillText(letter, 0, -105); context.restore();
+    });
+  }
+  context.strokeStyle = '#686e69'; context.lineWidth = 2;
+  for (const radius of [90, 118]) { context.beginPath(); context.arc(0, 0, radius, 0, Math.PI * 2); context.stroke(); }
+  const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
 }
 
 function seatShell(): { geometry: THREE.BufferGeometry; rims: number[][][] } {
@@ -152,15 +204,17 @@ export function createKartRig(): KartRig {
   root.add(stationary);
   const rubberNoise = surfaceTexture('rubber');
   const weave = surfaceTexture('weave');
-  const red = new THREE.MeshStandardMaterial({ color: 0xb81322, roughness: 0.28, metalness: 0.12 });
+  const red = new THREE.MeshStandardMaterial({ color: 0xa7101b, roughness: 0.39, metalness: 0.03 });
   const black = new THREE.MeshStandardMaterial({ color: 0x15191d, roughness: 0.52 });
-  const rubber = new THREE.MeshStandardMaterial({ color: 0x171819, roughness: 0.88, bumpMap: rubberNoise, bumpScale: 0.0015, roughnessMap: rubberNoise });
+  const rubber = new THREE.MeshStandardMaterial({ color: 0x171819, roughness: 0.88, bumpMap: rubberNoise, bumpScale: 0.00015, roughnessMap: rubberNoise });
   const steel = new THREE.MeshStandardMaterial({ color: 0x50565c, metalness: 0.88, roughness: 0.3 });
   const alloy = new THREE.MeshStandardMaterial({ color: 0xa1a8af, metalness: 0.9, roughness: 0.24 });
   const carbon = new THREE.MeshStandardMaterial({ color: 0x24282c, roughness: 0.68, bumpMap: weave, bumpScale: 0.001, side: THREE.DoubleSide });
   const accent = new THREE.MeshStandardMaterial({ color: 0xd5e52a, roughness: 0.4 });
   const orange = new THREE.MeshStandardMaterial({ color: 0xe86818, roughness: 0.5 });
   const decal = new THREE.MeshStandardMaterial({ map: decalTexture('APEX', 'ELECTRIC / 07'), roughness: 0.44 });
+  const sidewall = new THREE.MeshStandardMaterial({ map: sidewallTexture(), transparent: true, alphaTest: 0.05,
+    roughness: 0.92, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 });
   const boltGeometry = new THREE.CylinderGeometry(0.009, 0.009, 0.008, 6);
   const add = (geometry: THREE.BufferGeometry, material: THREE.Material, x = 0, y = 0, z = 0, parent: THREE.Group = stationary): THREE.Mesh => {
     const mesh = new THREE.Mesh(geometry, material);
@@ -193,18 +247,23 @@ export function createKartRig(): KartRig {
   add(new THREE.TubeGeometry(bumperCurve, 96, 0.021, 7, true), rubber);
   for (const x of [-0.61, 0.3, 0.69]) add(tube([[x, 0.11, -0.35], [x, 0.11, 0.35]], 0.012), steel);
 
-  // Shaped side pods: tapered fronts, relieved wheel cut-outs, inset logos.
+  // Crowned side pods taper into the wheel cut-outs, with a separate lower rub strip.
   for (const side of [-1, 1]) {
-    const podProfile: [number, number][] = [[-0.47, -0.055], [0.22, -0.065], [0.4, -0.025], [0.35, 0.065], [-0.43, 0.065], [-0.51, 0.025]];
-    add(moulding(podProfile.map(([x, z]) => [x, z * side]), 0.13), red, -0.04, 0.135, side * 0.305);
+    add(bodyShell([[-0.54, 0.025, 0.23], [-0.46, 0.061, 0.275], [-0.30, 0.067, 0.289],
+      [0.05, 0.070, 0.28], [0.23, 0.055, 0.255], [0.35, 0.022, 0.20]], 0.135), red, 0, 0, side * 0.305);
+    add(bodyShell([[-0.52, 0.023, 0.195], [-0.44, 0.065, 0.205], [0.16, 0.068, 0.195],
+      [0.33, 0.02, 0.17]], 0.132), black, 0, 0, side * 0.305);
     add(tube([[-0.48, 0.17, side * 0.375], [-0.1, 0.16, side * 0.38], [0.3, 0.16, side * 0.365]], 0.009), black);
-    const label = add(new THREE.PlaneGeometry(0.37, 0.085), decal, -0.08, 0.273, side * 0.302);
+    const label = add(new THREE.PlaneGeometry(0.28, 0.059), decal, -0.11, 0.29, side * 0.302);
     label.rotation.x = -Math.PI / 2;
     for (const x of [-0.42, 0.23]) add(boltGeometry, alloy, x, 0.277, side * 0.32);
   }
 
-  // Front impact fairing and sloped central number cowl; no box silhouette.
-  add(moulding([[0.51, -0.25], [0.71, -0.29], [0.83, -0.18], [0.85, 0], [0.83, 0.18], [0.71, 0.29], [0.51, 0.25], [0.57, 0]], 0.12), red, 0, 0.16);
+  // Rounded nose over an independent black impact skirt, inside the original envelope.
+  add(bodyShell([[0.51, 0.23, 0.255], [0.59, 0.27, 0.29], [0.70, 0.285, 0.295],
+    [0.79, 0.205, 0.27], [0.84, 0.06, 0.225], [0.85, 0.018, 0.20]], 0.165), red);
+  add(bodyShell([[0.52, 0.235, 0.205], [0.62, 0.278, 0.215], [0.73, 0.27, 0.21],
+    [0.82, 0.16, 0.19], [0.85, 0.02, 0.17]], 0.135), black);
   const cowl = add(moulding([[-0.17, -0.115], [0.13, -0.145], [0.25, -0.1], [0.25, 0.1], [0.13, 0.145], [-0.17, 0.115]], 0.055), red, 0.35, 0.33);
   cowl.rotation.z = -0.34;
   const noseDecal = add(new THREE.PlaneGeometry(0.21, 0.12), decal, 0.4, 0.38);
@@ -254,7 +313,7 @@ export function createKartRig(): KartRig {
     [0.145, -0.031], [0.145, 0.031], [0.141, 0.052],
     [0.123, 0.069], [0.096, 0.071],
   ].map(([r, x]) => new THREE.Vector2(r, x));
-  const tireGeometry = new THREE.LatheGeometry(tireProfile, 36);
+  const tireGeometry = new THREE.LatheGeometry(tireProfile, 48);
   tireGeometry.rotateX(Math.PI / 2);
   for (const front of [false, true]) {
     for (const side of [-1, 1]) {
@@ -282,6 +341,9 @@ export function createKartRig(): KartRig {
       }
       const ring = add(new THREE.TorusGeometry(0.113, 0.0018, 4, 36), black, 0, 0, side * 0.069, roll);
       ring.rotation.z = 0.2;
+      for (const radius of [0.127, 0.135]) add(new THREE.TorusGeometry(radius, 0.0007, 4, 48), rubber, 0, 0, side * 0.068, roll);
+      const marking = add(new THREE.PlaneGeometry(0.28, 0.28), sidewall, 0, 0, side * 0.0715, roll);
+      if (side < 0) marking.rotation.y = Math.PI;
       consolidate(roll);
     }
   }
@@ -293,13 +355,19 @@ export function createKartRig(): KartRig {
   steeringMount.add(steeringWheel);
   root.add(steeringMount);
   add(tube([[0.21, 0.6, 0], [0.38, 0.22, 0]], 0.013), steel);
-  const grip = add(new THREE.TorusGeometry(0.119, 0.016, 8, 40), rubber, 0, 0, 0, steeringWheel);
+  const grip = add(new THREE.TorusGeometry(0.119, 0.016, 12, 48), rubber, 0, 0, 0, steeringWheel);
   grip.rotation.y = Math.PI / 2;
   for (const angle of [Math.PI / 2, Math.PI, Math.PI * 3 / 2]) {
-    add(tube([[0, 0, 0], [0, Math.cos(angle) * 0.11, Math.sin(angle) * 0.11]], 0.008), alloy, 0, 0, 0, steeringWheel);
+    const spoke = add(new THREE.BoxGeometry(0.006, 0.024, 0.10), alloy,
+      0, Math.cos(angle) * 0.055, Math.sin(angle) * 0.055, steeringWheel);
+    spoke.rotation.x = angle - Math.PI / 2;
   }
   const center = add(new THREE.CylinderGeometry(0.032, 0.032, 0.018, 16), black, 0, 0, 0, steeringWheel);
   center.rotation.z = Math.PI / 2;
+  for (const angle of [0, Math.PI * 2 / 3, Math.PI * 4 / 3]) {
+    const bolt = add(boltGeometry, steel, -0.014, Math.cos(angle) * 0.02, Math.sin(angle) * 0.02, steeringWheel);
+    bolt.scale.setScalar(0.35); bolt.rotation.z = Math.PI / 2;
+  }
   const tape = add(new THREE.TorusGeometry(0.119, 0.017, 6, 6, 0.18), accent, 0, 0, 0, steeringWheel);
   tape.geometry.rotateZ(Math.PI / 2 - 0.09);
   tape.rotation.set(0, Math.PI / 2, 0);
@@ -312,12 +380,25 @@ export function createKartRig(): KartRig {
   const dashTexture = new THREE.CanvasTexture(dashCanvas);
   dashTexture.colorSpace = THREE.SRGBColorSpace;
   const dashMaterial = new THREE.MeshBasicMaterial({ map: dashTexture });
-  const dashHousing = add(moulding([[-0.025, -0.073], [0.025, -0.073], [0.025, 0.073], [-0.025, 0.073]], 0.075, 0.007), black, 0.3, 0.695);
+  const dashHousing = add(moulding([[-0.025, -0.073], [0.012, -0.073], [0.012, 0.073], [-0.025, 0.073]], 0.075, 0.007), black, 0.3, 0.695);
   dashHousing.rotation.z = 0.3;
   // The raised display is carried by a compact bracket off the column.
   add(tube([[0.31, 0.44, 0], [0.34, 0.65, 0], [0.3, 0.7, 0]], 0.007), black);
   const dashScreen = add(new THREE.PlaneGeometry(0.126, 0.06), dashMaterial, 0.249, 0.723);
   dashScreen.rotation.set(0, -Math.PI / 2, 0.3, 'ZYX');
+  const dashControls = new THREE.Group();
+  dashControls.position.copy(dashScreen.position);
+  dashControls.rotation.copy(dashScreen.rotation);
+  stationary.add(dashControls);
+  for (const x of [-0.068, 0.068]) for (const y of [-0.025, 0.025]) {
+    const screw = add(new THREE.CylinderGeometry(0.0015, 0.0015, 0.001, 6), steel, x, y, 0.001, dashControls);
+    screw.rotation.x = Math.PI / 2;
+  }
+  for (const [x, color] of [[-0.068, 0x287dcc], [0.068, 0xd7b82a]]) {
+    const button = add(new THREE.CylinderGeometry(0.0035, 0.0035, 0.002, 12),
+      new THREE.MeshStandardMaterial({ color, roughness: 0.58 }), x, 0, 0.002, dashControls);
+    button.rotation.x = Math.PI / 2;
+  }
 
   consolidate(stationary);
   const driver = createSeatedDriver(root, steeringWheel);

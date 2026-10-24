@@ -1,0 +1,508 @@
+{
+  "browser": "155.0.8059.85",
+  "errors": [],
+  "results": [
+    {
+      "camera": "Chase Cam",
+      "scenario": "coincident",
+      "changedPixels": 0,
+      "maxDifference": 0,
+      "independent": null,
+      "snapshotUnchanged": true,
+      "recordsUnchanged": true,
+      "mode": "Reference Lap",
+      "referenceDistanceMeters": 4.608268174547749e-14,
+      "personalBestDistanceMeters": null,
+      "driveDirection": "Forward",
+      "headingRad": 11.467382164895735,
+      "diagnostics": {
+        "calls": 72,
+        "triangles": 46082,
+        "geometries": 64,
+        "textures": 17,
+        "programs": 18,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      }
+    },
+    {
+      "camera": "Chase Cam",
+      "scenario": "partial",
+      "changedPixels": 0,
+      "maxDifference": 0,
+      "independent": null,
+      "snapshotUnchanged": true,
+      "recordsUnchanged": true,
+      "mode": "Reference Lap",
+      "referenceDistanceMeters": 0.27287578783755767,
+      "personalBestDistanceMeters": null,
+      "driveDirection": "Forward",
+      "headingRad": 11.538200468901293,
+      "diagnostics": {
+        "calls": 72,
+        "triangles": 46082,
+        "geometries": 64,
+        "textures": 17,
+        "programs": 18,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      }
+    },
+    {
+      "camera": "Chase Cam",
+      "scenario": "side",
+      "changedPixels": 0,
+      "maxDifference": 0,
+      "independent": null,
+      "snapshotUnchanged": true,
+      "recordsUnchanged": true,
+      "mode": "Reference Lap",
+      "referenceDistanceMeters": 0.4331714789832686,
+      "personalBestDistanceMeters": null,
+      "driveDirection": "Forward",
+      "headingRad": 11.206416142989529,
+      "diagnostics": {
+        "calls": 70,
+        "triangles": 46078,
+        "geometries": 64,
+        "textures": 17,
+        "programs": 18,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      }
+    },
+    {
+      "camera": "Chase Cam",
+      "scenario": "personal-best",
+      "changedPixels": 0,
+      "maxDifference": 0,
+      "independent": null,
+      "snapshotUnchanged": true,
+      "recordsUnchanged": true,
+      "mode": "Personal Best",
+      "referenceDistanceMeters": null,
+      "personalBestDistanceMeters": 7.136584070361083e-15,
+      "driveDirection": "Forward",
+      "headingRad": 12.636078370057904,
+      "diagnostics": {
+        "calls": 68,
+        "triangles": 46074,
+        "geometries": 64,
+        "textures": 19,
+        "programs": 18,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      }
+    },
+    {
+      "camera": "Chase Cam",
+      "scenario": "both",
+      "changedPixels": 7649,
+      "maxDifference": 181,
+      "independent": {
+        "changedPixels": 0,
+        "maxDifference": 0
+      },
+      "snapshotUnchanged": true,
+      "recordsUnchanged": true,
+      "mode": "Both",
+      "referenceDistanceMeters": 4.033647684514359,
+      "personalBestDistanceMeters": 7.136584070361083e-15,
+      "driveDirection": "Forward",
+      "headingRad": 12.636078370057904,
+      "diagnostics": {
+        "calls": 122,
+        "triangles": 73516,
+        "geometries": 115,
+        "textures": 24,
+        "programs": 24,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      }
+    },
+    {
+      "camera": "Chase Cam",
+      "scenario": "separated",
+      "changedPixels": 1308,
+      "maxDifference": 184,
+      "independent": null,
+      "snapshotUnchanged": true,
+      "recordsUnchanged": true,
+      "mode": "Reference Lap",
+      "referenceDistanceMeters": 14.13286106616123,
+      "personalBestDistanceMeters": null,
+      "driveDirection": "Forward",
+      "headingRad": 11.541647309738766,
+      "diagnostics": {
+        "calls": 126,
+        "triangles": 73524,
+        "geometries": 115,
+        "textures": 24,
+        "programs": 24,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      }
+    },
+    {
+      "camera": "Chase Cam",
+      "scenario": "reverse",
+      "changedPixels": 0,
+      "maxDifference": 0,
+      "independent": null,
+      "snapshotUnchanged": true,
+      "recordsUnchanged": true,
+      "mode": "Reference Lap",
+      "referenceDistanceMeters": 2.0282540890011758,
+      "personalBestDistanceMeters": null,
+      "driveDirection": "Reverse",
+      "headingRad": 11.357983166916847,
+      "diagnostics": {
+        "calls": 71,
+        "triangles": 46080,
+        "geometries": 115,
+        "textures": 25,
+        "programs": 24,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      }
+    },
+    {
+      "camera": "Helmet Cam",
+      "scenario": "coincident",
+      "changedPixels": 0,
+      "maxDifference": 0,
+      "independent": null,
+      "snapshotUnchanged": true,
+      "recordsUnchanged": true,
+      "mode": "Reference Lap",
+      "referenceDistanceMeters": 4.608268174547749e-14,
+      "personalBestDistanceMeters": null,
+      "driveDirection": "Forward",
+      "headingRad": 11.467382164895735,
+      "diagnostics": {
+        "calls": 56,
+        "triangles": 38876,
+        "geometries": 115,
+        "textures": 25,
+        "programs": 24,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      }
+    },
+    {
+      "camera": "Helmet Cam",
+      "scenario": "partial",
+      "changedPixels": 0,
+      "maxDifference": 0,
+      "independent": null,
+      "snapshotUnchanged": true,
+      "recordsUnchanged": true,
+      "mode": "Reference Lap",
+      "referenceDistanceMeters": 0.27287578783755767,
+      "personalBestDistanceMeters": null,
+      "driveDirection": "Forward",
+      "headingRad": 11.538200468901293,
+      "diagnostics": {
+        "calls": 56,
+        "triangles": 38876,
+        "geometries": 115,
+        "textures": 25,
+        "programs": 24,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      }
+    },
+    {
+      "camera": "Helmet Cam",
+      "scenario": "side",
+      "changedPixels": 0,
+      "maxDifference": 0,
+      "independent": null,
+      "snapshotUnchanged": true,
+      "recordsUnchanged": true,
+      "mode": "Reference Lap",
+      "referenceDistanceMeters": 0.4331714789832686,
+      "personalBestDistanceMeters": null,
+      "driveDirection": "Forward",
+      "headingRad": 11.206416142989529,
+      "diagnostics": {
+        "calls": 53,
+        "triangles": 38870,
+        "geometries": 115,
+        "textures": 25,
+        "programs": 24,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      }
+    },
+    {
+      "camera": "Helmet Cam",
+      "scenario": "personal-best",
+      "changedPixels": 0,
+      "maxDifference": 0,
+      "independent": null,
+      "snapshotUnchanged": true,
+      "recordsUnchanged": true,
+      "mode": "Personal Best",
+      "referenceDistanceMeters": null,
+      "personalBestDistanceMeters": 7.136584070361083e-15,
+      "driveDirection": "Forward",
+      "headingRad": 12.636078370057904,
+      "diagnostics": {
+        "calls": 53,
+        "triangles": 38870,
+        "geometries": 115,
+        "textures": 25,
+        "programs": 24,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      }
+    },
+    {
+      "camera": "Helmet Cam",
+      "scenario": "both",
+      "changedPixels": 35475,
+      "maxDifference": 179,
+      "independent": {
+        "changedPixels": 0,
+        "maxDifference": 0
+      },
+      "snapshotUnchanged": true,
+      "recordsUnchanged": true,
+      "mode": "Both",
+      "referenceDistanceMeters": 4.033647684514359,
+      "personalBestDistanceMeters": 7.136584070361083e-15,
+      "driveDirection": "Forward",
+      "headingRad": 12.636078370057904,
+      "diagnostics": {
+        "calls": 107,
+        "triangles": 66312,
+        "geometries": 115,
+        "textures": 25,
+        "programs": 24,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      }
+    },
+    {
+      "camera": "Helmet Cam",
+      "scenario": "separated",
+      "changedPixels": 2331,
+      "maxDifference": 168,
+      "independent": null,
+      "snapshotUnchanged": true,
+      "recordsUnchanged": true,
+      "mode": "Reference Lap",
+      "referenceDistanceMeters": 14.13286106616123,
+      "personalBestDistanceMeters": null,
+      "driveDirection": "Forward",
+      "headingRad": 11.541647309738766,
+      "diagnostics": {
+        "calls": 109,
+        "triangles": 66316,
+        "geometries": 115,
+        "textures": 25,
+        "programs": 24,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      }
+    },
+    {
+      "camera": "Helmet Cam",
+      "scenario": "reverse",
+      "changedPixels": 0,
+      "maxDifference": 0,
+      "independent": null,
+      "snapshotUnchanged": true,
+      "recordsUnchanged": true,
+      "mode": "Reference Lap",
+      "referenceDistanceMeters": 2.0282540890011758,
+      "personalBestDistanceMeters": null,
+      "driveDirection": "Reverse",
+      "headingRad": 11.357983166916847,
+      "diagnostics": {
+        "calls": 55,
+        "triangles": 38874,
+        "geometries": 115,
+        "textures": 25,
+        "programs": 24,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      }
+    },
+    {
+      "camera": "Chase Cam",
+      "scenario": "fade through separation",
+      "frames": [
+        {
+          "distance": 0.01328438405491394,
+          "changedPixels": 0,
+          "differenceSum": 0
+        },
+        {
+          "distance": 0.051607165469300095,
+          "changedPixels": 0,
+          "differenceSum": 0
+        },
+        {
+          "distance": 0.11833890038177071,
+          "changedPixels": 0,
+          "differenceSum": 0
+        },
+        {
+          "distance": 0.21637799131278407,
+          "changedPixels": 0,
+          "differenceSum": 0
+        },
+        {
+          "distance": 0.34849674617334403,
+          "changedPixels": 0,
+          "differenceSum": 0
+        },
+        {
+          "distance": 0.517331126778568,
+          "changedPixels": 0,
+          "differenceSum": 0
+        },
+        {
+          "distance": 0.7234293553662482,
+          "changedPixels": 0,
+          "differenceSum": 0
+        },
+        {
+          "distance": 0.964965417977951,
+          "changedPixels": 0,
+          "differenceSum": 0
+        },
+        {
+          "distance": 1.2427343503282793,
+          "changedPixels": 0,
+          "differenceSum": 0
+        },
+        {
+          "distance": 1.5568345035542255,
+          "changedPixels": 0,
+          "differenceSum": 0
+        },
+        {
+          "distance": 1.9056492215725478,
+          "changedPixels": 0,
+          "differenceSum": 0
+        },
+        {
+          "distance": 2.288772355574045,
+          "changedPixels": 4193,
+          "differenceSum": 23198
+        },
+        {
+          "distance": 2.7062216245395203,
+          "changedPixels": 6890,
+          "differenceSum": 341203
+        },
+        {
+          "distance": 3.157913557698515,
+          "changedPixels": 7026,
+          "differenceSum": 639907
+        },
+        {
+          "distance": 3.641871858459003,
+          "changedPixels": 6741,
+          "differenceSum": 694233
+        },
+        {
+          "distance": 4.159025023017276,
+          "changedPixels": 5952,
+          "differenceSum": 609028
+        }
+      ],
+      "identicalPausedPixels": true
+    },
+    {
+      "camera": "Helmet Cam",
+      "scenario": "fade through separation",
+      "frames": [
+        {
+          "distance": 0.01328438405491394,
+          "changedPixels": 0,
+          "differenceSum": 0
+        },
+        {
+          "distance": 0.051607165469300095,
+          "changedPixels": 0,
+          "differenceSum": 0
+        },
+        {
+          "distance": 0.11833890038177071,
+          "changedPixels": 0,
+          "differenceSum": 0
+        },
+        {
+          "distance": 0.21637799131278407,
+          "changedPixels": 0,
+          "differenceSum": 0
+        },
+        {
+          "distance": 0.34849674617334403,
+          "changedPixels": 0,
+          "differenceSum": 0
+        },
+        {
+          "distance": 0.517331126778568,
+          "changedPixels": 0,
+          "differenceSum": 0
+        },
+        {
+          "distance": 0.7234293553662482,
+          "changedPixels": 0,
+          "differenceSum": 0
+        },
+        {
+          "distance": 0.964965417977951,
+          "changedPixels": 0,
+          "differenceSum": 0
+        },
+        {
+          "distance": 1.2427343503282793,
+          "changedPixels": 0,
+          "differenceSum": 0
+        },
+        {
+          "distance": 1.5568345035542255,
+          "changedPixels": 0,
+          "differenceSum": 0
+        },
+        {
+          "distance": 1.9056492215725478,
+          "changedPixels": 0,
+          "differenceSum": 0
+        },
+        {
+          "distance": 2.288772355574045,
+          "changedPixels": 52657,
+          "differenceSum": 285102
+        },
+        {
+          "distance": 2.7062216245395203,
+          "changedPixels": 66022,
+          "differenceSum": 3289466
+        },
+        {
+          "distance": 3.157913557698515,
+          "changedPixels": 48028,
+          "differenceSum": 4383192
+        },
+        {
+          "distance": 3.641871858459003,
+          "changedPixels": 35940,
+          "differenceSum": 3576671
+        },
+        {
+          "distance": 4.159025023017276,
+          "changedPixels": 27460,
+          "differenceSum": 2710345
+        }
+      ],
+      "identicalPausedPixels": true
+    }
+  ]
+}

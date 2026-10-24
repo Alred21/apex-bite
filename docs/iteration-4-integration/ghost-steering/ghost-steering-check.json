@@ -1,0 +1,60 @@
+{
+  "browser": "156.0.8078.47",
+  "results": [
+    {
+      "camera": "Chase Cam",
+      "legacy": {
+        "steering": 0.019548821134581805,
+        "visiblePixels": 1853,
+        "poseUnchanged": true,
+        "playerUnchanged": true,
+        "clockUnchanged": true,
+        "recordsRoundTrip": true
+      },
+      "changedPixels": 489,
+      "wheelPixels": 250,
+      "wheelBox": {
+        "left": 937.6075349223361,
+        "right": 968.1320246644894,
+        "top": 359.5461990723144,
+        "bottom": 384.78560103719667
+      },
+      "separationMeters": 10.121330533249619,
+      "publicSteering": [
+        -0.35,
+        0.35
+      ],
+      "poseUnchanged": true,
+      "playerUnchanged": true,
+      "clockUnchanged": true
+    },
+    {
+      "camera": "Helmet Cam",
+      "legacy": {
+        "steering": 0.019548821134581805,
+        "visiblePixels": 3990,
+        "poseUnchanged": true,
+        "playerUnchanged": true,
+        "clockUnchanged": true,
+        "recordsRoundTrip": true
+      },
+      "changedPixels": 936,
+      "wheelPixels": 563,
+      "wheelBox": {
+        "left": 1033.6026819403223,
+        "right": 1081.3410805301226,
+        "top": 262.57641335158877,
+        "bottom": 297.24879792363964
+      },
+      "separationMeters": 10.121330533249619,
+      "publicSteering": [
+        -0.35,
+        0.35
+      ],
+      "poseUnchanged": true,
+      "playerUnchanged": true,
+      "clockUnchanged": true
+    }
+  ],
+  "errors": []
+}

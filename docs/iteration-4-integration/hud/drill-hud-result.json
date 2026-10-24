@@ -1,0 +1,16 @@
+{
+  "drillCaptions": [
+    {
+      "target": "T3",
+      "caption": "LAST PASS: -0.000s vs 3.917s REFERENCE",
+      "expected": "LAST PASS: -0.000s vs 3.917s REFERENCE"
+    },
+    {
+      "target": "T6-T7-T8",
+      "caption": "LAST PASS: +0.000s vs 6.025s REFERENCE",
+      "expected": "LAST PASS: +0.000s vs 6.025s REFERENCE"
+    }
+  ],
+  "initialCaption": "TARGET 2.750s REFERENCE · DELTA AFTER PASS",
+  "currentSegmentSeconds": 0
+}

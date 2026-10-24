@@ -68,6 +68,8 @@ try {
   }
   await writeFile(join(output, 'integration-separated.json'), JSON.stringify({ capturedAt: new Date().toISOString(), browser: await browser.version(), initial, separated, errors }, null, 2));
   await page.setViewportSize({ width: 1440, height: 900 });
+  // This QA page renders on demand; let its resize listener settle before rendering.
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   for (const fov of [50, 90, 64]) {
     await page.evaluate(fov => { window.recoveryHarness.settings({ fieldOfViewDegrees: fov }); window.recoveryHarness.drive(12, .9); }, fov);
     if (fov !== 64) await page.screenshot({ path: join(output, `integration-helmet-fov${fov}.png`) });

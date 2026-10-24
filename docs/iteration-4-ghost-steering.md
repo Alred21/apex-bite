@@ -29,3 +29,5 @@ The existing [16 both-camera overlap cases](iteration-4-ghost-steering-overlap.j
 Run the existing Vite app on port 5186, then execute `node tests/browser/ghost-steering-check.mjs`. `APEX_BITE_PLAYWRIGHT_MODULE` selects an installed Playwright entrypoint, `APEX_BITE_GHOST_STEERING_URL` overrides the harness URL, and `APEX_BITE_GHOST_STEERING_EVIDENCE` selects the output directory. The harness exposes ordinary public training-data import/export for the fixture; no private pose injection or scene-graph assertions are added.
 
 Run the existing overlap launcher against the same harness with `APEX_BITE_GHOST_URL` and its existing evidence option. Public behavior tests, type checking, and the production build accompany the browser checks; the pre-existing large-bundle advisory is unchanged.
+
+After merging the current integration tip (including floating-label removal and the geometry experiment), all **84 tests**, type checking, and the production build pass. The two-camera ghost-steering canvas regression was rerun successfully on that merged state.

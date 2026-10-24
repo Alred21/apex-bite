@@ -55,6 +55,8 @@ The original FOV50 screenshot raced the on-demand QA page's viewport resize and 
 
 ## Reproduction and limits
 
+The final independent [Standards/Spec review](iteration-4-code-review.md) found no specification defects or documented-standard violations. Its one optional maintenance finding was resolved by consolidating duplicated offline measurements, gates and replay logic in the existing evidence utility. Bounded outputs and adoption hashes remain unchanged; all 88 tests, type checking and the build pass. No production rendering path changed during this cleanup.
+
 Use the existing launchers described in [the browser QA instructions](iteration-3-integration-qa.md). Set `APEX_BITE_PLAYWRIGHT_MODULE` to an installed Playwright module; no new dependency is required. Production measurement commands are:
 
 ```sh

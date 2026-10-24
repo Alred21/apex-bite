@@ -1,4 +1,5 @@
 import { CORNER_COMPLEXES } from './corner-complexes';
+import { MAX_STEER_ANGLE_RAD } from './kart-parameters';
 import type { DrillTargetId, GhostSampleFrame, SectorSplitsTuple } from './types';
 
 /** Advance either identifier whenever player handling or Circuit geometry becomes incompatible. */
@@ -141,12 +142,15 @@ function records(value: unknown, baseline: boolean): TrainingRecords {
     const lapSeconds = finiteNumber(frame.lapSeconds, 0);
     if (lapSeconds < previousSeconds) invalid();
     previousSeconds = lapSeconds;
+    const steerAngleRad = frame.steerAngleRad === undefined ? undefined : finiteNumber(frame.steerAngleRad);
+    if (steerAngleRad !== undefined && Math.abs(steerAngleRad) > MAX_STEER_ANGLE_RAD) invalid();
     return {
       lapSeconds,
       distanceMeters: finiteNumber(frame.distanceMeters, 0),
       position: { x: finiteNumber(position.x), z: finiteNumber(position.z) },
       headingRad: finiteNumber(frame.headingRad),
       speedKph: finiteNumber(frame.speedKph, 0),
+      ...(steerAngleRad === undefined ? {} : { steerAngleRad }),
     };
   });
   const drillPersonalBests = drillTimes(source.drillPersonalBests === undefined && baseline ? {} : source.drillPersonalBests);

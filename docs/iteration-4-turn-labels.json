@@ -1,0 +1,126 @@
+{
+  "beforeAfterPublicStateEqual": true,
+  "beforeAfterMinimapPixelsEqual": true,
+  "beforeAfterDrillLabelsAndCardsEqual": true,
+  "observed": {
+    "cameras": [
+      "Chase Cam",
+      "Helmet Cam"
+    ],
+    "options": [
+      "T1\u2013T3 Opening Complex",
+      "T2\u2013T3 Infield into Hairpin",
+      "T4\u2013T5 North Double-Right",
+      "T6\u2013T7\u2013T8 Esses & Sweeper",
+      "T9\u2013T10\u2013T11 Hairpin & Carousel",
+      "T1 Grid 90 Right",
+      "T2 Infield Entry Right",
+      "T3 Center Hairpin Left",
+      "T4 North-West Right",
+      "T5 North Crown Right",
+      "T6 Esses Entry Right",
+      "T7 Esses Exit Left",
+      "T8 East Sweeper Right",
+      "T9 South Infield Right",
+      "T10 West Hairpin Left",
+      "T11 Carousel Right"
+    ],
+    "cards": [
+      {
+        "target": "T3",
+        "title": "Turn 3 (Center Hairpin Left) \u00b7 Run #1",
+        "proximities": "T3: 0 cm",
+        "card": {
+          "targetId": "T3",
+          "targetLabel": "Turn 3 (Center Hairpin Left)",
+          "runNumber": 1,
+          "isClean": true,
+          "segmentTimeSeconds": 4.308333333333337,
+          "benchmarkTimeSeconds": 4.3083333333333345,
+          "deltaToBenchmarkSeconds": 2.6645352591003757e-15,
+          "personalBestSeconds": 4.308333333333337,
+          "deltaToPersonalBestSeconds": 0,
+          "entrySpeedKph": 27.013785032137775,
+          "minApexSpeedKph": 15.297499474212707,
+          "exitSpeedKph": 27.115732550916245,
+          "targetEntrySpeedKph": 27.013785032137775,
+          "targetMinApexSpeedKph": 15.297499474212707,
+          "targetExitSpeedKph": 27.115732550916245,
+          "apexProximityCm": 0,
+          "turnApexProximities": [
+            {
+              "turnNumber": 3,
+              "distanceCm": 0,
+              "referenceTarget": {
+                "x": 18.493021644615073,
+                "z": -0.04325107000065004
+              }
+            }
+          ],
+          "peakAxleScrub": 0.1845983662362128,
+          "referencePeakAxleScrub": 0.1845983662362128,
+          "excessScrubSeconds": 0,
+          "coachingCategory": "Matched Reference",
+          "coachingInsight": "Clean pass within 0.080s of the Reference Lap segment; all measured tire targets were within 50 cm."
+        }
+      },
+      {
+        "target": "T6-T7-T8",
+        "title": "Complex T6\u2013T7\u2013T8 (Esses into Far-Right Sweeper) \u00b7 Run #2",
+        "proximities": "T6: 0 cm | T7: 0 cm | T8: 0 cm",
+        "card": {
+          "targetId": "T6-T7-T8",
+          "targetLabel": "Complex T6\u2013T7\u2013T8 (Esses into Far-Right Sweeper)",
+          "runNumber": 2,
+          "isClean": true,
+          "segmentTimeSeconds": 6.8416666666667965,
+          "benchmarkTimeSeconds": 6.841666666666669,
+          "deltaToBenchmarkSeconds": 1.2789769243681803e-13,
+          "personalBestSeconds": 6.8416666666667965,
+          "deltaToPersonalBestSeconds": 0,
+          "entrySpeedKph": 36.14115862273319,
+          "minApexSpeedKph": 22.547243313127865,
+          "exitSpeedKph": 27.789786413943315,
+          "targetEntrySpeedKph": 36.14115862273319,
+          "targetMinApexSpeedKph": 22.547243313127865,
+          "targetExitSpeedKph": 27.789786413943315,
+          "apexProximityCm": 0,
+          "turnApexProximities": [
+            {
+              "turnNumber": 6,
+              "distanceCm": 0,
+              "referenceTarget": {
+                "x": 22.87586474537133,
+                "z": -24.468286048418662
+              }
+            },
+            {
+              "turnNumber": 7,
+              "distanceCm": 0,
+              "referenceTarget": {
+                "x": 26.46882153435013,
+                "z": -18.112990208369677
+              }
+            },
+            {
+              "turnNumber": 8,
+              "distanceCm": 0,
+              "referenceTarget": {
+                "x": 46.38030489989112,
+                "z": -5.277156436978489
+              }
+            }
+          ],
+          "peakAxleScrub": 0.12582466921812172,
+          "referencePeakAxleScrub": 0.12582466921812172,
+          "excessScrubSeconds": 0,
+          "coachingCategory": "Matched Reference",
+          "coachingInsight": "Clean pass within 0.080s of the Reference Lap segment; all measured tire targets were within 50 cm."
+        }
+      }
+    ],
+    "errors": [],
+    "publicStateSha256": "7e6343a9630542bb362c3ed61091624f2dba42540089884fb643f963f79a44cd",
+    "minimapSha256": "0d68b42c851ec09e60f7b5deb2551f78d8e503fc3f6878cc2139561a152e51a9"
+  }
+}

@@ -223,6 +223,8 @@ export interface GhostPose {
   position: Vector2D;
   headingRad: number;
   speedKph: number;
+  steerAngleRad: number;
+  steeringWheelAngleRad: number;
 }
 
 export interface GhostSampleFrame {
@@ -231,6 +233,8 @@ export interface GhostSampleFrame {
   position: Vector2D;
   headingRad: number;
   speedKph: number;
+  /** Absent in older recordings, which retain presentation-only inferred steering. */
+  steerAngleRad?: number;
 }
 
 export interface GhostState {

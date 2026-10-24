@@ -1,6 +1,6 @@
 # Iteration 4: bounded speed and control experiment
 
-Ticket #41 selects an achieved **38.225000 s** lap, **3.333333 s (8.02%)** faster than the preserved iteration-3 baseline, under unchanged player physics. The selected input tape repeats twelve laps without Barrier contact or resets. This is a candidate for #42 adoption; the live Reference Lap is still unchanged.
+Ticket #41 selects an achieved **38.225000 s** lap, **3.333333 s (8.02%)** faster than the preserved iteration-3 baseline, under unchanged player physics. The selected input tape repeats twelve laps without Barrier contact or resets. At the completion of #41 this was a candidate for #42 adoption; see the subsequent [adoption and validation](iteration-4-adoption.md).
 
 ## What changed and what stayed comparable
 

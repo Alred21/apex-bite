@@ -1,7 +1,9 @@
 import type { CircuitData, ReferenceCandidateEvidence, Vector2D } from '../src/simulation/types';
 import { CORNER_COMPLEXES } from '../src/simulation/corner-complexes';
 import { offsetComplex, placeTurn, placeCircuit, relaxPlacement, type CircuitPlacement } from '../src/simulation/reference-proposals';
-import type { ReferenceReplay } from '../src/simulation/reference-lap';
+import { cloneKartState, type ReferenceReplay } from '../src/simulation/reference-lap';
+import { FIXED_TIMESTEP_SECONDS } from '../src/simulation/kart-parameters';
+import { stepKartOnCircuit } from '../src/simulation/kart-world';
 
 /** Reconstruct a published candidate's requested geometry for offline review. */
 export function evidenceProposal(circuit: CircuitData, evidence: ReferenceCandidateEvidence[], name: string): Vector2D[] {
@@ -58,4 +60,37 @@ export function envelopeClearance(circuit: CircuitData, replay: ReferenceReplay,
     }
   }
   return minimum - 0.12;
+}
+
+/** Common measurements for the offline experiments and candidate adoption. */
+export function referenceMetrics(circuit: CircuitData, replay: ReferenceReplay) {
+  const angles = replay.frames.map(frame => frame.kart.steerAngleRad);
+  const rates = angles.slice(1).map((angle, index) => Math.abs(angle - angles[index]) / FIXED_TIMESTEP_SECONDS);
+  const sorted = [...rates].sort((a, b) => a - b);
+  return { name: replay.name, lapSeconds: replay.lapSeconds, sampledClearanceMeters: envelopeClearance(circuit, replay),
+    steering: { p95RateRadPerSecond: sorted[Math.floor(sorted.length * 0.95)], maxRateRadPerSecond: Math.max(...rates),
+      totalVariationRad: rates.reduce((sum, rate) => sum + rate * FIXED_TIMESTEP_SECONDS, 0) },
+    closure: replay.closure, complexes: replay.evidence[0].complexes };
+}
+
+export function referenceRobustnessViolations(metrics: ReturnType<typeof referenceMetrics>, limits: {
+  minimumSampledClearanceMeters: number;
+  maximumP95SteeringRateRadPerSecond: number;
+  maximumSteeringRateRadPerSecond: number;
+  maximumSteeringVariationRad: number;
+}) {
+  return [metrics.sampledClearanceMeters < limits.minimumSampledClearanceMeters ? 'sampled clearance' : '',
+    metrics.steering.p95RateRadPerSecond > limits.maximumP95SteeringRateRadPerSecond ? '95th-percentile steering rate' : '',
+    metrics.steering.maxRateRadPerSecond > limits.maximumSteeringRateRadPerSecond ? 'peak steering rate' : '',
+    metrics.steering.totalVariationRad > limits.maximumSteeringVariationRad ? 'steering total variation' : ''].filter(Boolean);
+}
+
+/** Replay retained tapes without resets, separately from proposal/controller execution. */
+export function repeatReferenceTape(circuit: CircuitData, replay: ReferenceReplay) {
+  let kart = cloneKartState(replay.initialState), maximumContacts = 0;
+  for (let lap = 0; lap < 12; lap++) for (const command of replay.commands) {
+    kart = stepKartOnCircuit(circuit, kart, command); maximumContacts = Math.max(maximumContacts, kart.barrierContactCount);
+  }
+  const progressedLaps = (kart.unwrappedDistanceMeters - replay.initialState.unwrappedDistanceMeters) / circuit.totalLengthMeters;
+  return { laps: 12, maximumContacts, progressedLaps, clean: maximumContacts === 0 && Math.abs(progressedLaps - 12) < 0.01 };
 }

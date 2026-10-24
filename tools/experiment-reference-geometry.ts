@@ -5,11 +5,10 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { buildK1TorontoCircuit } from '../src/simulation/circuit';
 import iteration3 from './fixtures/iteration-3-geometry.json';
-import { executeReferenceProposal, referenceRecipeSignature, referenceApex, referenceStateAtDistance, cloneKartState, type ReferenceReplay, type ReferenceProposal } from '../src/simulation/reference-lap';
+import { executeReferenceProposal, referenceRecipeSignature, referenceApex, referenceStateAtDistance, type ReferenceReplay, type ReferenceProposal } from '../src/simulation/reference-lap';
 import { FIXED_TIMESTEP_SECONDS } from '../src/simulation/kart-parameters';
-import { stepKartOnCircuit } from '../src/simulation/kart-world';
 import type { Vector2D } from '../src/simulation/types';
-import { envelopeClearance } from './reference-evidence-helpers';
+import { referenceMetrics, referenceRobustnessViolations, repeatReferenceTape } from './reference-evidence-helpers';
 
 const argument = (name: string, fallback: string) => {
   const index = process.argv.indexOf(name);
@@ -27,17 +26,7 @@ const baselineProposal = iteration3.baseline;
 const baseline = executeReferenceProposal(circuit, baselineProposal);
 if (!('frames' in baseline)) throw new Error(`Baseline failed: ${baseline.reason}`);
 
-function smoothness(replay: ReferenceReplay) {
-  const angles = replay.frames.map(frame => frame.kart.steerAngleRad);
-  const rates = angles.slice(1).map((angle, index) => Math.abs(angle - angles[index]) / FIXED_TIMESTEP_SECONDS);
-  const sorted = [...rates].sort((a, b) => a - b);
-  return { p95RateRadPerSecond: sorted[Math.floor(sorted.length * 0.95)], maxRateRadPerSecond: Math.max(...rates),
-    totalVariationRad: rates.reduce((sum, rate) => sum + rate * FIXED_TIMESTEP_SECONDS, 0) };
-}
-function measure(replay: ReferenceReplay) {
-  return { name: replay.name, lapSeconds: replay.lapSeconds, sampledClearanceMeters: envelopeClearance(circuit, replay),
-    steering: smoothness(replay), closure: replay.closure, complexes: replay.evidence[0].complexes };
-}
+const measure = (replay: ReferenceReplay) => referenceMetrics(circuit, replay);
 const baselineMetrics = measure(baseline);
 // Freeze criteria before the search. This experiment promises no material regression
 // from the demonstrated baseline, with only rounding tolerance at measurement precision.
@@ -47,12 +36,7 @@ const limits = {
   maximumSteeringRateRadPerSecond: Math.ceil(baselineMetrics.steering.maxRateRadPerSecond * 100) / 100,
   maximumSteeringVariationRad: Math.ceil(baselineMetrics.steering.totalVariationRad * 10) / 10,
 };
-const violations = (metrics: ReturnType<typeof measure>) => [
-  metrics.sampledClearanceMeters < limits.minimumSampledClearanceMeters ? 'sampled clearance' : '',
-  metrics.steering.p95RateRadPerSecond > limits.maximumP95SteeringRateRadPerSecond ? '95th-percentile steering rate' : '',
-  metrics.steering.maxRateRadPerSecond > limits.maximumSteeringRateRadPerSecond ? 'peak steering rate' : '',
-  metrics.steering.totalVariationRad > limits.maximumSteeringVariationRad ? 'steering total variation' : '',
-].filter(Boolean);
+const violations = (metrics: ReturnType<typeof measure>) => referenceRobustnessViolations(metrics, limits);
 const protocol = {
   signature, revision: baseline.revision, controller: 'iteration-3 unchanged', fixedTimestepSeconds: FIXED_TIMESTEP_SECONDS,
   execution: 'Two warmup laps then one measured lap; existing swept whole-Kart contact and closure rejection. No physics or controller tuning.',
@@ -135,18 +119,9 @@ function details(replay: ReferenceReplay) {
     return { number: turn.number, geometricApexStationMeters: turn.apexDistanceMeters, entry: pose(entry), apex: { ...pose(apex.frame.kart), insideTireTarget: apex.target }, exit: pose(exit) };
   });
 }
-// Replay retained tapes without resets, separately from proposal/controller execution.
-function repeat(replay: ReferenceReplay) {
-  let kart = cloneKartState(replay.initialState), maximumContacts = 0;
-  for (let lap = 0; lap < 12; lap++) for (const command of replay.commands) {
-    kart = stepKartOnCircuit(circuit, kart, command); maximumContacts = Math.max(maximumContacts, kart.barrierContactCount);
-  }
-  const progressedLaps = (kart.unwrappedDistanceMeters - replay.initialState.unwrappedDistanceMeters) / circuit.totalLengthMeters;
-  return { laps: 12, maximumContacts, progressedLaps, clean: maximumContacts === 0 && Math.abs(progressedLaps - 12) < 0.01 };
-}
 const finalists = [...seedTraversals, ...retained.filter(item => !seedTraversals.some(seed => seed.proposal.name === item.proposal.name))];
 if (!finalists.some(item => item.proposal.name === best.proposal.name)) finalists.push(best);
-const artifacts = finalists.map(item => ({ proposal: item.proposal, metrics: { ...item.metrics, turns: details(item.replay) }, initialState: item.replay.initialState, commands: item.replay.commands, rejectedBy: violations(item.metrics), repeatedReplay: repeat(item.replay) }));
+const artifacts = finalists.map(item => ({ proposal: item.proposal, metrics: { ...item.metrics, turns: details(item.replay) }, initialState: item.replay.initialState, commands: item.replay.commands, rejectedBy: violations(item.metrics), repeatedReplay: repeatReferenceTape(circuit, item.replay) }));
 const bestArtifact = artifacts.find(item => item.proposal.name === best.proposal.name)!;
 const report = { protocol, seeds: seedEvidence, baseline: artifacts[0].metrics, search: { evaluated, budget, stoppedBy: evaluated >= budget ? 'evaluation budget' : 'pass limits or no accepted improvement', passes },
   selected: { name: best.proposal.name, lapSeconds: best.replay.lapSeconds, improvementSeconds: baseline.lapSeconds - best.replay.lapSeconds, repeatedReplay: bestArtifact.repeatedReplay,

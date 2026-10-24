@@ -3,11 +3,10 @@ import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { buildK1TorontoCircuit } from '../src/simulation/circuit';
-import { executeReferenceProposal, referenceRecipeSignature, referenceApex, referenceStateAtDistance, cloneKartState, DEFAULT_REFERENCE_DRIVER, type ReferenceReplay, type ReferenceProposal, type ReferenceDriverSettings } from '../src/simulation/reference-lap';
+import { executeReferenceProposal, referenceRecipeSignature, referenceApex, referenceStateAtDistance, DEFAULT_REFERENCE_DRIVER, type ReferenceReplay, type ReferenceProposal, type ReferenceDriverSettings } from '../src/simulation/reference-lap';
 import { FIXED_TIMESTEP_SECONDS } from '../src/simulation/kart-parameters';
-import { stepKartOnCircuit } from '../src/simulation/kart-world';
 import type { Vector2D } from '../src/simulation/types';
-import { envelopeClearance } from './reference-evidence-helpers';
+import { referenceMetrics, referenceRobustnessViolations, repeatReferenceTape } from './reference-evidence-helpers';
 import type geometryBundle from '../docs/iteration-4-geometry/geometry-candidates.json';
 
 const argument = (name: string, fallback: string) => { const i = process.argv.indexOf(name); return i < 0 ? fallback : process.argv[i + 1]; };
@@ -37,28 +36,9 @@ const protocol = {
   playerPhysicsChanged: false, execution: 'Two warmup laps then one measured lap; existing swept whole-Kart contact and closure rejection. Player physics unchanged; only declared reference-driver settings vary.',
 };
 writeFileSync(join(output, 'control-protocol.json'), JSON.stringify(protocol, null, 2) + '\n');
-function measure(replay: ReferenceReplay) {
-  const angles = replay.frames.map(frame => frame.kart.steerAngleRad);
-  const rates = angles.slice(1).map((angle, index) => Math.abs(angle - angles[index]) / FIXED_TIMESTEP_SECONDS);
-  const sorted = [...rates].sort((a, b) => a - b);
-  return { name: replay.name, lapSeconds: replay.lapSeconds, sampledClearanceMeters: envelopeClearance(circuit, replay),
-    steering: { p95RateRadPerSecond: sorted[Math.floor(sorted.length * 0.95)], maxRateRadPerSecond: Math.max(...rates), totalVariationRad: rates.reduce((sum, rate) => sum + rate * FIXED_TIMESTEP_SECONDS, 0) },
-    closure: replay.closure, complexes: replay.evidence[0].complexes };
-}
-function violations(metrics: ReturnType<typeof measure>) {
-  return [metrics.sampledClearanceMeters < limits.minimumSampledClearanceMeters ? 'sampled clearance' : '',
-    metrics.steering.p95RateRadPerSecond > limits.maximumP95SteeringRateRadPerSecond ? '95th-percentile steering rate' : '',
-    metrics.steering.maxRateRadPerSecond > limits.maximumSteeringRateRadPerSecond ? 'peak steering rate' : '',
-    metrics.steering.totalVariationRad > limits.maximumSteeringVariationRad ? 'steering total variation' : ''].filter(Boolean);
-}
-function repeat(replay: ReferenceReplay) {
-  let kart = cloneKartState(replay.initialState), maximumContacts = 0;
-  for (let lap = 0; lap < 12; lap++) for (const command of replay.commands) {
-    kart = stepKartOnCircuit(circuit, kart, command); maximumContacts = Math.max(maximumContacts, kart.barrierContactCount);
-  }
-  const progressedLaps = (kart.unwrappedDistanceMeters - replay.initialState.unwrappedDistanceMeters) / circuit.totalLengthMeters;
-  return { laps: 12, maximumContacts, progressedLaps, clean: maximumContacts === 0 && Math.abs(progressedLaps - 12) < 0.01 };
-}
+const measure = (replay: ReferenceReplay) => referenceMetrics(circuit, replay);
+const violations = (metrics: ReturnType<typeof measure>) => referenceRobustnessViolations(metrics, limits);
+const repeat = (replay: ReferenceReplay) => repeatReferenceTape(circuit, replay);
 const baselineExecutions = geometries.map(geometry => {
   const proposal = { ...geometry.source.proposal, driver: { ...DEFAULT_REFERENCE_DRIVER } };
   const replay = executeReferenceProposal(circuit, proposal);

@@ -5,7 +5,7 @@ import { buildK1TorontoCircuit } from '../src/simulation/circuit';
 import { executeReferenceProposal, referenceRecipeSignature, referenceRecipeContentSignature, type ReferenceRecipe } from '../src/simulation/reference-lap';
 import type { ReferenceCandidateEvidence } from '../src/simulation/types';
 import historicalEvidence from './fixtures/iteration-3-reference-evidence.json';
-import { envelopeClearance } from './reference-evidence-helpers';
+import { referenceMetrics, referenceRobustnessViolations } from './reference-evidence-helpers';
 
 const bytes = readFileSync('docs/iteration-4-controls/control-candidate.json', 'utf8');
 if (createHash('sha256').update(bytes).digest('hex') !== readFileSync('docs/iteration-4-controls/control-candidate.sha256', 'utf8').trim()) throw new Error('Candidate artifact checksum mismatch.');
@@ -17,10 +17,7 @@ const replay = executeReferenceProposal(circuit, candidate.proposal);
 if (!('frames' in replay)) throw new Error(`Adoption traversal failed: ${replay.reason}`);
 if (!candidate.metrics.qualifiesForAdoption || !candidate.metrics.repeatedReplay.clean || Math.abs(replay.lapSeconds - candidate.metrics.lapSeconds) > 1e-9 || replay.lapSeconds >= comparisons.comparisons.baseline.lapSeconds) throw new Error('Candidate does not reproduce its qualifying improvement.');
 if (JSON.stringify(replay.commands) !== JSON.stringify(candidate.commands)) throw new Error('Adoption control tape differs from the validated candidate.');
-const angles = replay.frames.map(frame => frame.kart.steerAngleRad);
-const rates = angles.slice(1).map((angle, index) => Math.abs(angle - angles[index]) * 120), sorted = [...rates].sort((a, b) => a - b);
-const limits = candidate.protocol.limits;
-if (envelopeClearance(circuit, replay) < limits.minimumSampledClearanceMeters || sorted[Math.floor(sorted.length * .95)] > limits.maximumP95SteeringRateRadPerSecond || Math.max(...rates) > limits.maximumSteeringRateRadPerSecond || rates.reduce((sum, rate) => sum + rate / 120, 0) > limits.maximumSteeringVariationRad) throw new Error('Re-executed candidate fails robustness gates.');
+if (referenceRobustnessViolations(referenceMetrics(circuit, replay), candidate.protocol.limits).length) throw new Error('Re-executed candidate fails robustness gates.');
 // Retain older placement evidence for review, but do not pretend it was assessed
 // against the new gates. All current controller trials expose eligibility separately.
 const evidence: ReferenceCandidateEvidence[] = historicalEvidence.map(item => ({ ...item, selectionEligible: false, reason: item.reason ?? 'Historical placement evidence; not selected under iteration-4 robustness gates.' })) as ReferenceCandidateEvidence[];

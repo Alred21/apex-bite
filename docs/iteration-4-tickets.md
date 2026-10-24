@@ -74,5 +74,6 @@ The publication task changed documentation only. Implementation is now underway 
 - #40: merged; bounded geometry comparison finds a 41.316667-second candidate against the 41.558333-second baseline, with twelve clean replays. Production reference remains unchanged pending the control comparison and adoption. See [geometry experiment](iteration-4-geometry-experiment.md).
 - #36: merged; recorded steering, portable records, old-record inference, and both-camera articulation pass. See [ghost steering evidence](iteration-4-ghost-steering.md).
 - #41: merged; the bounded 144-case comparison selects 38.225 seconds, passing the unchanged robustness gates and twelve clean replay laps. See [control comparison](iteration-4-control-experiment.md).
-- #37 and #42 are in progress. #38 and #43 retain their approved prerequisites; the complete visual review remains required before final integration acceptance.
-- Verified acceptance criteria for merged #34, #35, #36, #39, #40, and #41 are checked in GitHub and the local bodies. Those issues remain open for automatic closure when the reviewed integration PR merges.
+- #37: merged; scoped original Kart refinement, asset inspection, matching views, ghost parity, and focused rendering checks pass. See [Kart evidence](iteration-4-kart.md).
+- #38 and #42 are in progress. #43 retains its approved prerequisites; the complete visual review remains required before final integration acceptance.
+- Verified acceptance criteria for merged #34, #35, #36, #37, #39, #40, and #41 are checked in GitHub and the local bodies. Those issues remain open for automatic closure when the reviewed integration PR merges.

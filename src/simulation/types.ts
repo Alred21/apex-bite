@@ -158,6 +158,8 @@ export interface ReferenceComplexEvidence {
 export interface ReferenceCandidateEvidence {
   name: string;
   feasible: boolean;
+  /** Executable candidates can still fail the training robustness gates. */
+  selectionEligible?: boolean;
   lapSeconds: number | null;
   reason: string | null;
   complexes?: ReferenceComplexEvidence[];

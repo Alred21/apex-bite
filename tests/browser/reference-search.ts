@@ -12,7 +12,7 @@ document.querySelector<HTMLButtonElement>('#run')!.addEventListener('click', () 
   for (let tick = 0; tick < targetFrame; tick++) session.step(1 / 120, replay.commands[tick]);
   const snapshot = session.getSnapshot();
   renderer.render(snapshot);
-  const baseline = replay.evidence.find((candidate) => candidate.name === 'Conservative centerline')!;
+  const baseline = replay.evidence.find((candidate) => candidate.name === 'Iteration 3 baseline')!;
   const selected = replay.evidence.find((candidate) => candidate.name === replay.name)!;
   const before = baseline.complexes!.find((complex) => complex.id === 'T9-T10-T11')!;
   const after = selected.complexes!.find((complex) => complex.id === 'T9-T10-T11')!;

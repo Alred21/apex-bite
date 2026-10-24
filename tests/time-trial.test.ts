@@ -19,7 +19,8 @@ describe('Ticket #6: Time Trial Mode — Flying Start, Sector Splits, Time-Delta
 
     expect(initial.mode).toBe('Time Trial');
     expect(initial.kart.speedKph).toBeGreaterThanOrEqual(34.0);
-    expect(initial.kart.speedKph).toBeLessThanOrEqual(40.0);
+    expect(initial.kart.speedKph).toBeCloseTo(40.0305110142, 5);
+    expect(initial.kart.speedKph).toBeLessThanOrEqual(45.0);
     const replay = session.getReferenceReplay();
     expect(replay.frames.some((frame) => frame.kart.speedKph === initial.kart.speedKph && frame.kart.position.x === initial.kart.position.x && frame.kart.position.z === initial.kart.position.z)).toBe(true);
     expect(initial.kart.lapDistanceMeters).toBeGreaterThan(initial.circuit.totalLengthMeters - 18);

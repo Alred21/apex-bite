@@ -77,5 +77,5 @@ The publication task changed documentation only. Implementation is now underway 
 - #37: merged; scoped original Kart refinement, asset inspection, matching views, ghost parity, and focused rendering checks pass. See [Kart evidence](iteration-4-kart.md).
 - #42: merged; the live 38.225-second reference includes tuned settings and runtime content validation. Eighty-eight tests, twelve clean replay laps, all sixteen drills, and compatible-record checks pass. See [adoption evidence](iteration-4-adoption.md).
 - #38: the user approved the complete Kart/driver visual packet; driver refinement and its verified rendering/behavior checks are merged. See [accepted visual review](iteration-4-driver-review.md).
-- #43 is active for the final combined behavior and four-lap production performance verification.
-- #34–#42 are closed on GitHub with checked acceptance criteria and linked evidence. #43 and parent #33 remain open until final acceptance and review are complete.
+- #43: merged; all 88 tests/builds and final browser checks pass. Four real-time laps are clean; warmed and separately visible-ghost samples meet the local 60 FPS target. An inherited drill-caption inconsistency is corrected with red/green browser evidence. See [integrated report](iteration-4-implementation-report.md).
+- #34–#43 are closed on GitHub with checked acceptance criteria and linked evidence. Parent #33 remains open for the final independent Standards/Spec review and any resulting repairs before PR readiness.

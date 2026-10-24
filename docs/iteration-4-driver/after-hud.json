@@ -1,0 +1,137 @@
+{
+  "stage": "after",
+  "browser": "155.0.8059.85",
+  "report": {
+    "helmet": {
+      "kart": {
+        "position": {
+          "x": -39.10723703986064,
+          "z": -5.493779549126592
+        },
+        "headingRad": 11.609082155672846,
+        "velocity": {
+          "x": 0.045512709306974236,
+          "z": -0.06463467541123202
+        },
+        "yawRateRadPerSecond": 0.007597393775947235,
+        "speedMps": 0.07905092013364841,
+        "driveDirection": "Forward",
+        "forwardAccelMps2": 0.12896455725098843,
+        "lateralAccelMps2": 0.0006005809685988595,
+        "steerAngleRad": 0.10599953330809098,
+        "isTrailBraking": false,
+        "axleScrub": 0.0013210030790920821,
+        "slipRatio": 0.0013210030790920821,
+        "throttleInput": 0.2374404336671867,
+        "brakeInput": 0,
+        "speedKph": 0.2845833124811343,
+        "steeringWheelAngleRad": 0.23319897327780018,
+        "barrierContact": false,
+        "barrierContactCount": 0,
+        "lapDistanceMeters": 19.608871733653825,
+        "unwrappedDistanceMeters": 745.8227002099358,
+        "lapProgress": 0.05400302490740635,
+        "currentSector": 1,
+        "currentTurn": 1
+      },
+      "camera": {
+        "mode": "Helmet Cam",
+        "settings": {
+          "fieldOfViewDegrees": 64,
+          "motionStrength": 0
+        },
+        "rollRad": 0,
+        "position": {
+          "x": -39.26268660948118,
+          "y": 0.99,
+          "z": -5.273018521531616
+        },
+        "lookAt": {
+          "x": -36.804280452889735,
+          "y": -0.2,
+          "z": -8.764313291274394
+        }
+      },
+      "diagnostics": {
+        "calls": 52,
+        "triangles": 44068,
+        "geometries": 64,
+        "textures": 13,
+        "programs": 18,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320,
+        "audio": {
+          "status": "Off",
+          "volume": 0.35,
+          "outputLevel": 0
+        }
+      }
+    },
+    "chase": {
+      "kart": {
+        "position": {
+          "x": -39.10702005014061,
+          "z": -5.494087706130104
+        },
+        "headingRad": 11.609082155672846,
+        "velocity": {
+          "x": 0,
+          "z": 0
+        },
+        "yawRateRadPerSecond": 0,
+        "speedMps": 0,
+        "driveDirection": "Forward",
+        "forwardAccelMps2": 0,
+        "lateralAccelMps2": 0,
+        "steerAngleRad": 0,
+        "isTrailBraking": false,
+        "axleScrub": 0,
+        "slipRatio": 0,
+        "throttleInput": 0,
+        "brakeInput": 1,
+        "speedKph": 0,
+        "steeringWheelAngleRad": 0,
+        "barrierContact": false,
+        "barrierContactCount": 0,
+        "lapDistanceMeters": 19.609241352452432,
+        "unwrappedDistanceMeters": 745.8230698287343,
+        "lapProgress": 0.054004042841199716,
+        "currentSector": 1,
+        "currentTurn": 1
+      },
+      "camera": {
+        "mode": "Chase Cam",
+        "settings": {
+          "fieldOfViewDegrees": 64,
+          "motionStrength": 0
+        },
+        "rollRad": 0,
+        "position": {
+          "x": -41.52512446646006,
+          "y": 2.1,
+          "z": -2.0600272768749113
+        },
+        "lookAt": {
+          "x": -37.091933036541064,
+          "y": 0.4,
+          "z": -8.355804730509432
+        }
+      },
+      "diagnostics": {
+        "calls": 68,
+        "triangles": 53784,
+        "geometries": 64,
+        "textures": 13,
+        "programs": 18,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320,
+        "audio": {
+          "status": "Off",
+          "volume": 0.35,
+          "outputLevel": 0
+        }
+      }
+    }
+  },
+  "errors": []
+}

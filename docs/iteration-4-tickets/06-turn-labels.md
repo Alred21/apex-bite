@@ -8,10 +8,10 @@ Drive with a cleaner 3D scene in both cameras while retaining numbered Turns on 
 
 ## Acceptance criteria
 
-- [ ] Remove floating Turn-number markers from the 3D Circuit in Helmet Cam and Chase Cam.
-- [ ] Preserve minimap Turn numbers and purposeful identifiers in drill selection, coaching, and results.
-- [ ] Keep Circuit geometry, Apex targets, timing, and drill behavior unchanged.
-- [ ] Verify both camera views and the retained minimap/training identifiers through focused existing browser inspection; run relevant type checking/build without adding implementation-mirroring tests.
+- [x] Remove floating Turn-number markers from the 3D Circuit in Helmet Cam and Chase Cam.
+- [x] Preserve minimap Turn numbers and purposeful identifiers in drill selection, coaching, and results.
+- [x] Keep Circuit geometry, Apex targets, timing, and drill behavior unchanged.
+- [x] Verify both camera views and the retained minimap/training identifiers through focused existing browser inspection; run relevant type checking/build without adding implementation-mirroring tests.
 
 ## Blocked by
 

@@ -24,7 +24,7 @@ The existing physical-entry/gate fingerprint changes from `drills-af9acaf0`; it 
 
 ## Cost and browser inspection
 
-On Apple M5 Pro, macOS arm64, Node 26.4.0, the fresh CLI evidence process measured **70.618 ms** for cold Session construction, **4.571 ms** mean for twenty cached Session constructions, and **0.000056 ms** per cached Reference Lap lookup (1,000 calls). These are single-process CPU measurements, not browser frame-rate claims. No search runs during driving. The build retains its existing large-bundle warning (1,063.90 kB uncompressed / 264.57 kB gzip for the main JS chunk).
+On Apple M5 Pro, macOS arm64, Node 26.4.0, the fresh CLI evidence process measured **70.618 ms** for cold Session construction, **4.571 ms** mean for twenty cached Session constructions, and **0.000056 ms** per cached Reference Lap lookup (1,000 calls). These are single-process CPU measurements, not browser frame-rate claims. No search runs during driving. The build retains its existing large-bundle warning (1,066.06 kB uncompressed / 265.24 kB gzip for the main JS chunk).
 
 [Browser evidence](iteration-4-adoption/browser-evidence.json) records headless Chrome 155.0.8059.85, both production-renderer cameras, no page errors, and the three display modes. At matched T1 approach positions the 45 km/h case has 24 red segments and requests Brake; the 31.94 km/h case has zero red segments and requests Coast. The line coordinates are identical. The [Helmet fast](iteration-4-adoption/helmet-fast.png), [Helmet slow](iteration-4-adoption/helmet-slow.png), [Chase fast](iteration-4-adoption/chase-fast.png), and [Chase slow](iteration-4-adoption/chase-slow.png) captures were inspected for readable advance cues along the fixed path. Browser reference-search replay also improves the final Corner Complex over iteration 3 without contacts. Integrated real-time frame performance remains #43's separate acceptance measurement.
 
@@ -36,3 +36,5 @@ On Apple M5 Pro, macOS arm64, Node 26.4.0, the fresh CLI evidence process measur
 - Start Vite at port 5192, then run `node tests/browser/reference-adoption-check.mjs`. Set `APEX_BITE_PLAYWRIGHT_MODULE` to an installed Playwright module and `APEX_BITE_TEST_URL` to another local server if needed; no package dependency was added. Set `APEX_BITE_ADOPTION_EVIDENCE` to retain a separate capture.
 
 The initial public adoption assertion was red at 41.558333 s and green after installing the complete validated recipe. The recipe-integrity regression rejects a changed lookahead setting. Existing bounded offline regressions still reproduce the old default reference and preserve the live recipe byte for byte.
+
+Latest integration `c92a774` was merged before final validation. The 88-test suite and build passed again, and browser captures were refreshed with its Kart presentation.

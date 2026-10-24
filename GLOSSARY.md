@@ -117,5 +117,5 @@ A completed lap in Time Trial (or attempt in Corner Drill) executed with zero Ba
 _Avoid_: Valid lap, legal lap, penalty-free lap
 
 **Ghost Kart**:
-A non-colliding translucent replay of the Reference Lap or the driver's Personal Best, rendered on the Circuit for spatial comparison. Replays from earlier handling or Circuit versions remain legacy records, separate from current comparisons.
+A non-colliding translucent replay of the Reference Lap or the driver's Personal Best, using the current Kart and driver appearance for spatial comparison on the Circuit. Replays from earlier handling or Circuit versions remain legacy records, separate from current comparisons.
 _Avoid_: Shadow car, AI opponent, bot

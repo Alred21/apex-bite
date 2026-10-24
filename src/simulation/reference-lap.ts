@@ -28,7 +28,17 @@ export interface ReferenceReplay {
   evidence: ReferenceCandidateEvidence[];
   closure: ReferenceClosure;
 }
-export interface ReferenceProposal { name: string; positions: Vector2D[]; speedScale?: number; }
+/** Reference-driver choices only: these never alter the player's Kart dynamics. */
+export interface ReferenceDriverSettings {
+  corneringAccelerationMps2: number;
+  topSpeedFraction: number;
+  brakingScale: number;
+  lookaheadScale: number;
+}
+export const DEFAULT_REFERENCE_DRIVER: Readonly<ReferenceDriverSettings> = Object.freeze({
+  corneringAccelerationMps2: 5.2, topSpeedFraction: 0.96, brakingScale: 1, lookaheadScale: 1,
+});
+export interface ReferenceProposal { name: string; positions: Vector2D[]; speedScale?: number; driver?: Partial<ReferenceDriverSettings>; }
 const cache = new WeakMap<CircuitData, ReferenceReplay>();
 export const cloneKartState = (kart: KartState): KartState => ({ ...kart, position: { ...kart.position }, velocity: { ...kart.velocity } });
 
@@ -55,13 +65,14 @@ export function proposalCurvatures(positions: Vector2D[]): number[] {
 
 function proposalSpeedProfile(proposal: ReferenceProposal): number[] {
   const positions = proposal.positions, n = positions.length;
+  const driver = { ...DEFAULT_REFERENCE_DRIVER, ...proposal.driver };
   const curvature = proposalCurvatures(positions);
-  const speeds = curvature.map((value) => Math.min(MAX_KART_SPEED_MPS * 0.96, Math.sqrt(5.2 / Math.max(0.0001, Math.abs(value)))))
+  const speeds = curvature.map((value) => Math.min(MAX_KART_SPEED_MPS * driver.topSpeedFraction, Math.sqrt(driver.corneringAccelerationMps2 / Math.max(0.0001, Math.abs(value)))))
     .map((speed) => speed * (proposal.speedScale ?? 1));
   for (let pass = 0; pass < 20; pass++) {
     for (let i = n - 1; i >= 0; i--) {
       const j = (i + 1) % n, distance = Math.hypot(positions[j].x - positions[i].x, positions[j].z - positions[i].z);
-      speeds[i] = Math.min(speeds[i], Math.sqrt(speeds[j] ** 2 + 2 * 3.3 * distance));
+      speeds[i] = Math.min(speeds[i], Math.sqrt(speeds[j] ** 2 + 2 * 3.3 * driver.brakingScale * distance));
     }
     for (let i = 0; i < n; i++) {
       const j = (i + 1) % n, distance = Math.hypot(positions[j].x - positions[i].x, positions[j].z - positions[i].z);
@@ -82,7 +93,8 @@ function interpolateAtDistance<T extends {distanceMeters: number}>(points: T[], 
 
 export function referenceDriverCommand(circuit: CircuitData, proposal: ReferenceProposal, speeds: number[], kart: KartState): KartCommand {
   const n = proposal.positions.length, length = circuit.totalLengthMeters;
-  const lookahead = 0.85 + kart.speedMps * 0.11;
+  const lookahead = (0.85 + kart.speedMps * 0.11) * (proposal.driver?.lookaheadScale ?? 1);
+  const brakingScale = proposal.driver?.brakingScale ?? 1;
   const metric = pathMetric(length, proposal.positions);
   const targetDistance = metric.stationAhead(kart.lapDistanceMeters, lookahead);
   const fractionalIndex = targetDistance / length * n;
@@ -93,13 +105,13 @@ export function referenceDriverCommand(circuit: CircuitData, proposal: Reference
   const alpha = wrapAngleRad(Math.atan2(dz, dx) - kart.headingRad);
   const steer = Math.max(-1, Math.min(1, Math.atan2(2 * WHEELBASE_METERS * Math.sin(alpha), Math.hypot(dx, dz)) / MAX_STEER_ANGLE_RAD));
   let targetSpeed = MAX_KART_SPEED_MPS;
-  const stoppingHorizon = kart.speedMps ** 2 / (2 * 3.2) + 3;
+  const stoppingHorizon = kart.speedMps ** 2 / (2 * 3.2 * brakingScale) + 3;
   for (let stationDelta = 0; stationDelta < length; stationDelta += 0.65) {
     const station = (kart.lapDistanceMeters + stationDelta) % length;
     const distance = stationDelta === 0 ? 0 : metric.distance(kart.lapDistanceMeters, station);
     if (distance > stoppingHorizon) break;
     const index = Math.floor(station / length * n) % n;
-    targetSpeed = Math.min(targetSpeed, Math.sqrt(speeds[index] ** 2 + 2 * 3.0 * Math.max(0, distance - 0.8)));
+    targetSpeed = Math.min(targetSpeed, Math.sqrt(speeds[index] ** 2 + 2 * 3.0 * brakingScale * Math.max(0, distance - 0.8)));
   }
   const error = targetSpeed - kart.speedMps;
   return {
@@ -111,6 +123,10 @@ export function referenceDriverCommand(circuit: CircuitData, proposal: Reference
 
 /** Executes proposals with the exact player solver; rejected traversals never publish times. */
 export function executeReferenceProposal(circuit: CircuitData, proposal: ReferenceProposal): ReferenceReplay | ReferenceCandidateEvidence {
+  const settings = { ...DEFAULT_REFERENCE_DRIVER, ...proposal.driver };
+  if (Object.values(settings).some(value => !Number.isFinite(value) || value <= 0) || settings.topSpeedFraction > 1) {
+    return { name: proposal.name, feasible: false, lapSeconds: null, reason: 'Reference-driver settings must be positive and finite, with top speed fraction at most one.' };
+  }
   const speeds = proposalSpeedProfile(proposal);
   const curvature = proposalCurvatures(proposal.positions);
   if (curvature.some((value) => Math.abs(Math.atan(WHEELBASE_METERS * value)) > MAX_STEER_ANGLE_RAD * 1.03)) {
@@ -174,6 +190,8 @@ export function executeReferenceProposal(circuit: CircuitData, proposal: Referen
 
 export interface ReferenceRecipe {
   signature: string;
+  contentSignature: string;
+  driver: ReferenceDriverSettings;
   name: string;
   positions: Vector2D[];
   lapSeconds: number;
@@ -187,9 +205,21 @@ export function referenceRecipeSignature(circuit: CircuitData): string {
     parameters: Object.keys(parameters).sort().map((key) => [key, parameters[key as keyof typeof parameters]]),
     circuit: circuit.samples.map((sample) => [sample.center.x, sample.center.z, sample.widthMeters]) },
   (_key, value) => typeof value === 'number' ? Math.round(value * 1000000) / 1000000 : value);
+  return contentHash(input);
+}
+
+function contentHash(input: string): string {
   let hash = 2166136261;
   for (let index = 0; index < input.length; index++) hash = Math.imul(hash ^ input.charCodeAt(index), 16777619);
   return (hash >>> 0).toString(16);
+}
+
+/** Binds the selected settings and geometry to the validated result; the separate
+ * dynamics signature intentionally remains comparable to the frozen baseline. */
+export function referenceRecipeContentSignature(recipe: Omit<ReferenceRecipe, 'contentSignature'>): string {
+  return contentHash(JSON.stringify({ signature: recipe.signature, name: recipe.name,
+    driver: { ...DEFAULT_REFERENCE_DRIVER, ...recipe.driver }, positions: recipe.positions,
+    lapSeconds: recipe.lapSeconds, evidence: recipe.evidence }));
 }
 
 function freeze<T>(value: T): T {
@@ -203,16 +233,17 @@ function freeze<T>(value: T): T {
 export function buildReferenceLap(circuit: CircuitData): ReferenceReplay {
   const existing = cache.get(circuit);
   if (existing) return existing;
-  if (!REFERENCE_RECIPE || REFERENCE_RECIPE.signature !== referenceRecipeSignature(circuit)) throw new Error('Reference recipe is out of date. Run npm run reference:generate.');
+  if (!REFERENCE_RECIPE || REFERENCE_RECIPE.signature !== referenceRecipeSignature(circuit) || REFERENCE_RECIPE.contentSignature !== referenceRecipeContentSignature(REFERENCE_RECIPE)) throw new Error('Reference recipe content or dynamics are out of date. Run npm run reference:generate.');
   // Re-execute only the offline winner at startup. Never publish an unexecuted
   // recipe, and never run candidate search in a live driving update.
-  const result = executeReferenceProposal(circuit, { name: REFERENCE_RECIPE.name, positions: REFERENCE_RECIPE.positions });
+  const result = executeReferenceProposal(circuit, { name: REFERENCE_RECIPE.name, positions: REFERENCE_RECIPE.positions, driver: REFERENCE_RECIPE.driver });
   if (!('frames' in result) || Math.abs(result.lapSeconds - REFERENCE_RECIPE.lapSeconds) > FIXED_TIMESTEP_SECONDS + 1e-6) throw new Error('Reference recipe no longer reproduces its validated lap. Run npm run reference:generate.');
   const observed = result.evidence[0];
   result.evidence = structuredClone(REFERENCE_RECIPE.evidence);
   // Engines can differ at a final tick boundary by one fixed step. Keep the
   // published winner's actual time/Complex evidence from this execution.
-  const winner = result.evidence.find((candidate) => candidate.name === result.name)!;
+  const winner = result.evidence.find((candidate) => candidate.name === result.name);
+  if (!winner?.feasible || winner.selectionEligible === false) throw new Error('Reference recipe winner is not eligible for training.');
   winner.lapSeconds = result.lapSeconds;
   winner.complexes = observed.complexes;
   cache.set(circuit, freeze(result));
@@ -330,7 +361,9 @@ export function referencePoseAtTime(reference: ReferenceReplay, seconds: number)
   const time = ((seconds % reference.lapSeconds) + reference.lapSeconds) % reference.lapSeconds;
   const fractionalIndex = time / FIXED_TIMESTEP_SECONDS, index = Math.floor(fractionalIndex), ratio = fractionalIndex - index;
   const a = reference.frames[index].kart, b = reference.frames[Math.min(index + 1, reference.frames.length - 1)].kart;
-  return { position: { x: a.position.x + (b.position.x - a.position.x) * ratio, z: a.position.z + (b.position.z - a.position.z) * ratio }, headingRad: a.headingRad + wrapAngleRad(b.headingRad - a.headingRad) * ratio, speedKph: a.speedKph + (b.speedKph - a.speedKph) * ratio };
+  return { position: { x: a.position.x + (b.position.x - a.position.x) * ratio, z: a.position.z + (b.position.z - a.position.z) * ratio }, headingRad: a.headingRad + wrapAngleRad(b.headingRad - a.headingRad) * ratio, speedKph: a.speedKph + (b.speedKph - a.speedKph) * ratio,
+    steerAngleRad: a.steerAngleRad + (b.steerAngleRad - a.steerAngleRad) * ratio,
+    steeringWheelAngleRad: a.steeringWheelAngleRad + (b.steeringWheelAngleRad - a.steeringWheelAngleRad) * ratio };
 }
 
 /** Inside-front-tire target measured from the executed Turn traversal. */

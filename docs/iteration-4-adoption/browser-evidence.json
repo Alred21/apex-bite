@@ -1,0 +1,48 @@
+{
+  "browser": "155.0.8059.85",
+  "search": "PASS\n{\n  \"feasibleCandidates\": 295,\n  \"rejectedCandidates\": 16,\n  \"baselineLapSeconds\": 41.55833333333333,\n  \"selectedLapSeconds\": 38.225,\n  \"finalComplexBefore\": 11.156818141864857,\n  \"finalComplexAfter\": 10.217758782743505,\n  \"turns\": [\n    {\n      \"turn\": 9,\n      \"before\": 1.5244301439618546,\n      \"after\": 1.3832010838228186\n    },\n    {\n      \"turn\": 10,\n      \"before\": 2.2854337739898902,\n      \"after\": 2.0666115420084594\n    },\n    {\n      \"turn\": 11,\n      \"before\": 2.040721979977178,\n      \"after\": 1.8285083603215\n    }\n  ],\n  \"barrierContacts\": 0\n}\nFastest validated candidate found; no claim of global optimality.",
+  "modes": [
+    "Full",
+    "Corners Only",
+    "Off"
+  ],
+  "results": [
+    {
+      "camera": "Helmet Cam",
+      "scenario": "fast",
+      "seconds": 38.225,
+      "speed": 45,
+      "contacts": 0,
+      "action": "Brake",
+      "red": 24
+    },
+    {
+      "camera": "Helmet Cam",
+      "scenario": "slow",
+      "seconds": 38.225,
+      "speed": 31.939561874284067,
+      "contacts": 0,
+      "action": "Coast",
+      "red": 0
+    },
+    {
+      "camera": "Chase Cam",
+      "scenario": "fast",
+      "seconds": 38.225,
+      "speed": 45,
+      "contacts": 0,
+      "action": "Brake",
+      "red": 24
+    },
+    {
+      "camera": "Chase Cam",
+      "scenario": "slow",
+      "seconds": 38.225,
+      "speed": 31.939561874284067,
+      "contacts": 0,
+      "action": "Coast",
+      "red": 0
+    }
+  ],
+  "errors": []
+}

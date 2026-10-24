@@ -1,0 +1,23 @@
+{
+  "browser": "155.0.8059.85",
+  "results": [
+    {
+      "camera": "Chase Cam",
+      "changedPixels": 0,
+      "wheelPixels": 0,
+      "wheel": {
+        "x": 1009.2210028658743,
+        "y": 379.6345388685141
+      },
+      "separationMeters": 9.396564007130099,
+      "publicSteering": [
+        -0.35,
+        0.35
+      ],
+      "poseUnchanged": true,
+      "playerUnchanged": true,
+      "clockUnchanged": true
+    }
+  ],
+  "errors": []
+}

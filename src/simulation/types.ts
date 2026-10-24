@@ -158,6 +158,8 @@ export interface ReferenceComplexEvidence {
 export interface ReferenceCandidateEvidence {
   name: string;
   feasible: boolean;
+  /** Executable candidates can still fail the training robustness gates. */
+  selectionEligible?: boolean;
   lapSeconds: number | null;
   reason: string | null;
   complexes?: ReferenceComplexEvidence[];
@@ -223,6 +225,8 @@ export interface GhostPose {
   position: Vector2D;
   headingRad: number;
   speedKph: number;
+  steerAngleRad: number;
+  steeringWheelAngleRad: number;
 }
 
 export interface GhostSampleFrame {
@@ -231,6 +235,8 @@ export interface GhostSampleFrame {
   position: Vector2D;
   headingRad: number;
   speedKph: number;
+  /** Absent in older recordings, which retain presentation-only inferred steering. */
+  steerAngleRad?: number;
 }
 
 export interface GhostState {

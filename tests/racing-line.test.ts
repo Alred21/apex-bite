@@ -33,12 +33,15 @@ describe('Validated Racing Line and live cues', () => {
     expect(slowCuesBeforeT1).toContain('Green');
     expect(slowCuesBeforeT1).not.toContain('Red');
 
-    // Fast session accelerating to ~44 km/h right into the Turn 1 braking zone: segments ahead must shift to Red (Brake)
-    const fastSession = createSimulationSession();
+    // Fast session approaching at 45 km/h into the Turn 1 braking zone: segments ahead must shift to Red (Brake)
+    const fastSession = createSimulationSession({ referenceReplay: true });
     let fastSnap = fastSession.getSnapshot();
-    for (let i = 0; i < 165; i++) {
+    // Stop at a physical approach station, before a straight-on driver reaches the wall.
+    for (let i = 0; i < 240 && !(fastSnap.lap.lapNumber === 1 && fastSnap.kart.lapDistanceMeters >= 6); i++) {
       fastSnap = fastSession.step(1 / 120, { keys: { up: true } });
     }
+    expect(fastSnap.kart.barrierContactCount).toBe(0);
+    expect(fastSnap.kart.speedKph).toBeGreaterThan(43);
     const fastCuesAroundT1 = fastSnap.racingLine.points
       .slice(10, turn1ApexIdx + 6)
       .map((p) => p.liveCue);

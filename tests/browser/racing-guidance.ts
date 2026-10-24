@@ -17,7 +17,7 @@ function scenario(name: string): void {
   session.reset(); playing = false; commandIndex = 0; accumulator = 0;
   if (name === 'fast' || name === 'slow') {
     for (let tick = 0; tick < 300 && session.getSnapshot().kart.lapDistanceMeters < 6; tick++) {
-      session.step(FIXED_TIMESTEP_SECONDS, name === 'fast' ? { throttle: 1 } : { brake: 0.3 });
+      session.step(FIXED_TIMESTEP_SECONDS, name === 'fast' ? { throttle: 1 } : { brake: 0.4 });
     }
   } else if (name === 'recover') {
     for (let tick = 0; tick < 120; tick++) session.step(FIXED_TIMESTEP_SECONDS, { brake: 0.5, steer: -0.7 });
@@ -104,6 +104,7 @@ Object.assign(window, { guidanceReview: {
     for (let tick = 0; tick < ticks; tick++) session.step(FIXED_TIMESTEP_SECONDS, command);
   },
   portableRecords() { return session.exportTrainingDataJson(); },
+  importRecords(json: string) { session.importTrainingDataJson(json); },
   view(mode: CameraMode) { if (session.getSnapshot().camera.mode !== mode) session.toggleCamera(); },
   mode(mode: RacingLineDisplayMode) { for (let i = 0; i < 3 && session.getSnapshot().racingLine.displayMode !== mode; i++) session.toggleRacingLine(); },
   read() { return { snapshot: session.getSnapshot(), diagnostics: renderer.getDiagnostics() }; },

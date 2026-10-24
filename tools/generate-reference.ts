@@ -3,6 +3,8 @@ import { buildK1TorontoCircuit } from '../src/simulation/circuit';
 import { searchReferenceLap, referenceRecipeSignature, type ReferenceRecipe } from '../src/simulation/reference-lap';
 if (process.argv.includes('--geometry-experiment')) {
   await import('./experiment-reference-geometry');
+} else if (process.argv.includes('--control-experiment')) {
+  await import('./experiment-reference-controls');
 } else {
   const circuit = buildK1TorontoCircuit();
   const start = performance.now();

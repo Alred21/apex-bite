@@ -71,9 +71,10 @@ The publication task changed documentation only. Implementation is now underway 
 - #34: merged; rendered steering regression and before/after state comparison pass. See [steering evidence](iteration-4-steering.md).
 - #35: merged; current Kart/driver ghost parity and independent overlap checks pass. See [ghost evidence](iteration-4-current-model-ghosts.md).
 - #39: merged; floating labels removed while minimap and training identifiers remain. See [label inspection](iteration-4-turn-labels.md).
-- #40: merged; bounded geometry comparison finds a 41.316667-second candidate against the 41.558333-second baseline, with twelve clean replays. Production reference remains unchanged pending the control comparison and adoption. See [geometry experiment](iteration-4-geometry-experiment.md).
+- #40: merged; bounded geometry comparison finds a 41.316667-second candidate against the 41.558333-second baseline, with twelve clean replays. This geometry result preceded the later control comparison and adoption. See [geometry experiment](iteration-4-geometry-experiment.md).
 - #36: merged; recorded steering, portable records, old-record inference, and both-camera articulation pass. See [ghost steering evidence](iteration-4-ghost-steering.md).
 - #41: merged; the bounded 144-case comparison selects 38.225 seconds, passing the unchanged robustness gates and twelve clean replay laps. See [control comparison](iteration-4-control-experiment.md).
 - #37: merged; scoped original Kart refinement, asset inspection, matching views, ghost parity, and focused rendering checks pass. See [Kart evidence](iteration-4-kart.md).
-- #38 and #42 are in progress. #43 retains its approved prerequisites; the complete visual review remains required before final integration acceptance.
-- #34, #35, #36, #37, #39, #40, and #41 are closed on GitHub with checked acceptance criteria and linked evidence. #38, #42, #43, and parent #33 remain open until their acceptance work is complete.
+- #42: merged; the live 38.225-second reference includes tuned settings and runtime content validation. Eighty-eight tests, twelve clean replay laps, all sixteen drills, and compatible-record checks pass. See [adoption evidence](iteration-4-adoption.md).
+- #38 is in progress. #43 retains its approved prerequisites; the complete visual review remains required before final integration acceptance.
+- #34, #35, #36, #37, #39, #40, #41, and #42 are closed on GitHub with checked acceptance criteria and linked evidence. #38, #43, and parent #33 remain open until their acceptance work is complete.

@@ -1,0 +1,44 @@
+{
+  "browser": "155.0.8059.85",
+  "results": [
+    {
+      "camera": "Chase Cam",
+      "changedPixels": 582,
+      "wheelPixels": 291,
+      "wheelBox": {
+        "left": 991.915464500821,
+        "right": 1027.3000122974158,
+        "top": 365.53753739669435,
+        "bottom": 393.5486437913003
+      },
+      "separationMeters": 9.396564007130099,
+      "publicSteering": [
+        -0.35,
+        0.35
+      ],
+      "poseUnchanged": true,
+      "playerUnchanged": true,
+      "clockUnchanged": true
+    },
+    {
+      "camera": "Helmet Cam",
+      "changedPixels": 1263,
+      "wheelPixels": 751,
+      "wheelBox": {
+        "left": 1127.6370186519478,
+        "right": 1185.481502484133,
+        "top": 264.28561609008324,
+        "bottom": 303.94291660120786
+      },
+      "separationMeters": 9.396564007130099,
+      "publicSteering": [
+        -0.35,
+        0.35
+      ],
+      "poseUnchanged": true,
+      "playerUnchanged": true,
+      "clockUnchanged": true
+    }
+  ],
+  "errors": []
+}

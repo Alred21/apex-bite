@@ -1,0 +1,246 @@
+{
+  "detail": {
+    "driverModelTriangles": 5860,
+    "calls": 45,
+    "triangles": 22200,
+    "textures": 6,
+    "programs": 5,
+    "geometries": 45,
+    "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Pro, Unspecified Version)",
+    "snapshot": {
+      "tick": 0,
+      "kart": {
+        "position": {
+          "x": -36.058532385541646,
+          "z": 10.76936628893767
+        },
+        "headingRad": 10.54663869871338,
+        "velocity": {
+          "x": -4.811680858875883,
+          "z": -9.988066858329141
+        },
+        "yawRateRadPerSecond": -0.09835723528209273,
+        "speedMps": 11.08664747586598,
+        "driveDirection": "Forward",
+        "forwardAccelMps2": -2.983941919247357,
+        "lateralAccelMps2": -1.0904519942729143,
+        "steerAngleRad": -0.010688725395801657,
+        "isTrailBraking": false,
+        "axleScrub": 0.016412301885898227,
+        "slipRatio": 0.016412301885898227,
+        "throttleInput": 0,
+        "brakeInput": 0.1504539885358125,
+        "speedKph": 39.91193091311753,
+        "steeringWheelAngleRad": -0.023515195870763648,
+        "barrierContact": false,
+        "barrierContactCount": 0,
+        "lapDistanceMeters": 0.09196631438986454,
+        "unwrappedDistanceMeters": 726.3057947906709,
+        "lapProgress": 0.0002532761310338171,
+        "currentSector": 1,
+        "currentTurn": null
+      },
+      "camera": {
+        "mode": "Chase Cam",
+        "settings": {
+          "fieldOfViewDegrees": 64,
+          "motionStrength": 0.35
+        },
+        "rollRad": 0,
+        "position": {
+          "x": -34.23570364932802,
+          "y": 2.1,
+          "z": 14.553186501161534
+        },
+        "lookAt": {
+          "x": -37.57755633238633,
+          "y": 0.4,
+          "z": 7.616182778751116
+        }
+      }
+    }
+  },
+  "front": {
+    "driverModelTriangles": 5860,
+    "calls": 45,
+    "triangles": 22200,
+    "textures": 6,
+    "programs": 5,
+    "geometries": 45,
+    "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Pro, Unspecified Version)",
+    "snapshot": {
+      "tick": 0,
+      "kart": {
+        "position": {
+          "x": -36.058532385541646,
+          "z": 10.76936628893767
+        },
+        "headingRad": 10.54663869871338,
+        "velocity": {
+          "x": -4.811680858875883,
+          "z": -9.988066858329141
+        },
+        "yawRateRadPerSecond": -0.09835723528209273,
+        "speedMps": 11.08664747586598,
+        "driveDirection": "Forward",
+        "forwardAccelMps2": -2.983941919247357,
+        "lateralAccelMps2": -1.0904519942729143,
+        "steerAngleRad": -0.010688725395801657,
+        "isTrailBraking": false,
+        "axleScrub": 0.016412301885898227,
+        "slipRatio": 0.016412301885898227,
+        "throttleInput": 0,
+        "brakeInput": 0.1504539885358125,
+        "speedKph": 39.91193091311753,
+        "steeringWheelAngleRad": -0.023515195870763648,
+        "barrierContact": false,
+        "barrierContactCount": 0,
+        "lapDistanceMeters": 0.09196631438986454,
+        "unwrappedDistanceMeters": 726.3057947906709,
+        "lapProgress": 0.0002532761310338171,
+        "currentSector": 1,
+        "currentTurn": null
+      },
+      "camera": {
+        "mode": "Chase Cam",
+        "settings": {
+          "fieldOfViewDegrees": 64,
+          "motionStrength": 0.35
+        },
+        "rollRad": 0,
+        "position": {
+          "x": -34.23570364932802,
+          "y": 2.1,
+          "z": 14.553186501161534
+        },
+        "lookAt": {
+          "x": -37.57755633238633,
+          "y": 0.4,
+          "z": 7.616182778751116
+        }
+      }
+    }
+  },
+  "helmet": {
+    "driverModelTriangles": 5860,
+    "calls": 32,
+    "triangles": 16872,
+    "textures": 6,
+    "programs": 5,
+    "geometries": 45,
+    "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Pro, Unspecified Version)",
+    "snapshot": {
+      "tick": 0,
+      "kart": {
+        "position": {
+          "x": -36.058532385541646,
+          "z": 10.76936628893767
+        },
+        "headingRad": 10.54663869871338,
+        "velocity": {
+          "x": -4.811680858875883,
+          "z": -9.988066858329141
+        },
+        "yawRateRadPerSecond": -0.09835723528209273,
+        "speedMps": 11.08664747586598,
+        "driveDirection": "Forward",
+        "forwardAccelMps2": -2.983941919247357,
+        "lateralAccelMps2": -1.0904519942729143,
+        "steerAngleRad": -0.010688725395801657,
+        "isTrailBraking": false,
+        "axleScrub": 0.016412301885898227,
+        "slipRatio": 0.016412301885898227,
+        "throttleInput": 0,
+        "brakeInput": 0.1504539885358125,
+        "speedKph": 39.91193091311753,
+        "steeringWheelAngleRad": -0.023515195870763648,
+        "barrierContact": false,
+        "barrierContactCount": 0,
+        "lapDistanceMeters": 0.09196631438986454,
+        "unwrappedDistanceMeters": 726.3057947906709,
+        "lapProgress": 0.0002532761310338171,
+        "currentSector": 1,
+        "currentTurn": null
+      },
+      "camera": {
+        "mode": "Helmet Cam",
+        "settings": {
+          "fieldOfViewDegrees": 64,
+          "motionStrength": 0.35
+        },
+        "rollRad": 0,
+        "position": {
+          "x": -35.94135053821363,
+          "y": 0.99,
+          "z": 11.012611874009204
+        },
+        "lookAt": {
+          "x": -37.79455975336414,
+          "y": -0.2,
+          "z": 7.165727991581608
+        }
+      }
+    }
+  },
+  "chase": {
+    "driverModelTriangles": 5860,
+    "calls": 45,
+    "triangles": 22200,
+    "textures": 6,
+    "programs": 5,
+    "geometries": 45,
+    "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Pro, Unspecified Version)",
+    "snapshot": {
+      "tick": 0,
+      "kart": {
+        "position": {
+          "x": -36.058532385541646,
+          "z": 10.76936628893767
+        },
+        "headingRad": 10.54663869871338,
+        "velocity": {
+          "x": -4.811680858875883,
+          "z": -9.988066858329141
+        },
+        "yawRateRadPerSecond": -0.09835723528209273,
+        "speedMps": 11.08664747586598,
+        "driveDirection": "Forward",
+        "forwardAccelMps2": -2.983941919247357,
+        "lateralAccelMps2": -1.0904519942729143,
+        "steerAngleRad": -0.010688725395801657,
+        "isTrailBraking": false,
+        "axleScrub": 0.016412301885898227,
+        "slipRatio": 0.016412301885898227,
+        "throttleInput": 0,
+        "brakeInput": 0.1504539885358125,
+        "speedKph": 39.91193091311753,
+        "steeringWheelAngleRad": -0.023515195870763648,
+        "barrierContact": false,
+        "barrierContactCount": 0,
+        "lapDistanceMeters": 0.09196631438986454,
+        "unwrappedDistanceMeters": 726.3057947906709,
+        "lapProgress": 0.0002532761310338171,
+        "currentSector": 1,
+        "currentTurn": null
+      },
+      "camera": {
+        "mode": "Chase Cam",
+        "settings": {
+          "fieldOfViewDegrees": 64,
+          "motionStrength": 0.35
+        },
+        "rollRad": 0,
+        "position": {
+          "x": -34.23570364932802,
+          "y": 2.1,
+          "z": 14.553186501161534
+        },
+        "lookAt": {
+          "x": -37.57755633238633,
+          "y": 0.4,
+          "z": 7.616182778751116
+        }
+      }
+    }
+  }
+}

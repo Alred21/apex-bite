@@ -64,4 +64,12 @@ Use the existing public SimulationSession inputs, snapshots, reference replay, a
 
 Verified the published specification and all ten child bodies against the local files; checked titles, ready-for-agent labels, open states, ten native parent/sub-issue links, and all eleven native blocking edges. GitHub holds the canonical issue relationships; local ticket bodies mirror the published text and this index records the blockers.
 
-The issues are ready to pick up according to their dependencies. No game implementation or deployment was performed by this documentation/publication task.
+The publication task changed documentation only. Implementation is now underway on `feat/iteration-4`, tracked in [draft PR #44](https://github.com/Alred21/apex-bite/pull/44). Issues are linked for closure when the reviewed integration PR merges.
+
+## Implementation progress
+
+- #34: merged; rendered steering regression and before/after state comparison pass. See [steering evidence](iteration-4-steering.md).
+- #35: merged; current Kart/driver ghost parity and independent overlap checks pass. See [ghost evidence](iteration-4-current-model-ghosts.md).
+- #39: merged; floating labels removed while minimap and training identifiers remain. See [label inspection](iteration-4-turn-labels.md).
+- #40: merged; bounded geometry comparison finds a 41.316667-second candidate against the 41.558333-second baseline, with twelve clean replays. Production reference remains unchanged pending the control comparison and adoption. See [geometry experiment](iteration-4-geometry-experiment.md).
+- #36, #37, and #41 are in progress. #38, #42, and #43 retain their approved prerequisites; the complete visual review remains required before final integration acceptance.

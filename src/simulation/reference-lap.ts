@@ -346,7 +346,9 @@ export function referencePoseAtTime(reference: ReferenceReplay, seconds: number)
   const time = ((seconds % reference.lapSeconds) + reference.lapSeconds) % reference.lapSeconds;
   const fractionalIndex = time / FIXED_TIMESTEP_SECONDS, index = Math.floor(fractionalIndex), ratio = fractionalIndex - index;
   const a = reference.frames[index].kart, b = reference.frames[Math.min(index + 1, reference.frames.length - 1)].kart;
-  return { position: { x: a.position.x + (b.position.x - a.position.x) * ratio, z: a.position.z + (b.position.z - a.position.z) * ratio }, headingRad: a.headingRad + wrapAngleRad(b.headingRad - a.headingRad) * ratio, speedKph: a.speedKph + (b.speedKph - a.speedKph) * ratio };
+  return { position: { x: a.position.x + (b.position.x - a.position.x) * ratio, z: a.position.z + (b.position.z - a.position.z) * ratio }, headingRad: a.headingRad + wrapAngleRad(b.headingRad - a.headingRad) * ratio, speedKph: a.speedKph + (b.speedKph - a.speedKph) * ratio,
+    steerAngleRad: a.steerAngleRad + (b.steerAngleRad - a.steerAngleRad) * ratio,
+    steeringWheelAngleRad: a.steeringWheelAngleRad + (b.steeringWheelAngleRad - a.steeringWheelAngleRad) * ratio };
 }
 
 /** Inside-front-tire target measured from the executed Turn traversal. */

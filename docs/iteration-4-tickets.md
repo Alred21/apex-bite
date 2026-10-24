@@ -76,5 +76,5 @@ The publication task changed documentation only. Implementation is now underway 
 - #41: merged; the bounded 144-case comparison selects 38.225 seconds, passing the unchanged robustness gates and twelve clean replay laps. See [control comparison](iteration-4-control-experiment.md).
 - #37: merged; scoped original Kart refinement, asset inspection, matching views, ghost parity, and focused rendering checks pass. See [Kart evidence](iteration-4-kart.md).
 - #42: merged; the live 38.225-second reference includes tuned settings and runtime content validation. Eighty-eight tests, twelve clean replay laps, all sixteen drills, and compatible-record checks pass. See [adoption evidence](iteration-4-adoption.md).
-- #38 is in progress. #43 retains its approved prerequisites; the complete visual review remains required before final integration acceptance.
+- #38's technical implementation and rendered checks are complete on its isolated review branch; the required user visual acceptance remains pending. The unchecked review criterion remains open on GitHub. #43 retains that prerequisite before final integration acceptance.
 - #34, #35, #36, #37, #39, #40, #41, and #42 are closed on GitHub with checked acceptance criteria and linked evidence. #38, #43, and parent #33 remain open until their acceptance work is complete.

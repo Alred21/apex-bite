@@ -67,6 +67,14 @@ function ghostScenario(name: string): void {
     const slowest = reference.frames.reduce((best, frame, index) => frame.kart.speedMps < reference.frames[best].kart.speedMps ? index : best, 0);
     for (let tick = 0; tick < slowest; tick++) session.step(FIXED_TIMESTEP_SECONDS, reference.commands[tick]);
     for (let tick = 0; tick < 600 && session.getSnapshot().kart.speedMps > 0; tick++) session.step(FIXED_TIMESTEP_SECONDS, { brake: 0.45 });
+    // A faster reference can leave the overlap region while the player stops.
+    // Hold still until it naturally laps and approaches, then engage reverse.
+    ghostMode('Reference Lap');
+    for (let tick = 0; tick < reference.commands.length; tick++) {
+      const { kart, ghost } = session.getSnapshot(), pose = ghost.trackRecordPose;
+      if (pose && Math.hypot(pose.position.x - kart.position.x, pose.position.z - kart.position.z) < 1.5) break;
+      session.step(FIXED_TIMESTEP_SECONDS, { brake: 1 });
+    }
     session.step(FIXED_TIMESTEP_SECONDS, {});
     session.step(FIXED_TIMESTEP_SECONDS, { brake: 1 });
   }

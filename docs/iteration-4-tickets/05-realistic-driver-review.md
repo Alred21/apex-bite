@@ -12,5 +12,5 @@ See a believable helmeted driver fitted to the improved Kart, with convincing ha
 - [x] Improve proportions, helmet, suit, gloves, sleeves, seated posture, and material appearance. Fit the body to the improved Kart without altering physics.
 - [x] Keep hands attached throughout left/right steering; calibrate eye position, seating, wheel size, and framing together. Avoid distracting clipping, floating hands, or blocked track sightlines.
 - [x] Ensure the shared definition gives player and both ghosts the same updated driver. Retain camera comfort and quality controls.
-- [ ] Present matching iteration-3/proposed images and motion covering Helmet Cam left/right steering, seated Chase Cam posture, and a separated Ghost Kart; obtain the agreed user visual review before completing visual integration and record its outcome.
+- [x] Present matching iteration-3/proposed images and motion covering Helmet Cam left/right steering, seated Chase Cam posture, and a separated Ghost Kart; obtain the agreed user visual review before completing visual integration and record its outcome.
 - [x] Measure rendering with the updated driver and visible ghosts in both views against the existing 60 FPS target. Resolve material regressions within scope and retain relevant browser/type/build evidence.

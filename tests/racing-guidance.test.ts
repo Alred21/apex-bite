@@ -90,7 +90,8 @@ describe('Pose-aware Racing Line guidance through SimulationSession', () => {
       }
       return snapshot;
     };
-    const fast = approach(0), slow = approach(0.3);
+    // The faster reference needs 40% braking to reach the same coasting-speed scenario.
+    const fast = approach(0), slow = approach(0.4);
     // Natural trajectories, without teleporting or editing Session state.
     expect(Math.hypot(fast.kart.position.x - slow.kart.position.x, fast.kart.position.z - slow.kart.position.z)).toBeLessThan(0.05);
     expect(Math.abs(fast.kart.headingRad - slow.kart.headingRad)).toBeLessThan(0.01);

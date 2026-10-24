@@ -17,7 +17,7 @@ function scenario(name: string): void {
   session.reset(); playing = false; commandIndex = 0; accumulator = 0;
   if (name === 'fast' || name === 'slow') {
     for (let tick = 0; tick < 300 && session.getSnapshot().kart.lapDistanceMeters < 6; tick++) {
-      session.step(FIXED_TIMESTEP_SECONDS, name === 'fast' ? { throttle: 1 } : { brake: 0.3 });
+      session.step(FIXED_TIMESTEP_SECONDS, name === 'fast' ? { throttle: 1 } : { brake: 0.4 });
     }
   } else if (name === 'recover') {
     for (let tick = 0; tick < 120; tick++) session.step(FIXED_TIMESTEP_SECONDS, { brake: 0.5, steer: -0.7 });

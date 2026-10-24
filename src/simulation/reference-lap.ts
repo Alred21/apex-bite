@@ -190,6 +190,8 @@ export function executeReferenceProposal(circuit: CircuitData, proposal: Referen
 
 export interface ReferenceRecipe {
   signature: string;
+  contentSignature: string;
+  driver: ReferenceDriverSettings;
   name: string;
   positions: Vector2D[];
   lapSeconds: number;
@@ -203,9 +205,21 @@ export function referenceRecipeSignature(circuit: CircuitData): string {
     parameters: Object.keys(parameters).sort().map((key) => [key, parameters[key as keyof typeof parameters]]),
     circuit: circuit.samples.map((sample) => [sample.center.x, sample.center.z, sample.widthMeters]) },
   (_key, value) => typeof value === 'number' ? Math.round(value * 1000000) / 1000000 : value);
+  return contentHash(input);
+}
+
+function contentHash(input: string): string {
   let hash = 2166136261;
   for (let index = 0; index < input.length; index++) hash = Math.imul(hash ^ input.charCodeAt(index), 16777619);
   return (hash >>> 0).toString(16);
+}
+
+/** Binds the selected settings and geometry to the validated result; the separate
+ * dynamics signature intentionally remains comparable to the frozen baseline. */
+export function referenceRecipeContentSignature(recipe: Omit<ReferenceRecipe, 'contentSignature'>): string {
+  return contentHash(JSON.stringify({ signature: recipe.signature, name: recipe.name,
+    driver: { ...DEFAULT_REFERENCE_DRIVER, ...recipe.driver }, positions: recipe.positions,
+    lapSeconds: recipe.lapSeconds, evidence: recipe.evidence }));
 }
 
 function freeze<T>(value: T): T {
@@ -219,16 +233,17 @@ function freeze<T>(value: T): T {
 export function buildReferenceLap(circuit: CircuitData): ReferenceReplay {
   const existing = cache.get(circuit);
   if (existing) return existing;
-  if (!REFERENCE_RECIPE || REFERENCE_RECIPE.signature !== referenceRecipeSignature(circuit)) throw new Error('Reference recipe is out of date. Run npm run reference:generate.');
+  if (!REFERENCE_RECIPE || REFERENCE_RECIPE.signature !== referenceRecipeSignature(circuit) || REFERENCE_RECIPE.contentSignature !== referenceRecipeContentSignature(REFERENCE_RECIPE)) throw new Error('Reference recipe content or dynamics are out of date. Run npm run reference:generate.');
   // Re-execute only the offline winner at startup. Never publish an unexecuted
   // recipe, and never run candidate search in a live driving update.
-  const result = executeReferenceProposal(circuit, { name: REFERENCE_RECIPE.name, positions: REFERENCE_RECIPE.positions });
+  const result = executeReferenceProposal(circuit, { name: REFERENCE_RECIPE.name, positions: REFERENCE_RECIPE.positions, driver: REFERENCE_RECIPE.driver });
   if (!('frames' in result) || Math.abs(result.lapSeconds - REFERENCE_RECIPE.lapSeconds) > FIXED_TIMESTEP_SECONDS + 1e-6) throw new Error('Reference recipe no longer reproduces its validated lap. Run npm run reference:generate.');
   const observed = result.evidence[0];
   result.evidence = structuredClone(REFERENCE_RECIPE.evidence);
   // Engines can differ at a final tick boundary by one fixed step. Keep the
   // published winner's actual time/Complex evidence from this execution.
-  const winner = result.evidence.find((candidate) => candidate.name === result.name)!;
+  const winner = result.evidence.find((candidate) => candidate.name === result.name);
+  if (!winner?.feasible || winner.selectionEligible === false) throw new Error('Reference recipe winner is not eligible for training.');
   winner.lapSeconds = result.lapSeconds;
   winner.complexes = observed.complexes;
   cache.set(circuit, freeze(result));

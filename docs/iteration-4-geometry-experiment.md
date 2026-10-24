@@ -1,10 +1,10 @@
 # Iteration 4: bounded geometry experiment
 
-Ticket #40 finds a **41.316667 s** achieved lap against the unchanged iteration-3 **41.558333 s** baseline: **0.241667 s (0.582%)** faster with the existing speed/braking/tracking controller. The production Reference Lap is unchanged. This is a geometry result for the subsequent control experiment and adoption decision, not completion of the whole Racing Line objective.
+Ticket #40 finds a **41.316667 s** achieved lap against the unchanged iteration-3 **41.558333 s** baseline: **0.241667 s (0.582%)** faster with the existing speed/braking/tracking controller. At the completion of #40 the production Reference Lap was unchanged; #42 later adopted the combined result (see [adoption](iteration-4-adoption.md)). This is a geometry result for the subsequent control experiment and adoption decision, not completion of the whole Racing Line objective.
 
 ## Reproduce and inspect
 
-Run `npm run reference:generate -- --geometry-experiment` from the repository. It writes the protocol, full evidence, and executable candidate bundle into this report's adjacent `iteration-4-geometry` directory. `--output <directory>` keeps an independent run; `--budget <1..400>` sets a smaller trial budget. The existing generation command without the experiment flag retains its original production-generation behavior.
+Run `npm run reference:generate -- --geometry-experiment` from the repository. It writes the protocol, full evidence, and executable candidate bundle into this report's adjacent `iteration-4-geometry` directory. `--output <directory>` keeps an independent run; `--budget <1..400>` sets a smaller trial budget. As of #42, the command without an experiment flag verifies and adopts the approved control candidate; it does not rerun the old 165-proposal production search. The explicit geometry experiment still uses the frozen iteration-3 fixture and default controller.
 
 - [Protocol and measured baseline](iteration-4-geometry/geometry-protocol.json): fixed before main candidate selection.
 - [Full candidate and per-Turn evidence](iteration-4-geometry/geometry-evidence.json): all 220 trial outcomes, three seed outcomes, pass history, five Corner Complexes, and entry/Apex/exit positions and speeds through all eleven Turns for retained traversals.

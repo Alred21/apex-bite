@@ -1,0 +1,9 @@
+{
+  "drillCaptions": [
+    {
+      "target": "T3",
+      "caption": "-6.758s vs 38.225s REFERENCE",
+      "expected": "LAST PASS: -0.000s vs 3.917s REFERENCE"
+    }
+  ]
+}

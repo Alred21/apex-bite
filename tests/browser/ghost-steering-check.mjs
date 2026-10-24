@@ -52,17 +52,33 @@ try {
         if(x>=wheelBox.left&&x<=wheelBox.right&&y>=wheelBox.top&&y<=wheelBox.bottom) wheelPixels++;
       }
       const spatial = pose => ({ position:pose.position, headingRad:pose.headingRad, speedKph:pose.speedKph });
-      return { changedPixels, wheelPixels, wheelBox, separationMeters:Math.hypot(pose.position.x-before.kart.position.x,pose.position.z-before.kart.position.z),
+      // Older portable tapes omit steering. Render the same replay clock and
+      // location after that field is removed through the ordinary import path.
+      const legacy = capture(undefined), legacyRecords = guidanceReview.portableRecords();
+      guidanceReview.ghostMode('Off'); const hidden = guidanceReview.capturePixels();
+      guidanceReview.ghostMode('Personal Best'); guidanceReview.capturePixels();
+      let legacyVisiblePixels = 0;
+      for (let i = 0; i < hidden.data.length; i += 4) if ([0, 1, 2].some(c => Math.abs(hidden.data[i+c] - legacy.pixels.data[i+c]) > 2)) legacyVisiblePixels++;
+      guidanceReview.importRecords(legacyRecords);
+      const legacyResult = { steering: legacy.snapshot.ghost.personalBestPose.steerAngleRad, visiblePixels: legacyVisiblePixels,
+        poseUnchanged: JSON.stringify(spatial(legacy.snapshot.ghost.personalBestPose)) === JSON.stringify(spatial(right.snapshot.ghost.personalBestPose)),
+        playerUnchanged: JSON.stringify(legacy.snapshot.kart) === JSON.stringify(right.snapshot.kart),
+        clockUnchanged: legacy.snapshot.lap.currentLapSeconds === right.snapshot.lap.currentLapSeconds,
+        recordsRoundTrip: legacyRecords === guidanceReview.portableRecords() };
+
+      return { legacy: legacyResult, changedPixels, wheelPixels, wheelBox, separationMeters:Math.hypot(pose.position.x-before.kart.position.x,pose.position.z-before.kart.position.z),
         publicSteering:[left.snapshot.ghost.personalBestPose.steerAngleRad,right.snapshot.ghost.personalBestPose.steerAngleRad],
         poseUnchanged:JSON.stringify(spatial(left.snapshot.ghost.personalBestPose))===JSON.stringify(spatial(right.snapshot.ghost.personalBestPose)),
         playerUnchanged:JSON.stringify(left.snapshot.kart)===JSON.stringify(right.snapshot.kart),
         clockUnchanged:left.snapshot.lap.currentLapSeconds===right.snapshot.lap.currentLapSeconds };
     });
     results.push({camera,...result});
-    await page.screenshot({path:join(output,camera==='Chase Cam'?'ghost-steering-chase.png':'ghost-steering-helmet.png')});
+    await page.screenshot({path:join(output,camera==='Chase Cam'?'ghost-legacy-chase.png':'ghost-legacy-helmet.png')});
     assert(result.separationMeters>3.5,'Ghost must actually be visible and separated');
     assert(result.poseUnchanged&&result.playerUnchanged&&result.clockUnchanged,'Steering changes must preserve replay spatial state, player and clock');
     assert.deepEqual(result.publicSteering,[-.35,.35]);
+    assert(Number.isFinite(result.legacy.steering) && result.legacy.visiblePixels > 100, 'Older replay remains visible with finite inferred steering');
+    assert(result.legacy.poseUnchanged && result.legacy.playerUnchanged && result.legacy.clockUnchanged && result.legacy.recordsRoundTrip, 'Older replay fallback preserves spatial state, clock and portable records');
     assert(result.wheelPixels>20,`${camera}: recorded steering must visibly move ghost wheel/hands`);
   }
   assert.equal(errors.length,0);

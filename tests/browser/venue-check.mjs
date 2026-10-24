@@ -59,7 +59,7 @@ try {
     if (!finalReport) await new Promise(resolve => setTimeout(resolve, 30000));
   }
   if (!finalReport) throw new Error('Timed out before genuine four-lap report.');
-  await writeFile(join(evidence, 'iteration-3-performance.json'), JSON.stringify({ ...finalReport, browserVersion: startup.browser, startup: { ...finalReport.startup, navigation: startup }, launcherErrors: errors }, null, 2));
+  await writeFile(join(evidence, 'performance.json'), JSON.stringify({ ...finalReport, browserVersion: startup.browser, startup: { ...finalReport.startup, navigation: startup }, launcherErrors: errors }, null, 2));
   await page.screenshot({ path: join(evidence, 'results-after-measurement.png') });
   console.log('Complete', JSON.stringify({ completedLaps: finalReport.results.completedLaps.length, wallSeconds: finalReport.wallSeconds, barrierContacts: finalReport.barrierContacts, timing: finalReport.allMeasuredAfterWarmup }));
 } finally {

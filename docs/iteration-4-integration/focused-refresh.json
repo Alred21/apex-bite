@@ -1,0 +1,37 @@
+{
+  "browser": "156.0.8078.47",
+  "source": "Rebuilt production preview after caption fix. On-demand renderer captured after pending viewport resize settled.",
+  "viewport": [
+    1440,
+    900
+  ],
+  "dpr": 2,
+  "fov": [
+    {
+      "degrees": 50,
+      "speed": 33.72014280179714,
+      "contacts": 0
+    },
+    {
+      "degrees": 90,
+      "speed": 32.702389221278274,
+      "contacts": 0
+    },
+    {
+      "degrees": 64,
+      "speed": 31.711094860834923,
+      "contacts": 0
+    }
+  ],
+  "drills": [
+    {
+      "target": "T3",
+      "caption": "LAST PASS: -0.000s vs 3.917s REFERENCE"
+    },
+    {
+      "target": "T6-T7-T8",
+      "caption": "LAST PASS: +0.000s vs 6.025s REFERENCE"
+    }
+  ],
+  "errors": []
+}

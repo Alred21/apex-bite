@@ -1,0 +1,44 @@
+{
+  "browser": "155.0.8059.85",
+  "viewport": [
+    1440,
+    900
+  ],
+  "dpr": 1,
+  "quality": "Balanced",
+  "results": [
+    {
+      "camera": "Chase Cam",
+      "mode": "Reference Lap",
+      "helmet": {
+        "x": 1037.7763566985145,
+        "y": 340.9848138078684
+      },
+      "helmetPixels": 0,
+      "outsideGhostPixels": 0,
+      "changedPixels": 1454,
+      "onDiagnostics": {
+        "calls": 68,
+        "triangles": 39422,
+        "geometries": 61,
+        "textures": 16,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "offDiagnostics": {
+        "calls": 61,
+        "triangles": 39130,
+        "geometries": 61,
+        "textures": 16,
+        "programs": 17,
+        "activeSkidMarks": 0,
+        "skidCapacity": 320
+      },
+      "separationMeters": 14.13286106616123,
+      "snapshotUnchanged": true,
+      "recordsUnchanged": true
+    }
+  ],
+  "errors": []
+}

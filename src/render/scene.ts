@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CircuitData, SessionSnapshot, type GhostPose, type Vector2D } from '../simulation/types';
+import { CircuitData, SessionSnapshot, type GhostPose } from '../simulation/types';
 import { createIndoorVenue, buildVenueBarriers } from './venue';
 import { applyGraphicsQuality, GraphicsQuality, loadGraphicsQuality } from './graphics';
 import { createKartRig } from './kart';
@@ -204,39 +204,31 @@ function buildRacingLineRibbon(initialSnapshot: SessionSnapshot): {
   return { mesh, updateColors };
 }
 
-function buildGhostKartMesh(tintColor: number): { root: THREE.Group; material: THREE.MeshStandardMaterial } {
-  const ghostRoot = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({
-    color: tintColor,
-    transparent: true,
-    opacity: 0.42,
-    roughness: 0.25,
-    emissive: tintColor,
-    emissiveIntensity: 0.25,
+function buildGhostKartRig(tintColor: number) {
+  // Each rig owns its materials. Reusing the same model construction keeps
+  // geometry and driver updates in step without tinting the player's Kart.
+  const rig = createKartRig();
+  const tint = new THREE.Color(tintColor);
+  const materials = new Map<THREE.Material, number>();
+  rig.root.traverse((object) => {
+    if (!(object instanceof THREE.Mesh)) return;
+    object.castShadow = object.receiveShadow = false;
+    for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+      if (materials.has(material)) continue;
+      materials.set(material, material.opacity);
+      material.transparent = true;
+      material.depthWrite = false;
+      if (material instanceof THREE.MeshStandardMaterial || material instanceof THREE.MeshBasicMaterial) {
+        material.color.lerp(tint, 0.78);
+      }
+      if (material instanceof THREE.MeshStandardMaterial) {
+        material.emissive.copy(tint);
+        material.emissiveIntensity = 0.15;
+      }
+    }
   });
-
-  const body = new THREE.Mesh(new THREE.BoxGeometry(1.52, 0.22, 0.92), mat);
-  body.position.set(0, 0.18, 0);
-  const nose = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 0.74), mat);
-  nose.position.set(0.65, 0.22, 0);
-  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.42, 0.42), mat);
-  seat.position.set(-0.18, 0.36, 0);
-
-  const tireGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.18, 16);
-  for (const [tx, tz] of [
-    [-0.52, -0.58],
-    [-0.52, 0.58],
-    [0.54, -0.54],
-    [0.54, 0.54],
-  ]) {
-    const tire = new THREE.Mesh(tireGeo, mat);
-    tire.position.set(tx, 0.18, tz);
-    ghostRoot.add(tire);
-  }
-
-  ghostRoot.add(body, nose, seat);
-  ghostRoot.visible = false;
-  return { root: ghostRoot, material: mat };
+  rig.root.visible = false;
+  return { ...rig, materials };
 }
 
 export interface CircuitRenderer {
@@ -292,8 +284,8 @@ export function createCircuitRenderer(
   });
   scene.add(kartRig.root);
 
-  const trackRecordGhost = buildGhostKartMesh(0xfacc15); // Gold executable Reference Lap Ghost
-  const personalBestGhost = buildGhostKartMesh(0x22c55e); // Emerald Personal Best Ghost
+  const trackRecordGhost = buildGhostKartRig(0xfacc15); // Gold executable Reference Lap Ghost
+  const personalBestGhost = buildGhostKartRig(0x22c55e); // Emerald Personal Best Ghost
   scene.add(trackRecordGhost.root, personalBestGhost.root);
 
   // Dynamic rear-tire scrub / skid marks pool on the indoor floor
@@ -317,16 +309,25 @@ export function createCircuitRenderer(
     applyGraphicsQuality(renderer, venue.keyLight, graphicsQuality);
   });
 
-  function updateGhost(rig: ReturnType<typeof buildGhostKartMesh>, pose: GhostPose | null, player: Vector2D): void {
+  function updateGhost(rig: ReturnType<typeof buildGhostKartRig>, pose: GhostPose | null, snapshot: SessionSnapshot): void {
     if (!pose) { rig.root.visible = false; return; }
-    rig.root.position.set(pose.position.x, 0, pose.position.z);
-    rig.root.rotation.y = -pose.headingRad;
+    // Replay steering is added separately; old recordings currently carry only
+    // pose and speed. Keep a neutral grip rather than borrowing player inputs.
+    rig.update({
+      ...snapshot,
+      kart: { ...snapshot.kart, position: pose.position, headingRad: pose.headingRad,
+        speedKph: pose.speedKph, speedMps: pose.speedKph / 3.6,
+        steerAngleRad: 0, steeringWheelAngleRad: 0 },
+      // A ghost is always viewed from outside, including in the player's Helmet Cam.
+      camera: { ...snapshot.camera, mode: 'Chase Cam' },
+    });
     // The combined Kart/Ghost footprint fits inside 2.2 m at any heading.
     // Keep intersecting geometry invisible, then restore it over 1.3 m of clearance.
     // Smoothstep has flat endpoints; tiny boundary motion cannot produce a pop.
-    const distance = Math.hypot(pose.position.x - player.x, pose.position.z - player.z);
+    const distance = Math.hypot(pose.position.x - snapshot.kart.position.x, pose.position.z - snapshot.kart.position.z);
     const separation = THREE.MathUtils.clamp((distance - 2.2) / 1.3, 0, 1);
-    rig.material.opacity = 0.42 * separation * separation * (3 - 2 * separation);
+    const opacity = 0.42 * separation * separation * (3 - 2 * separation);
+    for (const [material, baseOpacity] of rig.materials) material.opacity = baseOpacity * opacity;
     rig.root.visible = separation > 0;
   }
 
@@ -338,8 +339,8 @@ export function createCircuitRenderer(
 
     kartRig.update(snapshot);
 
-    updateGhost(trackRecordGhost, ghost.trackRecordPose, kart.position);
-    updateGhost(personalBestGhost, ghost.personalBestPose, kart.position);
+    updateGhost(trackRecordGhost, ghost.trackRecordPose, snapshot);
+    updateGhost(personalBestGhost, ghost.personalBestPose, snapshot);
 
     // Emit rear-tire scrub/skid marks when sliding or experiencing heavy Axle Scrub
     if (

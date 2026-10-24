@@ -1,6 +1,6 @@
 # Electric rental Kart presentation
 
-Iteration 4 refines the moulded bodywork, tire materials, steering hardware and binnacle while retaining the physical dimensions; see [Kart refinement and matching evidence](iteration-4-kart.md). The iteration-3 driver remains until the dedicated driver slice.
+Iteration 4 refines the moulded bodywork, tire materials, steering hardware and binnacle while retaining the physical dimensions; see [Kart refinement and matching evidence](iteration-4-kart.md). The fitted driver is refined separately; see the [complete visual review packet](iteration-4-driver-review.md), whose user acceptance is pending.
 
 Iteration 3 adds the seated driver and recalibrates the wheel, binnacle and Helmet Cam together; see [driver review](iteration-3-driver.md). The original iteration-2 model review below is retained as baseline evidence.
 

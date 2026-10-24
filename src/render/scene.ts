@@ -311,13 +311,11 @@ export function createCircuitRenderer(
 
   function updateGhost(rig: ReturnType<typeof buildGhostKartRig>, pose: GhostPose | null, snapshot: SessionSnapshot): void {
     if (!pose) { rig.root.visible = false; return; }
-    // Replay steering is added separately; old recordings currently carry only
-    // pose and speed. Keep a neutral grip rather than borrowing player inputs.
     rig.update({
       ...snapshot,
       kart: { ...snapshot.kart, position: pose.position, headingRad: pose.headingRad,
         speedKph: pose.speedKph, speedMps: pose.speedKph / 3.6,
-        steerAngleRad: 0, steeringWheelAngleRad: 0 },
+        steerAngleRad: pose.steerAngleRad, steeringWheelAngleRad: pose.steeringWheelAngleRad },
       // A ghost is always viewed from outside, including in the player's Helmet Cam.
       camera: { ...snapshot.camera, mode: 'Chase Cam' },
     });

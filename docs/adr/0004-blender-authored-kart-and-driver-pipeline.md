@@ -1,0 +1,5 @@
+# Blender-Authored OTL Superleggero Kart and Reclined Driver Pipeline
+
+Hand-coding complex indoor rental go-kart bodywork and a seated human driver from procedural Three.js primitives (`LatheGeometry`, `TubeGeometry`, `ExtrudeGeometry`) produced a sprint-kart silhouette with an upright, out-of-scale driver (`1.13 m` tall inside a `0.90 m`-wide chassis). At the same time, `createKartRig()` must instantiate the player Kart and two independent translucent Ghost Karts synchronously on frame zero without asynchronous network loading flicker.
+
+We decided to author the K1 Speed Toronto OTL Superleggero Kart and reclined helmeted driver in local Blender (`Blender --background --python tools/build-kart-model.py`), saving both the editable `assets/otl-superleggero.blend` source file and exported `.glb` / pre-baked mesh data consumed synchronously by `createKartRig()`. This gives us sculpted wraparound Protex bumpers, an F1-style open-top steering wheel with integrated display, a rear roll hoop/headrest, and realistic reclined driver proportions (`Helmet Cam` eye height `~0.75 m`) while preserving synchronous rig creation and zero-contact Reference Lap compatibility.

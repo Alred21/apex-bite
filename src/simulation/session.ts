@@ -569,7 +569,8 @@ export function createSimulationSession(
       lapStartProgressMeters = kart.unwrappedDistanceMeters - kart.lapDistanceMeters;
       lap.lapNumber += 1;
       lap.currentLapSeconds = 0;
-      lap.isClean = !(barrierContact && isBarrierContactDirty(barrierImpactSpeedMps, continuousBarrierContactSeconds));
+      continuousBarrierContactSeconds = 0;
+      lap.isClean = !(barrierContact && isBarrierContactDirty(barrierImpactSpeedMps, 0));
       lap.currentSectorSplits = [null, null, null];
       sectorEntryLapSeconds = 0;
       activeLapGhostFrames = [

@@ -1,4 +1,7 @@
+import { barrierImpactSeverity } from './kart-world';
 import type { CameraMode, CameraSettings, CameraState, KartState } from './types';
+
+export const HELMET_CAM_EYE_HEIGHT_METERS = 0.75;
 
 /** Camera settings and pose are presentation state, never an input to dynamics. */
 export function createCameraPresentation() {
@@ -21,7 +24,7 @@ export function createCameraPresentation() {
     // One short displacement per new contact, scaled by normal impact severity.
     impact *= Math.exp(-dt / 0.1);
     if (kart.barrierContactCount > lastContactCount) {
-      const normalSeverity = Math.min(1, kart.barrierImpactSpeedMps / 3.5);
+      const normalSeverity = barrierImpactSeverity(kart.barrierImpactSpeedMps);
       impact = Math.min(1, Math.max(normalSeverity, Math.abs(kart.forwardAccelMps2) / 20));
     }
     lastContactCount = kart.barrierContactCount;
@@ -50,7 +53,7 @@ export function createCameraPresentation() {
       rollRad: -lateral * strength * (helmet ? 0.018 : 0.009) || 0,
       position: {
         x: kart.position.x + forwardX * eyeDistance - forwardZ * sideOffset,
-        y: (helmet ? 0.75 : 2.1) + impact * strength * 0.012,
+        y: (helmet ? HELMET_CAM_EYE_HEIGHT_METERS : 2.1) + impact * strength * 0.012,
         z: kart.position.z + forwardZ * eyeDistance + forwardX * sideOffset,
       },
       // A reclined seated-eye sightline includes hands and F1 rim in the lower frame.

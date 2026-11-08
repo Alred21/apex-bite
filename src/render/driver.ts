@@ -18,13 +18,13 @@ function elbowFor(shoulder: THREE.Vector3, wrist: THREE.Vector3, side: number): 
   const axis = wrist.clone().sub(shoulder);
   const distance = axis.length();
   axis.normalize();
-  const upper = 0.29;
-  const lower = 0.28;
+  const upper = 0.28;
+  const lower = 0.27;
   const along = Math.max(
     0,
     Math.min(distance, (upper * upper - lower * lower + distance * distance) / (2 * distance)),
   );
-  const bend = new THREE.Vector3(-0.15, -1, side * 0.68);
+  const bend = new THREE.Vector3(-0.10, -0.45, side * 0.90);
   bend.addScaledVector(axis, -bend.dot(axis)).normalize();
   return shoulder
     .clone()
@@ -88,7 +88,8 @@ function poseSleeve(
   geometry.computeBoundingSphere();
 }
 
-function fabricTexture(): THREE.CanvasTexture {
+function fabricTexture(): THREE.CanvasTexture | null {
+  if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 128;
   const context = canvas.getContext('2d')!;
@@ -163,14 +164,14 @@ export function createSeatedDriver(root: THREE.Group, steeringWheel: THREE.Group
     const glove = new THREE.Group();
     glove.name = side < 0 ? 'Left hand grip' : 'Right hand grip';
     steeringWheel.add(glove);
-    glove.position.set(-0.013, 0, side * 0.119);
+    glove.position.set(-0.01, 0, side * 0.105);
     addBlenderBatches(side < 0 ? GLOVELEFT_BATCHES : GLOVERIGHT_BATCHES, materials, glove, 'suit');
 
     return {
       side,
       geometry,
       glove,
-      shoulder: new THREE.Vector3(-0.372, 0.485, side * 0.172),
+      shoulder: new THREE.Vector3(-0.368, 0.482, side * 0.165),
     };
   });
 
@@ -181,7 +182,7 @@ export function createSeatedDriver(root: THREE.Group, steeringWheel: THREE.Group
     lastSteering = snapshot.kart.steeringWheelAngleRad;
     root.updateWorldMatrix(true, true);
     for (const arm of arms) {
-      const wrist = root.worldToLocal(arm.glove.localToWorld(new THREE.Vector3(-0.038, 0, 0)));
+      const wrist = root.worldToLocal(arm.glove.localToWorld(new THREE.Vector3(-0.032, 0, 0)));
       poseSleeve(arm.geometry, arm.shoulder, elbowFor(arm.shoulder, wrist, arm.side), wrist);
     }
   }

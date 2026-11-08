@@ -9,6 +9,13 @@ import {
 } from './otl-superleggero-meshes';
 import { addBlenderBatches } from './blender-batches';
 
+/** Calibrated OTL Superleggero cockpit reference coordinates. */
+export const STEERING_WHEEL_HUB_X_METERS = 0.185;
+export const STEERING_WHEEL_HUB_HEIGHT_METERS = 0.355;
+export const STEERING_WHEEL_TILT_RAD = 0.35;
+export const DASH_BINNACLE_X_METERS = 0.262;
+export const DASH_BINNACLE_HEIGHT_METERS = 0.478;
+
 // Metres, +X forward, +Z right. The OTL Superleggero wraparound bumper remains
 // inside the solver's 0.45 m half-width; front and rear axles retain 1.06 m wheelbase.
 const FRONT_AXLE = KART_WHEEL_GEOMETRY.frontAxleMeters;
@@ -22,7 +29,8 @@ export interface KartRig {
   update(snapshot: SessionSnapshot): void;
 }
 
-function surfaceTexture(kind: 'rubber' | 'weave'): THREE.CanvasTexture {
+function surfaceTexture(kind: 'rubber' | 'weave'): THREE.CanvasTexture | null {
+  if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
   const size = kind === 'rubber' ? 256 : 128;
   canvas.width = canvas.height = size;
@@ -45,7 +53,8 @@ function surfaceTexture(kind: 'rubber' | 'weave'): THREE.CanvasTexture {
   return texture;
 }
 
-function decalTexture(label: string, sublabel: string): THREE.CanvasTexture {
+function decalTexture(label: string, sublabel: string): THREE.CanvasTexture | null {
+  if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 256;
@@ -66,7 +75,8 @@ function decalTexture(label: string, sublabel: string): THREE.CanvasTexture {
   return texture;
 }
 
-function sidewallTexture(): THREE.CanvasTexture {
+function sidewallTexture(): THREE.CanvasTexture | null {
+  if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 256;
   const context = canvas.getContext('2d')!;
@@ -202,16 +212,16 @@ export function createKartRig(): KartRig {
   // sculpted sidepods, nose cone, floor pan, reclined bucket seat, roll hoop, and rear shroud.
   addBlenderBatches(STATIONARY_BATCHES, materials, stationary, 'red', true);
 
-  // Livery number & K1 Speed / OTL Superleggero decal plates on sidepods and nose cone
+  // Livery number & K1 Speed / OTL Superleggero decal plates flush on sidepods and nose cone
   for (const side of [-1, 1]) {
-    const label = add(new THREE.PlaneGeometry(0.28, 0.058), decal, -0.14, 0.30, side * 0.312);
+    const label = add(new THREE.PlaneGeometry(0.26, 0.054), decal, -0.02, 0.296, side * 0.295);
     label.rotation.x = -Math.PI / 2;
   }
-  const noseDecal = add(new THREE.PlaneGeometry(0.20, 0.11), decal, 0.62, 0.286, 0);
-  noseDecal.rotation.set(-Math.PI / 2, 0.12, -Math.PI / 2);
+  const noseDecal = add(new THREE.PlaneGeometry(0.18, 0.09), decal, 0.59, 0.238, 0);
+  noseDecal.rotation.set(-Math.PI / 2, 0.155, -Math.PI / 2);
 
-  // Ventilated rear brake rotor & caliper hardware visible beside the rear powertrain shroud
-  const brake = add(new THREE.CylinderGeometry(0.095, 0.095, 0.009, 28), alloy, REAR_AXLE, TIRE_RADIUS, -0.205);
+  // Ventilated rear brake rotor visible between the rear powertrain shroud and left rear wheel
+  const brake = add(new THREE.CylinderGeometry(0.095, 0.095, 0.009, 28), alloy, REAR_AXLE, TIRE_RADIUS, -0.215);
   brake.rotation.x = Math.PI / 2;
 
   // Articulated 4-wheel indoor slick assemblies
@@ -277,25 +287,32 @@ export function createKartRig(): KartRig {
     }
   }
 
-  // Lowered F1-style steering wheel mount (y = 0.36 m to match reclined driver & 0.75 m Helmet Cam)
+  // Lowered F1-style steering wheel mount (calibrated to reclined driver & 0.75 m Helmet Cam)
   const steeringMount = new THREE.Group();
-  steeringMount.position.set(0.21, 0.36, 0);
-  steeringMount.rotation.z = 0.4;
+  steeringMount.position.set(STEERING_WHEEL_HUB_X_METERS, STEERING_WHEEL_HUB_HEIGHT_METERS, 0);
+  steeringMount.rotation.z = STEERING_WHEEL_TILT_RAD;
   const steeringWheel = new THREE.Group();
   steeringMount.add(steeringWheel);
   root.add(steeringMount);
   addBlenderBatches(STEERINGWHEEL_BATCHES, materials, steeringWheel, 'red', true);
 
-  // Fixed digital instrument binnacle (y = 0.483 m to stay centered in Helmet Cam)
-  const dashCanvas = document.createElement('canvas');
-  dashCanvas.width = 256;
-  dashCanvas.height = 128;
-  const dashContext = dashCanvas.getContext('2d')!;
-  const dashTexture = new THREE.CanvasTexture(dashCanvas);
-  dashTexture.colorSpace = THREE.SRGBColorSpace;
-  const dashMaterial = new THREE.MeshBasicMaterial({ map: dashTexture });
-  const dashScreen = add(new THREE.PlaneGeometry(0.126, 0.06), dashMaterial, 0.249, 0.483);
-  dashScreen.rotation.set(0, -Math.PI / 2, 0.3, 'ZYX');
+  // Fixed digital instrument binnacle flush on the Nassau tower brow
+  const dashCanvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+  if (dashCanvas) {
+    dashCanvas.width = 256;
+    dashCanvas.height = 128;
+  }
+  const dashContext = dashCanvas ? dashCanvas.getContext('2d')! : null;
+  const dashTexture = dashCanvas ? new THREE.CanvasTexture(dashCanvas) : null;
+  if (dashTexture) dashTexture.colorSpace = THREE.SRGBColorSpace;
+  const dashMaterial = new THREE.MeshBasicMaterial({ map: dashTexture, color: 0x101f20 });
+  const dashScreen = add(
+    new THREE.PlaneGeometry(0.126, 0.06),
+    dashMaterial,
+    DASH_BINNACLE_X_METERS,
+    DASH_BINNACLE_HEIGHT_METERS,
+  );
+  dashScreen.rotation.set(0, -Math.PI / 2, 0.22, 'ZYX');
   const dashControls = new THREE.Group();
   dashControls.position.copy(dashScreen.position);
   dashControls.rotation.copy(dashScreen.rotation);
@@ -360,7 +377,7 @@ export function createKartRig(): KartRig {
     lastSpeed = kart.speedMps;
     lastPosition = { ...kart.position };
     const speed = Math.round(kart.speedKph);
-    if (speed !== displayedSpeed) {
+    if (speed !== displayedSpeed && dashContext && dashTexture) {
       displayedSpeed = speed;
       dashContext.fillStyle = '#101f20';
       dashContext.fillRect(0, 0, 256, 128);

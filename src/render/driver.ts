@@ -5,30 +5,13 @@ import {
   DRIVERHEAD_BATCHES,
   GLOVELEFT_BATCHES,
   GLOVERIGHT_BATCHES,
-  type BlenderGroupBatches,
 } from './otl-superleggero-meshes';
+import { addBlenderBatches } from './blender-batches';
 
-// Reclined seated driver (~35° backrest angle, helmet crown y ≈ 0.835 m below the
+// Reclined seated driver (~35° backrest angle, helmet crown y ≈ 0.82 m below the
 // 0.86 m OTL Superleggero roll hoop), authored in Blender via tools/build-kart-model.py.
 const SIDES = 20;
 const SLEEVE_RINGS = 15;
-
-function buildBatchGroup(
-  batches: BlenderGroupBatches,
-  materials: Record<string, THREE.Material>,
-  target: THREE.Group,
-): void {
-  for (const [matKey, batch] of Object.entries(batches)) {
-    const material = materials[matKey] ?? materials.suit;
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(batch.positions, 3));
-    geometry.setAttribute('normal', new THREE.Float32BufferAttribute(batch.normals, 3));
-    geometry.setIndex(batch.indices);
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.castShadow = mesh.receiveShadow = true;
-    target.add(mesh);
-  }
-}
 
 /** Two-link arm solve from reclined shoulder to rotating F1 steering yoke grip. */
 function elbowFor(shoulder: THREE.Vector3, wrist: THREE.Vector3, side: number): THREE.Vector3 {
@@ -168,8 +151,8 @@ export function createSeatedDriver(root: THREE.Group, steeringWheel: THREE.Group
     }),
   };
 
-  buildBatchGroup(DRIVERFIXED_BATCHES, materials, fixed);
-  buildBatchGroup(DRIVERHEAD_BATCHES, materials, head);
+  addBlenderBatches(DRIVERFIXED_BATCHES, materials, fixed, 'suit');
+  addBlenderBatches(DRIVERHEAD_BATCHES, materials, head, 'suit');
 
   const arms = ([-1, 1] as const).map((side) => {
     const geometry = sleeveGeometry();
@@ -181,7 +164,7 @@ export function createSeatedDriver(root: THREE.Group, steeringWheel: THREE.Group
     glove.name = side < 0 ? 'Left hand grip' : 'Right hand grip';
     steeringWheel.add(glove);
     glove.position.set(-0.013, 0, side * 0.119);
-    buildBatchGroup(side < 0 ? GLOVELEFT_BATCHES : GLOVERIGHT_BATCHES, materials, glove);
+    addBlenderBatches(side < 0 ? GLOVELEFT_BATCHES : GLOVERIGHT_BATCHES, materials, glove, 'suit');
 
     return {
       side,

@@ -44,8 +44,7 @@ import {
   WHEELBASE_METERS,
 } from './kart-parameters';
 import {
-  BARRIER_GRAZE_MAX_DURATION_SECONDS,
-  BARRIER_GRAZE_MAX_NORMAL_SPEED_MPS,
+  isBarrierContactDirty,
   stepKartOnCircuit,
 } from './kart-world';
 export {
@@ -414,10 +413,7 @@ export function createSimulationSession(
     const nearest = { distanceMeters: kart.lapDistanceMeters, progress: kart.lapProgress };
     if (barrierContact) {
       continuousBarrierContactSeconds += dtSeconds;
-      if (
-        barrierImpactSpeedMps > BARRIER_GRAZE_MAX_NORMAL_SPEED_MPS ||
-        continuousBarrierContactSeconds > BARRIER_GRAZE_MAX_DURATION_SECONDS
-      ) {
+      if (isBarrierContactDirty(barrierImpactSpeedMps, continuousBarrierContactSeconds)) {
         lap.isClean = false;
         drillIsClean = false;
       }
@@ -573,11 +569,7 @@ export function createSimulationSession(
       lapStartProgressMeters = kart.unwrappedDistanceMeters - kart.lapDistanceMeters;
       lap.lapNumber += 1;
       lap.currentLapSeconds = 0;
-      lap.isClean = !(
-        barrierContact &&
-        (barrierImpactSpeedMps > BARRIER_GRAZE_MAX_NORMAL_SPEED_MPS ||
-          continuousBarrierContactSeconds > BARRIER_GRAZE_MAX_DURATION_SECONDS)
-      );
+      lap.isClean = !(barrierContact && isBarrierContactDirty(barrierImpactSpeedMps, continuousBarrierContactSeconds));
       lap.currentSectorSplits = [null, null, null];
       sectorEntryLapSeconds = 0;
       activeLapGhostFrames = [

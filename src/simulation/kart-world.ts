@@ -7,6 +7,13 @@ import { wrapAngleRad } from './planar-math';
 export const BARRIER_GRAZE_MAX_NORMAL_SPEED_MPS = 1.8;
 export const BARRIER_GRAZE_MAX_DURATION_SECONDS = 0.35;
 
+/** True when a Barrier contact is too hard or too long to count as a forgivable graze. */
+export function isBarrierContactDirty(impactSpeedMps: number, continuousContactSeconds: number): boolean {
+  // The epsilon keeps 42 accumulated 120 Hz ticks (0.35 s) inside the graze window.
+  return impactSpeedMps > BARRIER_GRAZE_MAX_NORMAL_SPEED_MPS ||
+    continuousContactSeconds > BARRIER_GRAZE_MAX_DURATION_SECONDS + 1e-9;
+}
+
 interface Pose { position: Vector2D; headingRad: number; }
 const GRID_SIZE = 3;
 const SAFETY_METERS = 0.004;

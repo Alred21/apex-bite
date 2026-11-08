@@ -6,8 +6,8 @@ import type { SessionSnapshot } from '../simulation/types';
 import {
   STATIONARY_BATCHES,
   STEERINGWHEEL_BATCHES,
-  type BlenderGroupBatches,
 } from './otl-superleggero-meshes';
+import { addBlenderBatches } from './blender-batches';
 
 // Metres, +X forward, +Z right. The OTL Superleggero wraparound bumper remains
 // inside the solver's 0.45 m half-width; front and rear axles retain 1.06 m wheelbase.
@@ -95,25 +95,6 @@ function sidewallTexture(): THREE.CanvasTexture {
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
-}
-
-function addBlenderBatches(
-  batches: BlenderGroupBatches,
-  materials: Record<string, THREE.Material>,
-  parent: THREE.Group,
-): void {
-  for (const [matKey, batch] of Object.entries(batches)) {
-    const material = materials[matKey] ?? materials.red;
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(batch.positions, 3));
-    geometry.setAttribute('normal', new THREE.Float32BufferAttribute(batch.normals, 3));
-    const uvCount = batch.positions.length / 3;
-    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(uvCount * 2), 2));
-    geometry.setIndex(batch.indices);
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.castShadow = mesh.receiveShadow = true;
-    parent.add(mesh);
-  }
 }
 
 function consolidate(group: THREE.Group): void {
@@ -219,7 +200,7 @@ export function createKartRig(): KartRig {
 
   // Load Blender-authored OTL Superleggero stationary bodywork, wraparound Protex bumper,
   // sculpted sidepods, nose cone, floor pan, reclined bucket seat, roll hoop, and rear shroud.
-  addBlenderBatches(STATIONARY_BATCHES, materials, stationary);
+  addBlenderBatches(STATIONARY_BATCHES, materials, stationary, 'red', true);
 
   // Livery number & K1 Speed / OTL Superleggero decal plates on sidepods and nose cone
   for (const side of [-1, 1]) {
@@ -303,7 +284,7 @@ export function createKartRig(): KartRig {
   const steeringWheel = new THREE.Group();
   steeringMount.add(steeringWheel);
   root.add(steeringMount);
-  addBlenderBatches(STEERINGWHEEL_BATCHES, materials, steeringWheel);
+  addBlenderBatches(STEERINGWHEEL_BATCHES, materials, steeringWheel, 'red', true);
 
   // Fixed digital instrument binnacle (y = 0.483 m to stay centered in Helmet Cam)
   const dashCanvas = document.createElement('canvas');

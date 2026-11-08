@@ -21,7 +21,7 @@ export function createCameraPresentation() {
     // One short displacement per new contact, scaled by normal impact severity.
     impact *= Math.exp(-dt / 0.1);
     if (kart.barrierContactCount > lastContactCount) {
-      const normalSeverity = Math.min(1, (kart.barrierImpactSpeedMps ?? 0) / 3.5);
+      const normalSeverity = Math.min(1, kart.barrierImpactSpeedMps / 3.5);
       impact = Math.min(1, Math.max(normalSeverity, Math.abs(kart.forwardAccelMps2) / 20));
     }
     lastContactCount = kart.barrierContactCount;

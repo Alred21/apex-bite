@@ -63,7 +63,67 @@ describe('Ticket #3: Solid-Axle Kart Physics, Trail Braking, Barrier Collisions 
 
     expect(snap.kart.barrierContact).toBe(true);
     expect(snap.kart.barrierContactCount).toBeGreaterThanOrEqual(1);
+    expect(snap.kart.barrierImpactSpeedMps).toBeGreaterThan(1.8);
     expect(snap.lap.isClean).toBe(false);
     expect(snap.kart.speedKph).toBeLessThan(peakSpeedBeforeHit);
+  });
+
+  it('aligns heading toward the Barrier tangent and preserves Clean Lap on a brief shallow graze while invalidating prolonged wall-riding', () => {
+    const session = createSimulationSession();
+    let snap = session.getSnapshot();
+    const samples = snap.circuit.samples;
+
+    // Regulate inward velocity toward the nearest left BarrierSegment to ~0.9 m/s for a genuine shallow graze
+    const steerForInwardBarrierSpeed = (targetInwardMps: number): number => {
+      let bestDistSq = Infinity;
+      let nx = 0;
+      let nz = 1;
+      const frontX = snap.kart.position.x + Math.cos(snap.kart.headingRad) * 0.88;
+      const frontZ = snap.kart.position.z + Math.sin(snap.kart.headingRad) * 0.88;
+      for (let i = 0; i < samples.length; i++) {
+        const a = samples[i].leftBarrier;
+        const b = samples[(i + 1) % samples.length].leftBarrier;
+        const mx = 0.5 * (a.x + b.x);
+        const mz = 0.5 * (a.z + b.z);
+        const dSq = (frontX - mx) ** 2 + (frontZ - mz) ** 2;
+        if (dSq < bestDistSq) {
+          bestDistSq = dSq;
+          const dx = b.x - a.x;
+          const dz = b.z - a.z;
+          const len = Math.hypot(dx, dz) || 1;
+          nx = -dz / len;
+          nz = dx / len;
+          const toKart = (snap.kart.position.x - mx) * nx + (snap.kart.position.z - mz) * nz;
+          if (toKart < 0) {
+            nx = -nx;
+            nz = -nz;
+          }
+        }
+      }
+      const speedTowardWall = -(snap.kart.velocity.x * nx + snap.kart.velocity.z * nz);
+      const speedError = targetInwardMps - speedTowardWall;
+      return Math.max(-0.5, Math.min(0.5, -speedError * 0.45));
+    };
+
+    for (let i = 0; i < 360 && !snap.kart.barrierContact; i++) {
+      snap = session.step(1 / 120, { throttle: 0.65, steer: steerForInwardBarrierSpeed(0.9) });
+    }
+    expect(snap.kart.barrierContact).toBe(true);
+    expect(snap.kart.barrierImpactSpeedMps).toBeGreaterThan(0);
+    expect(snap.kart.barrierImpactSpeedMps).toBeLessThanOrEqual(1.8);
+    // A brief shallow graze preserves Clean Lap status
+    expect(snap.lap.isClean).toBe(true);
+
+    // Steering away immediately after the brief brush keeps the lap Clean and rotates heading away from the left wall
+    const headingAtTouch = snap.kart.headingRad;
+    const afterBrush = session.step(1 / 120, { throttle: 0.65, steer: 0.65 });
+    expect(afterBrush.kart.headingRad).toBeGreaterThan(headingAtTouch);
+    expect(afterBrush.lap.isClean).toBe(true);
+
+    // Deliberately grinding against the wall for > 0.35s (65 ticks) invalidates Clean Lap (anti-wall-riding)
+    for (let i = 0; i < 65; i++) {
+      snap = session.step(1 / 120, { throttle: 0.85, steer: steerForInwardBarrierSpeed(1.5) });
+    }
+    expect(snap.lap.isClean).toBe(false);
   });
 });

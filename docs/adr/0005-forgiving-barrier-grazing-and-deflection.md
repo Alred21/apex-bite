@@ -1,0 +1,5 @@
+# Forgiving Barrier Grazing and Contact-Lever Yaw Deflection
+
+Previously, `stepKartOnCircuit` resolved Barrier contact against a sharp-cornered box while keeping `headingRad` fixed during the post-contact slide and invalidating `Clean Lap` status on any contact. Brushing a wall at a shallow angle pinned the Kart's nose into the Barrier, applied an immediate 8% speed cut, and invalidated beginner laps on minor touches.
+
+Inspired by *GRID Legends* and real wraparound Protex bumpers, we decided to apply continuous contact-lever yaw alignment toward the wall tangent, scale tangential friction and outward rebound with inward normal impact speed ($v_\perp$), and keep player `Clean Lap` status valid during brief shallow Barrier grazing ($v_\perp \le 1.8\text{ m/s}$ for $\le 0.35\text{ s}$ continuous contact). `kart.barrierContact` remains `true` on any physical touch so Reference Lap validation (`ADR-0003`) stays strictly contact-free, while steeper impacts ($v_\perp > 1.8\text{ m/s}$) or prolonged wall-riding ($> 0.35\text{ s}$) deflect the Kart and invalidate `Clean Lap`.

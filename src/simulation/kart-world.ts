@@ -2,6 +2,17 @@ import { stepKartDynamics, type KartCommand, type PlanarKartState } from './kart
 import { FIXED_TIMESTEP_SECONDS, KART_DIMENSIONS, MAX_KART_SPEED_MPS } from './kart-parameters';
 import type { CircuitData, KartState, SectorNumber, Vector2D } from './types';
 import { buildBarrierSegments, BARRIER_HALF_THICKNESS_METERS, type BarrierSegment } from './barrier-geometry';
+import { wrapAngleRad } from './planar-math';
+
+export const BARRIER_GRAZE_MAX_NORMAL_SPEED_MPS = 1.8;
+export const BARRIER_GRAZE_MAX_DURATION_SECONDS = 0.35;
+
+/** True when a Barrier contact is too hard or too long to count as a forgivable graze. */
+export function isBarrierContactDirty(impactSpeedMps: number, continuousContactSeconds: number): boolean {
+  // The epsilon keeps 42 accumulated 120 Hz ticks (0.35 s) inside the graze window.
+  return impactSpeedMps > BARRIER_GRAZE_MAX_NORMAL_SPEED_MPS ||
+    continuousContactSeconds > BARRIER_GRAZE_MAX_DURATION_SECONDS + 1e-9;
+}
 
 interface Pose { position: Vector2D; headingRad: number; }
 const GRID_SIZE = 3;
@@ -75,10 +86,13 @@ function interpolatePose(a: Pose, b: Pose, fraction: number): Pose {
 
 function wallNormal(segment: BarrierSegment, position: Vector2D): Vector2D {
   const dx = segment.b.x - segment.a.x, dz = segment.b.z - segment.a.z;
-  const t = Math.max(0, Math.min(1, ((position.x - segment.a.x) * dx + (position.z - segment.a.z) * dz) / Math.max(1e-12, dx * dx + dz * dz)));
-  const nx = position.x - segment.a.x - dx * t, nz = position.z - segment.a.z - dz * t;
-  const length = Math.hypot(nx, nz);
-  return length > 1e-9 ? { x: nx / length, z: nz / length } : Math.hypot(dx, dz) > 1e-9 ? { x: -dz / Math.hypot(dx, dz), z: dx / Math.hypot(dx, dz) } : { x: 1, z: 0 };
+  const chordLength = Math.hypot(dx, dz);
+  if (chordLength > 1e-9) {
+    const perpX = -dz / chordLength, perpZ = dx / chordLength;
+    const sign = (perpX * (position.x - segment.center.x) + perpZ * (position.z - segment.center.z)) >= 0 ? 1 : -1;
+    return { x: perpX * sign, z: perpZ * sign };
+  }
+  return { x: 1, z: 0 };
 }
 
 export function hasKartBarrierContact(circuit: CircuitData, pose: Pose): boolean {
@@ -163,20 +177,78 @@ export function stepKartOnCircuit(circuit: CircuitData, previous: KartState, com
   let velocity = dynamics.velocity;
   let yawRateRadPerSecond = dynamics.yawRateRadPerSecond;
   const barrierContact = collision.normal !== null;
+  let barrierImpactSpeedMps = 0;
   if (collision.normal) {
     const normal = collision.normal;
+    const rightX = -Math.sin(collision.pose.headingRad);
+    const rightZ = Math.cos(collision.pose.headingRad);
+    const noseYawInward = Math.max(
+      0,
+      -dynamics.yawRateRadPerSecond * (rightX * normal.x + rightZ * normal.z) * KART_DIMENSIONS.frontExtentMeters,
+    );
     const inward = Math.min(0, velocity.x * normal.x + velocity.z * normal.z);
-    const friction = previous.barrierContact ? Math.max(0, 1 - 2.5 * dtSeconds / Math.max(0.1, Math.abs(dynamics.speedMps))) : 0.92;
-    velocity = { x: (velocity.x - normal.x * inward * 1.03) * friction, z: (velocity.z - normal.z * inward * 1.03) * friction };
+    barrierImpactSpeedMps = -inward + noseYawInward;
+    const isSteepImpact = barrierImpactSpeedMps > BARRIER_GRAZE_MAX_NORMAL_SPEED_MPS;
+    const steerIntoWall = -command.steer * (rightX * normal.x + rightZ * normal.z);
+    const restitution = isSteepImpact
+      ? 0.02
+      : 0.04;
+    const rubDecel = isSteepImpact || command.brake > 0.5
+      ? 5.2 + barrierImpactSpeedMps * 1.5
+      : 1.6 + barrierImpactSpeedMps * 1.8;
+    const friction = previous.barrierContact
+      ? Math.max(0, 1 - rubDecel * dtSeconds / Math.max(0.1, Math.abs(dynamics.speedMps)))
+      : isSteepImpact
+        ? Math.max(0.78, 0.85 - (barrierImpactSpeedMps - BARRIER_GRAZE_MAX_NORMAL_SPEED_MPS) * 0.015)
+        : 1 - Math.min(0.032, 0.006 + barrierImpactSpeedMps * 0.014);
+    velocity = {
+      x: (velocity.x - normal.x * inward * (1 + restitution)) * friction,
+      z: (velocity.z - normal.z * inward * (1 + restitution)) * friction,
+    };
+
+    // Contact-lever yaw alignment rotates the wraparound bumper toward the wall tangent
+    // on glancing contacts (when not actively steering full-lock into the wall or panic-braking).
+    const driveSign = dynamics.speedMps < 0 ? -1 : 1;
+    const forwardX = Math.cos(collision.pose.headingRad) * driveSign;
+    const forwardZ = Math.sin(collision.pose.headingRad) * driveSign;
+    const noseInward = -(forwardX * normal.x + forwardZ * normal.z);
+    let targetHeadingRad = collision.pose.headingRad;
+    if (
+      noseInward > 0.01 &&
+      Math.abs(dynamics.speedMps) > 0.2 &&
+      steerIntoWall < 0.35 &&
+      command.brake < 0.5
+    ) {
+      const tSign = (-normal.z * forwardX + normal.x * forwardZ) >= 0 ? 1 : -1;
+      const tangentHeading = Math.atan2(normal.x * tSign * driveSign, -normal.z * tSign * driveSign);
+      const headingError = wrapAngleRad(tangentHeading - collision.pose.headingRad);
+      if (Math.abs(headingError) < 0.65) {
+        const alignRate = Math.min(2.3, 0.75 + barrierImpactSpeedMps * 0.42);
+        const alignStep = Math.sign(headingError) * Math.min(Math.abs(headingError), alignRate * dtSeconds);
+        const totalDelta = wrapAngleRad(collision.pose.headingRad + alignStep - previous.headingRad);
+        const clampedDelta = Math.max(-0.022, Math.min(0.022, totalDelta));
+        targetHeadingRad = previous.headingRad + clampedDelta;
+      }
+    }
+
     const remainingSeconds = (1 - collision.fraction) * dtSeconds;
+    const separationOffset = !isSteepImpact && steerIntoWall <= 0 && command.brake < 0.5 ? 0.0012 : 0;
     const slideTarget = {
-      position: { x: collision.pose.position.x + velocity.x * remainingSeconds, z: collision.pose.position.z + velocity.z * remainingSeconds },
-      headingRad: collision.pose.headingRad,
+      position: {
+        x: collision.pose.position.x + normal.x * separationOffset + velocity.x * remainingSeconds,
+        z: collision.pose.position.z + normal.z * separationOffset + velocity.z * remainingSeconds,
+      },
+      headingRad: targetHeadingRad,
     };
     resolvedPose = sweepBarriers(circuit, collision.pose, slideTarget).pose;
-    yawRateRadPerSecond *= 0.7;
+    const achievedHeadingDelta = wrapAngleRad(resolvedPose.headingRad - previous.headingRad);
+    yawRateRadPerSecond = noseInward > 0.01
+      ? achievedHeadingDelta / dtSeconds * 0.65
+      : yawRateRadPerSecond * 0.7;
   }
-  const speedMps = Math.min(MAX_KART_SPEED_MPS, Math.hypot(velocity.x, velocity.z)) * (dynamics.speedMps < 0 ? -1 : 1);
+  const rawSpeed = Math.min(MAX_KART_SPEED_MPS, Math.hypot(velocity.x, velocity.z));
+  const speedMps = rawSpeed <= 0.001 ? 0 : rawSpeed * (dynamics.speedMps < 0 ? -1 : 1);
+  if (speedMps === 0) velocity = { x: 0, z: 0 };
   const projection = projectKartProgress(circuit, resolvedPose.position, previous.lapDistanceMeters);
   return {
     ...dynamics,
@@ -190,6 +262,7 @@ export function stepKartOnCircuit(circuit: CircuitData, previous: KartState, com
     forwardAccelMps2: (speedMps - previous.speedMps) / dtSeconds,
     barrierContact,
     barrierContactCount: previous.barrierContactCount + (barrierContact && !previous.barrierContact ? 1 : 0),
+    barrierImpactSpeedMps,
     lapDistanceMeters: projection.distanceMeters,
     unwrappedDistanceMeters: previous.unwrappedDistanceMeters + projection.deltaMeters,
     lapProgress: projection.progress,

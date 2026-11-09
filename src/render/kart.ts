@@ -212,15 +212,15 @@ export function createKartRig(): KartRig {
   // sculpted sidepods, nose cone, floor pan, reclined bucket seat, roll hoop, and rear shroud.
   addBlenderBatches(STATIONARY_BATCHES, materials, stationary, 'red', true);
 
-  // Livery number & K1 Speed / OTL Superleggero decal plates flush on sidepods and nose cone
+  // Livery number & K1 Speed / OTL Superleggero decal plates flush above flat sidepod & nose plateaus
   for (const side of [-1, 1]) {
-    const label = add(new THREE.PlaneGeometry(0.26, 0.054), decal, -0.02, 0.296, side * 0.295);
+    const label = add(new THREE.PlaneGeometry(0.24, 0.050), decal, -0.02, 0.292, side * 0.290);
     label.rotation.x = -Math.PI / 2;
   }
-  const noseDecal = add(new THREE.PlaneGeometry(0.18, 0.09), decal, 0.59, 0.238, 0);
-  noseDecal.rotation.set(-Math.PI / 2, 0.155, -Math.PI / 2);
+  const noseDecal = add(new THREE.PlaneGeometry(0.16, 0.080), decal, 0.585, 0.242, 0);
+  noseDecal.rotation.set(-Math.PI / 2, 0.148, -Math.PI / 2);
 
-  // Ventilated rear brake rotor visible between the rear powertrain shroud and left rear wheel
+  // Ventilated rear brake rotor mounted coaxially on the rear live axle
   const brake = add(new THREE.CylinderGeometry(0.095, 0.095, 0.009, 28), alloy, REAR_AXLE, TIRE_RADIUS, -0.215);
   brake.rotation.x = Math.PI / 2;
 
@@ -249,7 +249,19 @@ export function createKartRig(): KartRig {
         side * (front ? FRONT_TRACK_HALF : REAR_TRACK_HALF),
       );
       root.add(pivot);
-      if (front) frontPivots.push(pivot);
+      if (front) {
+        frontPivots.push(pivot);
+        // Kingpin hub collar centered on the front wheel pivot so it stays joined to the kingpin axle at all steer angles
+        const kingpinCollar = add(
+          new THREE.CylinderGeometry(0.022, 0.022, 0.065, 16),
+          steel,
+          0,
+          0,
+          -side * 0.045,
+          pivot,
+        );
+        kingpinCollar.rotation.x = Math.PI / 2;
+      }
       const roll = new THREE.Group();
       pivot.add(roll);
       wheels.push(roll);

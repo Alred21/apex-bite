@@ -18,18 +18,21 @@ function elbowFor(shoulder: THREE.Vector3, wrist: THREE.Vector3, side: number): 
   const axis = wrist.clone().sub(shoulder);
   const distance = axis.length();
   axis.normalize();
-  const upper = 0.28;
-  const lower = 0.27;
+  const upper = 0.265;
+  const lower = 0.255;
   const along = Math.max(
     0,
     Math.min(distance, (upper * upper - lower * lower + distance * distance) / (2 * distance)),
   );
-  const bend = new THREE.Vector3(-0.10, -0.45, side * 0.90);
+  const bend = new THREE.Vector3(-0.06, -0.25, side * 0.96);
   bend.addScaledVector(axis, -bend.dot(axis)).normalize();
-  return shoulder
+  const elbow = shoulder
     .clone()
     .addScaledVector(axis, along)
     .addScaledVector(bend, Math.sqrt(Math.max(0, upper * upper - along * along)));
+  elbow.y = Math.max(elbow.y, 0.355);
+  elbow.z = side * Math.min(Math.abs(elbow.z), 0.185);
+  return elbow;
 }
 
 function sleeveGeometry(): THREE.BufferGeometry {
@@ -158,6 +161,7 @@ export function createSeatedDriver(root: THREE.Group, steeringWheel: THREE.Group
   const arms = ([-1, 1] as const).map((side) => {
     const geometry = sleeveGeometry();
     const sleeveMesh = new THREE.Mesh(geometry, materials.suit);
+    sleeveMesh.name = side < 0 ? 'Left arm sleeve' : 'Right arm sleeve';
     sleeveMesh.castShadow = sleeveMesh.receiveShadow = true;
     driver.add(sleeveMesh);
 
@@ -171,7 +175,7 @@ export function createSeatedDriver(root: THREE.Group, steeringWheel: THREE.Group
       side,
       geometry,
       glove,
-      shoulder: new THREE.Vector3(-0.368, 0.482, side * 0.165),
+      shoulder: new THREE.Vector3(-0.335, 0.485, side * 0.122),
     };
   });
 

@@ -248,222 +248,192 @@ def build_otl_superleggero():
     }
 
     # =========================================================================
-    # 1. OTL SUPERLEGGERO PROTEX BUMPER SYSTEM (ZERO WHEEL OVERLAP)
+    # 1. OTL SUPERLEGGERO PROTEX BUMPER SYSTEM (ZERO OVERLAPS, SOLID CONNECTIONS)
     # Front wheels sweep x in [0.376, 0.704], |z| in [0.1525, 0.4175] at ±0.46 rad.
     # Rear wheels occupy x in [-0.665, -0.375], |z| in [0.259, 0.411].
-    # Therefore:
-    #   - Front nose bumper stays strictly ahead of front tires (x >= 0.735)
-    #     and joins the narrow central nose frame (|z| <= 0.115) inside the tires.
-    #   - Side rub bumpers stay strictly between rear and front tires (x in [-0.340, 0.340]).
-    #   - Rear bumper stays strictly behind rear tires (x <= -0.695) and anchors
-    #     into the inner rear chassis rails (|z| <= 0.175).
+    # Every bumper tube is non-overlapping and connects solidly into the chassis rails.
     # =========================================================================
     front_bumper_pts = [
-        (0.680, 0.122, -0.102),
-        (0.748, 0.124, -0.135),
-        (0.785, 0.125, -0.245),
-        (0.828, 0.126, -0.185),
-        (0.854, 0.128, 0.0),
-        (0.828, 0.126, 0.185),
-        (0.785, 0.125, 0.245),
-        (0.748, 0.124, 0.135),
-        (0.680, 0.122, 0.102),
+        (0.700, 0.110, -0.095),
+        (0.755, 0.118, -0.128),
+        (0.790, 0.122, -0.242),
+        (0.832, 0.124, -0.185),
+        (0.856, 0.125, 0.0),
+        (0.832, 0.124, 0.185),
+        (0.790, 0.122, 0.242),
+        (0.755, 0.118, 0.128),
+        (0.700, 0.110, 0.095),
     ]
-    create_tube_curve("OTL_Front_Bumper_Main", front_bumper_pts, 0.018, mats["rubber"], closed=False, collection=col_stationary)
-    front_bumper_upper = [(x, y + 0.026, z * 0.96) for (x, y, z) in front_bumper_pts]
-    create_tube_curve("OTL_Front_Bumper_Upper", front_bumper_upper, 0.013, mats["rubber"], closed=False, collection=col_stationary)
+    create_tube_curve("OTL_Front_Bumper_Main", front_bumper_pts, 0.019, mats["rubber"], closed=False, collection=col_stationary)
 
-    red_insert_front = [
-        (0.760, 0.138, -0.145),
-        (0.790, 0.138, -0.232),
-        (0.830, 0.139, -0.175),
-        (0.855, 0.140, 0.0),
-        (0.830, 0.139, 0.175),
-        (0.790, 0.138, 0.232),
-        (0.760, 0.138, 0.145),
-    ]
-    create_tube_curve("OTL_Front_Bumper_Red_Strip", red_insert_front, 0.008, mats["red"], closed=False, collection=col_stationary)
-
-    # Rear wraparound Protex bumper behind rear tires (x <= -0.695 where tires end at -0.665)
+    # Rear wraparound Protex bumper behind rear tires (x <= -0.708 where tires end at -0.665),
+    # solidly joining the rear ends of Chassis_Main_Rail at (-0.680, 0.105, ±0.155)
     rear_bumper_pts = [
-        (-0.620, 0.125, -0.172),
-        (-0.708, 0.126, -0.220),
-        (-0.735, 0.128, -0.345),
-        (-0.768, 0.130, -0.240),
-        (-0.776, 0.132, 0.0),
-        (-0.768, 0.130, 0.240),
-        (-0.735, 0.128, 0.345),
-        (-0.708, 0.126, 0.220),
-        (-0.620, 0.125, 0.172),
+        (-0.660, 0.105, -0.155),
+        (-0.715, 0.115, -0.215),
+        (-0.740, 0.120, -0.342),
+        (-0.770, 0.122, -0.235),
+        (-0.778, 0.122, 0.0),
+        (-0.770, 0.122, 0.235),
+        (-0.740, 0.120, 0.342),
+        (-0.715, 0.115, 0.215),
+        (-0.660, 0.105, 0.155),
     ]
-    create_tube_curve("OTL_Rear_Bumper_Main", rear_bumper_pts, 0.019, mats["rubber"], closed=False, collection=col_stationary)
-    rear_bumper_upper = [(x, y + 0.028, z * 0.98) for (x, y, z) in rear_bumper_pts]
-    create_tube_curve("OTL_Rear_Bumper_Upper", rear_bumper_upper, 0.013, mats["rubber"], closed=False, collection=col_stationary)
+    create_tube_curve("OTL_Rear_Bumper_Main", rear_bumper_pts, 0.018, mats["rubber"], closed=False, collection=col_stationary)
 
-    # Side Protex protection bars strictly between rear (x = -0.375) and front (x = +0.376) tires
+    # Upper rear protection bar spaced 4.6 cm above OTL_Rear_Bumper_Main and anchored into the rear shroud
+    rear_bumper_upper = [
+        (-0.640, 0.165, -0.125),
+        (-0.715, 0.166, -0.210),
+        (-0.738, 0.168, -0.330),
+        (-0.768, 0.168, -0.230),
+        (-0.776, 0.168, 0.0),
+        (-0.768, 0.168, 0.230),
+        (-0.738, 0.168, 0.330),
+        (-0.715, 0.166, 0.210),
+        (-0.640, 0.165, 0.125),
+    ]
+    create_tube_curve("OTL_Rear_Bumper_Upper", rear_bumper_upper, 0.013, mats["rubber"], closed=False, collection=col_stationary)
+    for side in (-1, 1):
+        create_tube_curve(
+            f"OTL_Rear_Bumper_Post_{side}",
+            [(-0.768, 0.120, side * 0.225), (-0.768, 0.168, side * 0.225)],
+            0.012,
+            mats["rubber"],
+            closed=False,
+            collection=col_stationary,
+        )
+
+    # Side Protex protection bars strictly between rear (x = -0.375) and front (x = +0.376) tires,
+    # curving inward at y = 0.105 m (below the sidepod bottom y = 0.138 m) to join Chassis_Main_Rail
     for side in (-1, 1):
         side_bumper_main = [
-            (-0.335, 0.120, side * 0.185),
-            (-0.320, 0.120, side * 0.382),
-            (-0.100, 0.120, side * 0.398),
-            (0.150, 0.120, side * 0.395),
-            (0.320, 0.120, side * 0.365),
-            (0.335, 0.120, side * 0.120),
+            (-0.328, 0.105, side * 0.185),
+            (-0.315, 0.115, side * 0.385),
+            (-0.100, 0.118, side * 0.398),
+            (0.150, 0.118, side * 0.395),
+            (0.310, 0.115, side * 0.365),
+            (0.328, 0.105, side * 0.160),
         ]
-        create_tube_curve(f"OTL_Side_Bumper_Main_{side}", side_bumper_main, 0.018, mats["rubber"], closed=False, collection=col_stationary)
-
-        side_strip = [
-            (-0.310, 0.134, side * 0.260),
-            (-0.275, 0.134, side * 0.376),
-            (0.0, 0.134, side * 0.394),
-            (0.275, 0.134, side * 0.354),
-            (0.310, 0.134, side * 0.220),
-        ]
-        create_tube_curve(f"OTL_Side_Rub_Strip_{side}", side_strip, 0.008, mats["red"], closed=False, collection=col_stationary)
+        create_tube_curve(f"OTL_Side_Bumper_Main_{side}", side_bumper_main, 0.017, mats["rubber"], closed=False, collection=col_stationary)
 
     # =========================================================================
     # 2. FLOOR PAN, CHASSIS RAILS, KINGPIN AXLE & FOOTWELL PEDALS
     # =========================================================================
-    # Floor pan narrows to half_width <= 0.115 m for x >= 0.34 m so front tires have huge clearance
     floor_sections = [
-        superellipse_ring(-0.62, 0.064, 0.082, 0.0, 0.175, power_y=0.35, power_z=0.35),
-        superellipse_ring(-0.34, 0.064, 0.082, 0.0, 0.215, power_y=0.35, power_z=0.35),
-        superellipse_ring(0.05, 0.064, 0.082, 0.0, 0.215, power_y=0.35, power_z=0.35),
-        superellipse_ring(0.32, 0.064, 0.082, 0.0, 0.145, power_y=0.35, power_z=0.35),
-        superellipse_ring(0.42, 0.066, 0.084, 0.0, 0.112, power_y=0.35, power_z=0.35),
-        superellipse_ring(0.70, 0.070, 0.088, 0.0, 0.105, power_y=0.35, power_z=0.35),
+        superellipse_ring(-0.62, 0.064, 0.080, 0.0, 0.148, power_y=0.35, power_z=0.35),
+        superellipse_ring(-0.34, 0.064, 0.080, 0.0, 0.180, power_y=0.35, power_z=0.35),
+        superellipse_ring(0.05, 0.064, 0.080, 0.0, 0.180, power_y=0.35, power_z=0.35),
+        superellipse_ring(0.32, 0.064, 0.080, 0.0, 0.142, power_y=0.35, power_z=0.35),
+        superellipse_ring(0.42, 0.066, 0.082, 0.0, 0.102, power_y=0.35, power_z=0.35),
+        superellipse_ring(0.70, 0.070, 0.086, 0.0, 0.092, power_y=0.35, power_z=0.35),
     ]
     create_loft_mesh("OTL_Floor_Pan", floor_sections, mats["carbon"], subsurf_levels=1, collection=col_stationary)
 
     for side in (-1, 1):
+        # Continuous chromoly main rail from rear bumper (-0.680) to front bumper (+0.700),
+        # staying at y = 0.105 m (top at 0.118 m, strictly below seat y >= 0.122 m and rear shroud y >= 0.142 m)
         chassis_rail = [
-            (-0.68, 0.102, side * 0.165),
-            (-0.32, 0.102, side * 0.195),
-            (0.26, 0.102, side * 0.165),
-            (0.42, 0.105, side * 0.105),
-            (0.70, 0.110, side * 0.095),
+            (-0.680, 0.105, side * 0.155),
+            (-0.328, 0.105, side * 0.185),
+            (0.260, 0.105, side * 0.160),
+            (0.420, 0.106, side * 0.102),
+            (0.700, 0.110, side * 0.095),
         ]
-        create_tube_curve(f"Chassis_Main_Rail_{side}", chassis_rail, 0.014, mats["red"], collection=col_stationary)
+        create_tube_curve(f"Chassis_Main_Rail_{side}", chassis_rail, 0.013, mats["red"], collection=col_stationary)
 
-        # Sculpted alloy pedals tucked cleanly inside the narrow footwell (z = ±0.078 m)
+        # Sculpted alloy pedals tucked cleanly inside the narrow footwell (z = ±0.078 m, ahead of boots at x <= 0.448 m)
         pedal_rings = [
-            superellipse_ring(0.455, 0.105, 0.195, side * 0.078, 0.022, power_y=0.4, power_z=0.4),
+            superellipse_ring(0.456, 0.105, 0.195, side * 0.078, 0.022, power_y=0.4, power_z=0.4),
             superellipse_ring(0.468, 0.105, 0.195, side * 0.078, 0.022, power_y=0.4, power_z=0.4),
         ]
         create_loft_mesh(f"Pedal_Face_{side}", pedal_rings, mats["alloy"], subsurf_levels=0, collection=col_stationary)
 
-    # Crossmembers strictly inside the main rails (never entering wheel envelopes)
-    for x_cross, z_span in ((-0.60, 0.165), (-0.18, 0.195), (0.24, 0.165)):
+    for x_cross, z_span in ((-0.60, 0.155), (-0.18, 0.180), (0.24, 0.160)):
         create_tube_curve(
             f"Chassis_Crossmember_{x_cross:.2f}",
-            [(x_cross, 0.102, -z_span), (x_cross, 0.102, z_span)],
-            0.012,
+            [(x_cross, 0.105, -z_span), (x_cross, 0.105, z_span)],
+            0.011,
             mats["steel"],
             collection=col_stationary,
         )
 
-    # Front axle kingpin beam along x = 0.54, y = 0.145, stopping at |z| = 0.188 m
-    # (clear of the inner front wheel face at |z| = 0.206 m even at full 0.46 rad steer lock)
+    # Front axle kingpin beam along x = 0.54, y = 0.145, spanning all the way to both front wheel
+    # pivot centers (|z| = 0.285 m) so the front wheels never disconnect at any steering angle!
     create_tube_curve(
         "OTL_Front_Kingpin_Beam",
-        [(FRONT_AXLE_X, TIRE_RADIUS, -0.188), (FRONT_AXLE_X, TIRE_RADIUS, 0.188)],
-        0.013,
+        [(FRONT_AXLE_X, TIRE_RADIUS, -FRONT_TRACK_HALF_Z), (FRONT_AXLE_X, TIRE_RADIUS, FRONT_TRACK_HALF_Z)],
+        0.014,
         mats["steel"],
         collection=col_stationary,
     )
 
     # =========================================================================
     # 3. OTL SUPERLEGGERO SCULPTED NOSE CONE & NASSAU FAIRING
-    # Between the front wheels (x in [0.36, 0.72]), half_width <= 0.115 m so turned
-    # tires (|z| >= 0.1525 m) have > 3.5 cm air gap. Ahead of x = 0.735 m, the front
-    # spoiler wing flares out to |z| = 0.26 m behind the front bumper.
+    # Between the front wheels (x in [0.36, 0.73]), half_width <= 0.108 m so turned
+    # tires (|z| >= 0.1525 m) have > 4.4 cm air gap. Ends at x = 0.750 m right against
+    # the front Protex bumper loop so the cowling and bumper meet cleanly.
     # =========================================================================
     nose_lower_black = [
-        superellipse_ring(0.38, 0.108, 0.175, 0.0, 0.110, power_y=0.5, power_z=0.6),
-        superellipse_ring(0.56, 0.110, 0.182, 0.0, 0.110, power_y=0.5, power_z=0.6),
-        superellipse_ring(0.72, 0.114, 0.182, 0.0, 0.112, power_y=0.5, power_z=0.6),
-        superellipse_ring(0.775, 0.118, 0.178, 0.0, 0.195, power_y=0.5, power_z=0.6),
-        superellipse_ring(0.815, 0.122, 0.172, 0.0, 0.155, power_y=0.5, power_z=0.6),
-        superellipse_ring(0.845, 0.126, 0.162, 0.0, 0.055, power_y=0.5, power_z=0.6),
+        superellipse_ring(0.350, 0.118, 0.152, 0.0, 0.104, power_y=0.4, power_z=0.55),
+        superellipse_ring(0.550, 0.120, 0.152, 0.0, 0.106, power_y=0.4, power_z=0.55),
+        superellipse_ring(0.755, 0.122, 0.150, 0.0, 0.104, power_y=0.4, power_z=0.55),
     ]
     create_loft_mesh("OTL_Nose_Splitter_Base", nose_lower_black, mats["black"], subsurf_levels=1, collection=col_stationary)
 
+    # Flat-crowned upper slope (power_y=0.25) over x in [0.48, 0.68] so the noseDecal sits
+    # 3 mm above the surface with zero clipping!
     nose_red_shell = [
-        superellipse_ring(0.38, 0.145, 0.242, 0.0, 0.106, power_y=0.55, power_z=0.62),
-        superellipse_ring(0.54, 0.145, 0.235, 0.0, 0.108, power_y=0.55, power_z=0.62),
-        superellipse_ring(0.71, 0.142, 0.218, 0.0, 0.108, power_y=0.55, power_z=0.62),
-        superellipse_ring(0.775, 0.140, 0.208, 0.0, 0.175, power_y=0.55, power_z=0.62),
-        superellipse_ring(0.815, 0.138, 0.194, 0.0, 0.135, power_y=0.55, power_z=0.62),
-        superellipse_ring(0.842, 0.136, 0.175, 0.0, 0.048, power_y=0.55, power_z=0.62),
+        superellipse_ring(0.350, 0.148, 0.272, 0.0, 0.100, power_y=0.25, power_z=0.55),
+        superellipse_ring(0.485, 0.148, 0.254, 0.0, 0.106, power_y=0.25, power_z=0.55),
+        superellipse_ring(0.585, 0.148, 0.239, 0.0, 0.106, power_y=0.25, power_z=0.55),
+        superellipse_ring(0.685, 0.148, 0.224, 0.0, 0.102, power_y=0.25, power_z=0.55),
+        superellipse_ring(0.755, 0.145, 0.210, 0.0, 0.084, power_y=0.35, power_z=0.55),
     ]
     create_loft_mesh("OTL_Nose_Red_Cowling", nose_red_shell, mats["red"], subsurf_levels=1, collection=col_stationary)
 
-    # Sculpted Nassau tower starts at x = 0.268 m (strictly forward of the rotating steering
-    # wheel & gloves at x_l <= 0.016 m!), rising to cradle the digital dash binnacle at y = 0.442 m
-    # and sloping smoothly forward into the nose cone.
+    # Sculpted Nassau tower starts at x = 0.270 m (strictly forward of the rotating steering
+    # wheel & gloves), rising to cradle the digital dash binnacle at y = 0.445 m and joining
+    # the nose cone cleanly through x = 0.495 m.
     nassau_fairing = [
-        superellipse_ring(0.268, 0.235, 0.435, 0.0, 0.066, power_y=0.45, power_z=0.50),
-        superellipse_ring(0.305, 0.205, 0.442, 0.0, 0.076, power_y=0.45, power_z=0.50),
-        superellipse_ring(0.390, 0.180, 0.335, 0.0, 0.094, power_y=0.50, power_z=0.55),
-        superellipse_ring(0.480, 0.168, 0.262, 0.0, 0.102, power_y=0.50, power_z=0.55),
-        superellipse_ring(0.560, 0.160, 0.236, 0.0, 0.098, power_y=0.50, power_z=0.55),
+        superellipse_ring(0.268, 0.235, 0.445, 0.0, 0.066, power_y=0.35, power_z=0.50),
+        superellipse_ring(0.308, 0.215, 0.448, 0.0, 0.076, power_y=0.35, power_z=0.50),
+        superellipse_ring(0.390, 0.195, 0.335, 0.0, 0.092, power_y=0.40, power_z=0.52),
+        superellipse_ring(0.495, 0.180, 0.248, 0.0, 0.098, power_y=0.35, power_z=0.52),
     ]
     create_loft_mesh("OTL_Nassau_Fairing", nassau_fairing, mats["red"], subsurf_levels=1, collection=col_stationary)
 
-    # Flush white K1 Speed livery center panel along the front nose slope
-    nose_center_panel = [
-        superellipse_ring(0.415, 0.295, 0.304, 0.0, 0.028, power_y=0.35, power_z=0.35),
-        superellipse_ring(0.485, 0.246, 0.260, 0.0, 0.058, power_y=0.35, power_z=0.35),
-        superellipse_ring(0.660, 0.212, 0.226, 0.0, 0.062, power_y=0.35, power_z=0.35),
-        superellipse_ring(0.765, 0.194, 0.204, 0.0, 0.036, power_y=0.35, power_z=0.35),
-    ]
-    create_loft_mesh("OTL_Nose_White_Center_Panel", nose_center_panel, mats["white"], subsurf_levels=1, collection=col_stationary)
-
     # =========================================================================
-    # 4. OTL SUPERLEGGERO SCULPTED SIDEPODS (x in [-0.335, +0.335])
-    # Strictly between rear wheel front edge (x = -0.375) and front wheel rear edge
-    # (x = +0.376 at full lock), guaranteeing >= 4 cm clearance to all 4 wheels.
+    # 4. OTL SUPERLEGGERO SCULPTED SIDEPODS (x in [-0.320, +0.320])
+    # Single clean non-overlapping shell per side with a flat upper plateau (y_top = 0.288 m,
+    # power_y = 0.25) so the K1 / 07 decal plate at y = 0.292 m sits parallel with zero clipping.
     # =========================================================================
     for side in (-1, 1):
         pod_red = [
-            superellipse_ring(-0.335, 0.132, 0.235, side * 0.275, 0.028, power_y=0.45, power_z=0.50),
-            superellipse_ring(-0.250, 0.130, 0.286, side * 0.295, 0.066, power_y=0.45, power_z=0.50, z_skew_top=-side * 0.010),
-            superellipse_ring(-0.040, 0.130, 0.292, side * 0.298, 0.070, power_y=0.45, power_z=0.50, z_skew_top=-side * 0.010),
-            superellipse_ring(0.160, 0.130, 0.284, side * 0.295, 0.066, power_y=0.45, power_z=0.50, z_skew_top=-side * 0.008),
-            superellipse_ring(0.270, 0.132, 0.252, side * 0.282, 0.048, power_y=0.45, power_z=0.50),
-            superellipse_ring(0.335, 0.135, 0.205, side * 0.255, 0.024, power_y=0.45, power_z=0.50),
+            superellipse_ring(-0.320, 0.138, 0.235, side * 0.280, 0.028, power_y=0.35, power_z=0.50),
+            superellipse_ring(-0.230, 0.138, 0.288, side * 0.290, 0.062, power_y=0.25, power_z=0.50),
+            superellipse_ring(-0.020, 0.138, 0.288, side * 0.290, 0.066, power_y=0.25, power_z=0.50),
+            superellipse_ring(0.180, 0.138, 0.288, side * 0.290, 0.062, power_y=0.25, power_z=0.50),
+            superellipse_ring(0.270, 0.138, 0.250, side * 0.280, 0.044, power_y=0.35, power_z=0.50),
+            superellipse_ring(0.320, 0.140, 0.205, side * 0.260, 0.024, power_y=0.35, power_z=0.50),
         ]
         create_loft_mesh(f"OTL_Sidepod_Red_{side}", pod_red, mats["red"], subsurf_levels=1, collection=col_stationary)
 
-        pod_black_base = [
-            superellipse_ring(-0.320, 0.112, 0.188, side * 0.282, 0.026, power_y=0.45, power_z=0.5),
-            superellipse_ring(-0.200, 0.112, 0.198, side * 0.302, 0.068, power_y=0.45, power_z=0.5),
-            superellipse_ring(0.180, 0.112, 0.194, side * 0.298, 0.066, power_y=0.45, power_z=0.5),
-            superellipse_ring(0.315, 0.115, 0.172, side * 0.265, 0.024, power_y=0.45, power_z=0.5),
-        ]
-        create_loft_mesh(f"OTL_Sidepod_Black_Base_{side}", pod_black_base, mats["black"], subsurf_levels=1, collection=col_stationary)
-
-        # Flat-crowned upper-shoulder white livery trim (top at y = 0.295 m for flush decal placement)
-        side_white_panel = [
-            superellipse_ring(-0.220, 0.276, 0.294, side * 0.292, 0.040, power_y=0.35, power_z=0.4),
-            superellipse_ring(-0.060, 0.278, 0.295, side * 0.295, 0.044, power_y=0.35, power_z=0.4),
-            superellipse_ring(0.100, 0.276, 0.294, side * 0.292, 0.042, power_y=0.35, power_z=0.4),
-            superellipse_ring(0.210, 0.258, 0.274, side * 0.282, 0.030, power_y=0.35, power_z=0.4),
-        ]
-        create_loft_mesh(f"OTL_Sidepod_White_Panel_{side}", side_white_panel, mats["white"], subsurf_levels=1, collection=col_stationary)
-
     # =========================================================================
     # 5. DEEP RECLINED BUCKET SEAT (~35°), ROLL HOOP / HEADREST & 4-POINT HARNESS
+    # Hip bolsters cradle the pelvis (y = 0.125..0.280), while the upper backrest
+    # tapers to half_width = 0.115 m so the driver's shoulders and moving arms
+    # have 100% unobstructed clearance in front of and outside the seat!
     # =========================================================================
     seat_rows = [
         # (x_center, y_center, half_width, side_bolster_height, thickness)
-        (0.04, 0.105, 0.155, 0.052, 0.016),
-        (-0.10, 0.088, 0.155, 0.068, 0.016),
-        (-0.24, 0.110, 0.158, 0.076, 0.016),
-        (-0.34, 0.220, 0.165, 0.068, 0.016),
-        (-0.41, 0.360, 0.172, 0.052, 0.016),
-        (-0.45, 0.500, 0.165, 0.036, 0.016),
-        (-0.47, 0.610, 0.125, 0.020, 0.015),
+        (0.02, 0.122, 0.150, 0.042, 0.014),
+        (-0.11, 0.115, 0.152, 0.058, 0.014),
+        (-0.24, 0.142, 0.152, 0.062, 0.014),
+        (-0.34, 0.245, 0.142, 0.038, 0.014),
+        (-0.405, 0.375, 0.122, 0.012, 0.014),
+        (-0.452, 0.485, 0.108, 0.006, 0.014),
+        (-0.468, 0.545, 0.088, 0.004, 0.014),
     ]
     seat_rings = []
     for (sx, sy, sw, sbh, sth) in seat_rows:
@@ -472,106 +442,119 @@ def build_otl_superleggero():
         for j in range(n_u + 1):
             u = (j / n_u) * 2.0 - 1.0
             edge = abs(u) ** 2.6
-            px = sx + edge * sbh * 0.45
+            px = sx + edge * sbh * 0.40
             py = sy + edge * sbh
             pz = u * sw
             ring.append((px, py, pz))
         for j in range(n_u, -1, -1):
             u = (j / n_u) * 2.0 - 1.0
             edge = abs(u) ** 2.6
-            px = sx + edge * sbh * 0.45 - sth * 0.7
+            px = sx + edge * sbh * 0.40 - sth * 0.75
             py = sy + edge * sbh - sth
-            pz = u * (sw + sth * 0.4)
+            pz = u * (sw + sth * 0.35)
             ring.append((px, py, pz))
         seat_rings.append(ring)
     create_loft_mesh("OTL_Reclined_Bucket_Seat", seat_rings, mats["carbon"], closed_loop=True, cap_ends=True, subsurf_levels=1, collection=col_stationary)
 
-    # Signature OTL Superleggero rear roll hoop / headrest cage behind seat (top y = 0.86 m)
+    # Signature OTL Superleggero rear roll hoop / headrest cage behind seat (x = -0.478 m, top y = 0.862 m),
+    # anchoring solidly into the top deck of the rear powertrain shroud (y = 0.240 m, z = ±0.125 m)!
     roll_hoop_pts = [
-        (-0.47, 0.22, -0.165),
-        (-0.48, 0.52, -0.158),
-        (-0.485, 0.78, -0.130),
-        (-0.485, 0.858, -0.062),
+        (-0.478, 0.240, -0.125),
+        (-0.482, 0.540, -0.128),
+        (-0.485, 0.780, -0.118),
+        (-0.485, 0.858, -0.058),
         (-0.485, 0.862, 0.0),
-        (-0.485, 0.858, 0.062),
-        (-0.485, 0.78, 0.130),
-        (-0.48, 0.52, 0.158),
-        (-0.47, 0.22, 0.165),
+        (-0.485, 0.858, 0.058),
+        (-0.485, 0.780, 0.118),
+        (-0.482, 0.540, 0.128),
+        (-0.478, 0.240, 0.125),
     ]
-    create_tube_curve("OTL_Roll_Hoop_Main", roll_hoop_pts, 0.016, mats["black"], closed=False, collection=col_stationary)
+    create_tube_curve("OTL_Roll_Hoop_Main", roll_hoop_pts, 0.015, mats["black"], closed=False, collection=col_stationary)
+
+    # Horizontal crossbar on the roll hoop supporting the headrest pad
+    create_tube_curve(
+        "OTL_Roll_Hoop_Crossbar",
+        [(-0.484, 0.710, -0.122), (-0.484, 0.710, 0.122)],
+        0.013,
+        mats["black"],
+        closed=False,
+        collection=col_stationary,
+    )
 
     for side in (-1, 1):
         rear_brace = [
-            (-0.485, 0.75, side * 0.125),
-            (-0.59, 0.50, side * 0.145),
-            (-0.68, 0.26, side * 0.155),
+            (-0.485, 0.740, side * 0.115),
+            (-0.560, 0.500, side * 0.112),
+            (-0.625, 0.240, side * 0.108),
         ]
         create_tube_curve(f"OTL_Roll_Hoop_Rear_Brace_{side}", rear_brace, 0.012, mats["black"], closed=False, collection=col_stationary)
 
+    # Headrest pad mounted directly on OTL_Roll_Hoop_Crossbar (x in [-0.484, -0.454]),
+    # leaving >= 1.2 cm air gap behind the driver's helmet shell (x >= -0.442 m)!
     headrest_rings = [
-        superellipse_ring(-0.475, 0.62, 0.79, 0.0, 0.084, power_y=0.45, power_z=0.45),
-        superellipse_ring(-0.445, 0.62, 0.79, 0.0, 0.084, power_y=0.45, power_z=0.45),
+        superellipse_ring(-0.486, 0.635, 0.785, 0.0, 0.076, power_y=0.35, power_z=0.45),
+        superellipse_ring(-0.454, 0.635, 0.785, 0.0, 0.076, power_y=0.35, power_z=0.45),
     ]
-    create_loft_mesh("OTL_Headrest_Pad", headrest_rings, mats["rubber"], subsurf_levels=1, collection=col_stationary)
+    create_loft_mesh("OTL_Headrest_Pad", headrest_rings, mats["rubber"], subsurf_levels=0, collection=col_stationary)
 
     # =========================================================================
-    # 6. ENCLOSED REAR ELECTRIC POWERTRAIN SHROUD, LIVE AXLE & STEERING SUPPORT
-    # Narrowed to half_width <= 0.175 m so rear wheels (|z| >= 0.259 m) and rear
-    # brake rotor (z = -0.222 m) have generous air clearance.
+    # 6. ENCLOSED REAR ELECTRIC POWERTRAIN SHROUD, LIVE AXLE & STEERING COLUMN
     # =========================================================================
     shroud_rings = [
-        superellipse_ring(-0.71, 0.135, 0.305, 0.0, 0.145, power_y=0.5, power_z=0.55),
-        superellipse_ring(-0.62, 0.135, 0.355, 0.0, 0.172, power_y=0.5, power_z=0.55),
-        superellipse_ring(-0.50, 0.135, 0.345, 0.0, 0.168, power_y=0.5, power_z=0.55),
-        superellipse_ring(-0.42, 0.135, 0.295, 0.0, 0.140, power_y=0.5, power_z=0.55),
+        superellipse_ring(-0.675, 0.142, 0.295, 0.0, 0.142, power_y=0.45, power_z=0.50),
+        superellipse_ring(-0.600, 0.142, 0.305, 0.0, 0.158, power_y=0.45, power_z=0.50),
+        superellipse_ring(-0.500, 0.142, 0.302, 0.0, 0.154, power_y=0.45, power_z=0.50),
+        superellipse_ring(-0.435, 0.142, 0.285, 0.0, 0.136, power_y=0.45, power_z=0.50),
     ]
     create_loft_mesh("OTL_Rear_Powertrain_Shroud", shroud_rings, mats["black"], subsurf_levels=1, collection=col_stationary)
 
+    # Red crest sitting strictly on top of the black shroud (y_bottom = 0.304 m)
     shroud_crest = [
-        superellipse_ring(-0.69, 0.295, 0.352, 0.0, 0.095, power_y=0.5, power_z=0.5),
-        superellipse_ring(-0.59, 0.315, 0.372, 0.0, 0.112, power_y=0.5, power_z=0.5),
-        superellipse_ring(-0.47, 0.300, 0.355, 0.0, 0.098, power_y=0.5, power_z=0.5),
+        superellipse_ring(-0.650, 0.304, 0.342, 0.0, 0.088, power_y=0.45, power_z=0.50),
+        superellipse_ring(-0.575, 0.305, 0.352, 0.0, 0.098, power_y=0.45, power_z=0.50),
+        superellipse_ring(-0.485, 0.304, 0.340, 0.0, 0.088, power_y=0.45, power_z=0.50),
     ]
     create_loft_mesh("OTL_Rear_Shroud_Red_Crest", shroud_crest, mats["red"], subsurf_levels=1, collection=col_stationary)
 
-    # Rear live axle between inner rear wheel hubs (|z| <= 0.250 m < 0.259 m inner tire face)
+    # Rear live axle spans all the way to both rear wheel centers (|z| = 0.335 m) so rear wheels
+    # and the rear brake rotor (z = -0.215 m) are solidly mounted on the shaft with zero gap!
     create_tube_curve(
         "OTL_Rear_Live_Axle",
-        [(REAR_AXLE_X, TIRE_RADIUS, -0.250), (REAR_AXLE_X, TIRE_RADIUS, 0.250)],
+        [(REAR_AXLE_X, TIRE_RADIUS, -REAR_TRACK_HALF_Z), (REAR_AXLE_X, TIRE_RADIUS, REAR_TRACK_HALF_Z)],
         0.016,
         mats["steel"],
         collection=col_stationary,
     )
+
+    # Straight steering column shaft along the exact wheel rotation axis (y_l = 0, z_l = 0,
+    # x_l in [0.000, 0.125]), starting right inside the center of OTL_F1_Wheel_Hub (xl = 0)
+    # and extending deep into OTL_Nassau_Fairing (x >= 0.268 m) with zero disconnection!
+    cm_s, sm_s = math.cos(STEER_MOUNT_ROT_Z), math.sin(STEER_MOUNT_ROT_Z)
+    shaft_pts = [
+        (STEER_MOUNT_POS[0] + xl * cm_s, STEER_MOUNT_POS[1] + xl * sm_s, 0.0)
+        for xl in (0.000, 0.062, 0.125)
+    ]
     create_tube_curve(
-        "OTL_HV_Orange_Conduit",
-        [(-0.58, 0.31, 0.14), (-0.66, 0.35, 0.11), (-0.68, 0.32, -0.07), (-0.57, 0.28, -0.12)],
-        0.0085,
-        mats["orange"],
+        "OTL_Steering_Column_Shaft",
+        shaft_pts,
+        0.015,
+        mats["steel"],
         collection=col_stationary,
     )
 
-    # Straight steering hub boss along the exact wheel rotation axis (y_l = 0, z_l = 0, x_l in [0.028, 0.095])
-    # connecting the steering wheel hub straight into the Nassau tower with zero bend!
-    create_tube_curve(
-        "OTL_Steering_Column_Shaft",
-        [(0.212, 0.365, 0.0), (0.245, 0.377, 0.0), (0.280, 0.390, 0.0)],
-        0.016,
-        mats["black"],
-        collection=col_stationary,
-    )
-    # Integrated rectangular dash binnacle housing crowned directly onto the Nassau tower brow
+    # Integrated rectangular dash binnacle housing seated solidly into the Nassau tower brow
     # flush behind dashScreen at (0.262, 0.478, 0)
     dash_housing_rings = [
-        superellipse_ring(0.265, 0.440, 0.510, 0.0, 0.074, power_y=0.25, power_z=0.25),
-        superellipse_ring(0.298, 0.435, 0.506, 0.0, 0.070, power_y=0.25, power_z=0.25),
+        superellipse_ring(0.265, 0.422, 0.510, 0.0, 0.074, power_y=0.25, power_z=0.25),
+        superellipse_ring(0.305, 0.418, 0.506, 0.0, 0.070, power_y=0.25, power_z=0.25),
     ]
     create_loft_mesh("OTL_Dash_Housing", dash_housing_rings, mats["black"], subsurf_levels=0, collection=col_stationary)
 
     # =========================================================================
-    # 7. F1-STYLE COMPACT STEERING YOKE (Local to steeringWheel at (0.19, 0.355, 0))
-    # Compact vertical profile (y_local in [-0.072, +0.088], z_local in [-0.105, +0.105])
-    # so the top arch stays strictly below the dash display (y = 0.443..0.507) and
-    # the bottom stays strictly above the driver's knees (y <= 0.214).
+    # 7. F1-STYLE COMPACT STEERING YOKE (Local to steeringWheel at (0.185, 0.355, 0))
+    # Includes a coaxial cylindrical hub boss (x_local in [0.004, 0.042], r = 0.018 m)
+    # that telescopes directly over OTL_Steering_Column_Shaft so the wheel and shaft
+    # never disconnect at any camera angle or steering lock!
     # =========================================================================
     f1_rim_pts = []
     for i in range(36):
@@ -593,10 +576,18 @@ def build_otl_superleggero():
     create_tube_curve("OTL_F1_Wheel_Yellow_Marker", marker_pts, 0.016, mats["accent"], closed=False, collection=col_steer)
 
     hub_plate = [
-        superellipse_ring(-0.008, -0.030, 0.030, 0.0, 0.038, power_y=0.45, power_z=0.45),
-        superellipse_ring(0.008, -0.030, 0.030, 0.0, 0.038, power_y=0.45, power_z=0.45),
+        superellipse_ring(-0.008, -0.028, 0.028, 0.0, 0.036, power_y=0.45, power_z=0.45),
+        superellipse_ring(0.008, -0.028, 0.028, 0.0, 0.036, power_y=0.45, power_z=0.45),
     ]
     create_loft_mesh("OTL_F1_Wheel_Hub", hub_plate, mats["black"], subsurf_levels=0, collection=col_steer)
+
+    # Coaxial rear hub boss connecting the wheel center (x_local = 0.004) to the column shaft (x_local = 0.042)
+    hub_boss = [
+        oriented_ellipse_ring((0.004, 0.0, 0.0), (1.0, 0.0, 0.0), 0.018, 0.018, n=16),
+        oriented_ellipse_ring((0.042, 0.0, 0.0), (1.0, 0.0, 0.0), 0.016, 0.016, n=16),
+    ]
+    create_loft_mesh("OTL_F1_Wheel_Hub_Boss", hub_boss, mats["black"], subsurf_levels=0, collection=col_steer)
+
     create_tube_curve(
         "OTL_F1_Wheel_Cross_Spoke",
         [(0.0, -0.005, -0.098), (0.0, 0.0, 0.0), (0.0, -0.005, 0.098)],
@@ -615,19 +606,20 @@ def build_otl_superleggero():
     )
 
     # =========================================================================
-    # 8. REALISTIC RECLINED SEATED DRIVER (~35° RECLINE, HELMET CROWN y = 0.82 m)
-    # Positioned inside the bucket seat with knees bowed low and wide so they
-    # never touch the rotating steering wheel, gloves, or Nassau fairing.
+    # 8. REALISTIC RECLINED SEATED DRIVER (~35° RECLINE, HELMET CROWN y = 0.818 m)
+    # Concentrically layered torso, rib vest, and harness straps nestled cleanly
+    # in front of the bucket seat with zero self-intersection or seat clipping.
     # =========================================================================
     torso_spine = [
-        (-0.145, 0.145, 0.0, -0.55, 0.83, 0.056, 0.108),  # Pelvis base above seat floor
-        (-0.195, 0.195, 0.0, -0.58, 0.81, 0.068, 0.124),  # Hips
-        (-0.245, 0.265, 0.0, -0.57, 0.82, 0.068, 0.122),  # Waist
-        (-0.292, 0.335, 0.0, -0.55, 0.83, 0.074, 0.132),  # Lower ribs
-        (-0.335, 0.410, 0.0, -0.50, 0.86, 0.080, 0.146),  # Chest
-        (-0.368, 0.482, 0.0, -0.40, 0.91, 0.078, 0.162),  # Upper chest / shoulders
-        (-0.384, 0.530, 0.0, -0.25, 0.97, 0.066, 0.142),  # Collarbone yoke
-        (-0.388, 0.562, 0.0, -0.10, 0.99, 0.048, 0.078),  # Neck collar base
+        (-0.140, 0.165, 0.0, -0.55, 0.83, 0.052, 0.104),  # Pelvis base above seat floor
+        (-0.185, 0.215, 0.0, -0.56, 0.83, 0.060, 0.116),  # Hips
+        (-0.232, 0.285, 0.0, -0.55, 0.83, 0.062, 0.118),  # Waist
+        (-0.275, 0.355, 0.0, -0.52, 0.85, 0.066, 0.126),  # Lower ribs
+        (-0.312, 0.425, 0.0, -0.46, 0.89, 0.070, 0.138),  # Chest
+        (-0.338, 0.488, 0.0, -0.35, 0.94, 0.068, 0.148),  # Upper chest / shoulders
+        (-0.348, 0.535, 0.0, -0.20, 0.98, 0.056, 0.124),  # Collarbone yoke
+        (-0.348, 0.575, 0.0, -0.05, 1.00, 0.048, 0.064),  # Neck base
+        (-0.335, 0.615, 0.0, 0.15, 0.99, 0.042, 0.052),   # Upper neck inside helmet
     ]
     torso_rings = [
         oriented_ellipse_ring((x, y, z), (tx, ty, 0.0), rn, rs, n=20)
@@ -635,35 +627,37 @@ def build_otl_superleggero():
     ]
     create_loft_mesh("Driver_Reclined_Torso", torso_rings, mats["suit"], subsurf_levels=1, collection=col_driver_body)
 
-    rib_vest_spine = [
-        (-0.252, 0.275, 0.0, -0.56, 0.82, 0.073, 0.130),
-        (-0.292, 0.335, 0.0, -0.55, 0.83, 0.079, 0.138),
-        (-0.328, 0.395, 0.0, -0.51, 0.86, 0.083, 0.146),
-    ]
+    # Rib protector wraps concentrically +6 mm outside the waist/rib stations (indices 2..4)
     rib_rings = [
-        oriented_ellipse_ring((x, y, z), (tx, ty, 0.0), rn, rs, n=20)
-        for (x, y, z, tx, ty, rn, rs) in rib_vest_spine
+        oriented_ellipse_ring((x, y, z), (tx, ty, 0.0), rn + 0.006, rs + 0.006, n=20)
+        for (x, y, z, tx, ty, rn, rs) in torso_spine[2:5]
     ]
     create_loft_mesh("Driver_Rib_Protector", rib_rings, mats["black"], subsurf_levels=1, collection=col_driver_body)
 
     for side in (-1, 1):
-        harness_pts = [
-            (-0.445, 0.545, side * 0.072),
-            (-0.365, 0.535, side * 0.088),
-            (-0.265, 0.445, side * 0.068),
-            (-0.195, 0.325, side * 0.042),
-            (-0.155, 0.225, side * 0.024),
-        ]
-        create_tube_curve(f"Driver_Harness_Strap_{side}", harness_pts, 0.011, mats["harness"], collection=col_driver_body)
+        # 4-point racing harness straps riding strictly on the front chest surface (+14 mm forward-upward normal offset)
+        harness_pts = []
+        for idx, z_frac in ((5, 0.34), (4, 0.30), (3, 0.24), (2, 0.16)):
+            x, y, _, tx, ty, rn, rs = torso_spine[idx]
+            tlen = math.hypot(tx, ty) or 1.0
+            nx, ny = ty / tlen, -tx / tlen  # Forward-upward chest normal (+X, +Y)
+            r_front = rn + 0.014
+            ang = math.asin(z_frac)
+            px = x + nx * (math.cos(ang) * r_front)
+            py = y + ny * (math.cos(ang) * r_front)
+            pz = side * (math.sin(ang) * (rs + 0.006))
+            harness_pts.append((px, py, pz))
+        create_tube_curve(f"Driver_Harness_Strap_{side}", harness_pts, 0.008, mats["harness"], collection=col_driver_body)
 
-        # Bent legs seamlessly joined to pelvis and bowed outward at the knees (y_top <= 0.214 m)
-        # so they stay > 5 cm clear of the rotating steering wheel/gloves
+        # Bent legs extending deep into the hip socket (-0.195, 0.205) and down into the boots (0.420, 0.130)
+        # so there is zero gap at the hips or ankles even after Subsurf!
         leg_spine = [
-            ((-0.18, 0.165, side * 0.068), (0.96, 0.20, 0.0), 0.056, 0.058),
-            ((-0.03, 0.168, side * 0.118), (0.98, 0.08, 0.0), 0.048, 0.048),
-            ((0.14, 0.170, side * 0.148), (0.98, -0.14, 0.0), 0.042, 0.042),
-            ((0.28, 0.148, side * 0.112), (0.96, -0.22, 0.0), 0.036, 0.036),
-            ((0.40, 0.132, side * 0.078), (0.98, -0.15, 0.0), 0.030, 0.030),
+            ((-0.195, 0.205, side * 0.062), (0.94, 0.22, 0.0), 0.056, 0.058),
+            ((-0.130, 0.172, side * 0.075), (0.96, 0.16, 0.0), 0.052, 0.054),
+            ((-0.010, 0.170, side * 0.120), (0.98, 0.05, 0.0), 0.046, 0.046),
+            ((0.140, 0.168, side * 0.148), (0.98, -0.14, 0.0), 0.040, 0.040),
+            ((0.280, 0.146, side * 0.112), (0.96, -0.22, 0.0), 0.035, 0.035),
+            ((0.420, 0.128, side * 0.078), (0.98, -0.15, 0.0), 0.029, 0.029),
         ]
         leg_rings = [
             oriented_ellipse_ring(center, tangent, rn, rs, n=16)
@@ -671,46 +665,42 @@ def build_otl_superleggero():
         ]
         create_loft_mesh(f"Driver_Leg_{side}", leg_rings, mats["suit"], subsurf_levels=1, collection=col_driver_body)
 
-        # Racing boot on pedal inside the narrow front footwell (z = ±0.078 m)
+        # Racing boot on pedal inside the narrow front footwell (z = ±0.078 m, x <= 0.450 m just behind pedal face at 0.456 m)
         boot_rings = [
-            superellipse_ring(0.385, 0.096, 0.158, side * 0.078, 0.030, power_y=0.5, power_z=0.5),
-            superellipse_ring(0.425, 0.102, 0.182, side * 0.078, 0.032, power_y=0.5, power_z=0.5),
-            superellipse_ring(0.452, 0.125, 0.194, side * 0.078, 0.026, power_y=0.5, power_z=0.5),
+            superellipse_ring(0.380, 0.096, 0.156, side * 0.078, 0.030, power_y=0.5, power_z=0.5),
+            superellipse_ring(0.425, 0.102, 0.180, side * 0.078, 0.030, power_y=0.5, power_z=0.5),
+            superellipse_ring(0.452, 0.122, 0.192, side * 0.078, 0.025, power_y=0.5, power_z=0.5),
         ]
         create_loft_mesh(f"Driver_Boot_{side}", boot_rings, mats["black"], subsurf_levels=1, collection=col_driver_body)
 
-        epaulette = [
-            superellipse_ring(-0.390, 0.515, 0.536, side * 0.128, 0.034, power_y=0.5, power_z=0.5),
-            superellipse_ring(-0.342, 0.505, 0.526, side * 0.128, 0.034, power_y=0.5, power_z=0.5),
-        ]
-        create_loft_mesh(f"Driver_Epaulette_{side}", epaulette, mats["trim"], subsurf_levels=0, collection=col_driver_body)
-
     buckle_rings = [
-        superellipse_ring(-0.172, 0.228, 0.264, 0.0, 0.024, power_y=0.4, power_z=0.4),
-        superellipse_ring(-0.156, 0.228, 0.264, 0.0, 0.024, power_y=0.4, power_z=0.4),
+        superellipse_ring(-0.185, 0.305, 0.338, 0.0, 0.022, power_y=0.4, power_z=0.4),
+        superellipse_ring(-0.170, 0.305, 0.338, 0.0, 0.022, power_y=0.4, power_z=0.4),
     ]
     create_loft_mesh("Driver_Harness_Buckle", buckle_rings, mats["alloy"], subsurf_levels=0, collection=col_driver_body)
 
     # =========================================================================
-    # 9. AERODYNAMIC FULL-FACE KARTING HELMET (Crown at y = 0.818 m < 0.86 m Roll Hoop)
+    # 9. AERODYNAMIC FULL-FACE KARTING HELMET (Crown at y = 0.818 m < 0.862 m Roll Hoop)
+    # Positioned at hx = -0.318..-0.330 m with rear radius rxb <= 0.112 m so the back
+    # of the helmet (x >= -0.442 m) stays >= 1.2 cm clear of OTL_Headrest_Pad (x <= -0.454 m)!
     # =========================================================================
     neck_rings = [
-        oriented_ellipse_ring((-0.388, 0.535, 0.0), (0.12, 0.99, 0.0), 0.070, 0.084, n=20),
-        oriented_ellipse_ring((-0.376, 0.568, 0.0), (0.16, 0.98, 0.0), 0.066, 0.078, n=20),
-        oriented_ellipse_ring((-0.365, 0.598, 0.0), (0.18, 0.98, 0.0), 0.062, 0.074, n=20),
+        oriented_ellipse_ring((-0.348, 0.535, 0.0), (0.12, 0.99, 0.0), 0.064, 0.076, n=20),
+        oriented_ellipse_ring((-0.336, 0.575, 0.0), (0.16, 0.98, 0.0), 0.060, 0.072, n=20),
+        oriented_ellipse_ring((-0.324, 0.615, 0.0), (0.18, 0.98, 0.0), 0.058, 0.068, n=20),
     ]
-    create_loft_mesh("Driver_Neck_Collar", neck_rings, mats["black"], subsurf_levels=1, collection=col_driver_head)
+    create_loft_mesh("Driver_Neck_Collar", neck_rings, mats["black"], subsurf_levels=0, collection=col_driver_head)
 
     helmet_rows = [
-        (-0.352, 0.590, 0.082, 0.072, 0.082),
-        (-0.338, 0.618, 0.136, 0.104, 0.108),
-        (-0.330, 0.652, 0.148, 0.118, 0.120),
-        (-0.333, 0.692, 0.144, 0.126, 0.125),
-        (-0.338, 0.732, 0.138, 0.132, 0.126),
-        (-0.344, 0.768, 0.122, 0.128, 0.118),
-        (-0.350, 0.795, 0.092, 0.104, 0.094),
-        (-0.356, 0.812, 0.048, 0.056, 0.052),
-        (-0.358, 0.818, 0.010, 0.012, 0.010),
+        (-0.322, 0.582, 0.078, 0.068, 0.078),
+        (-0.312, 0.620, 0.128, 0.096, 0.104),
+        (-0.308, 0.655, 0.138, 0.108, 0.116),
+        (-0.312, 0.694, 0.136, 0.112, 0.120),
+        (-0.318, 0.734, 0.130, 0.112, 0.120),
+        (-0.324, 0.768, 0.114, 0.108, 0.112),
+        (-0.330, 0.795, 0.086, 0.092, 0.088),
+        (-0.334, 0.812, 0.044, 0.048, 0.048),
+        (-0.336, 0.818, 0.010, 0.010, 0.010),
     ]
     helmet_rings = []
     for (hx, hy, rxf, rxb, rz) in helmet_rows:
@@ -725,27 +715,27 @@ def build_otl_superleggero():
     create_loft_mesh("Driver_Helmet_Shell", helmet_rings, mats["helmet"], subsurf_levels=1, collection=col_driver_head)
 
     visor_rows = [
-        (-0.332, 0.680, 0.146, 0.125),
-        (-0.336, 0.706, 0.143, 0.127),
-        (-0.340, 0.730, 0.139, 0.127),
-        (-0.343, 0.752, 0.128, 0.121),
+        (-0.310, 0.678, 0.136, 0.117),
+        (-0.312, 0.700, 0.135, 0.119),
+        (-0.316, 0.722, 0.131, 0.118),
+        (-0.320, 0.742, 0.123, 0.113),
     ]
     visor_rings = []
     for (vx, vy, rx, rz) in visor_rows:
         ring = []
-        n_v = 14
+        n_v = 16
         for j in range(n_v + 1):
-            ang = -1.12 + (j / n_v) * 2.24
-            ring.append((vx + math.cos(ang) * (rx + 0.004), vy, math.sin(ang) * (rz + 0.004)))
+            ang = -1.02 + (j / n_v) * 2.04
+            ring.append((vx + math.cos(ang) * (rx + 0.007), vy, math.sin(ang) * (rz + 0.007)))
         for j in range(n_v, -1, -1):
-            ang = -1.12 + (j / n_v) * 2.24
-            ring.append((vx + math.cos(ang) * (rx - 0.004), vy, math.sin(ang) * (rz - 0.004)))
+            ang = -1.02 + (j / n_v) * 2.04
+            ring.append((vx + math.cos(ang) * (rx + 0.002), vy, math.sin(ang) * (rz + 0.002)))
         visor_rings.append(ring)
     create_loft_mesh("Driver_Helmet_Visor", visor_rings, mats["visor"], subsurf_levels=0, collection=col_driver_head)
 
     chin_vent = [
-        superellipse_ring(-0.208, 0.625, 0.642, 0.0, 0.032, power_y=0.45, power_z=0.45),
-        superellipse_ring(-0.198, 0.625, 0.642, 0.0, 0.026, power_y=0.45, power_z=0.45),
+        superellipse_ring(-0.178, 0.628, 0.644, 0.0, 0.028, power_y=0.45, power_z=0.45),
+        superellipse_ring(-0.168, 0.628, 0.644, 0.0, 0.024, power_y=0.45, power_z=0.45),
     ]
     create_loft_mesh("Driver_Helmet_Chin_Vent", chin_vent, mats["black"], subsurf_levels=0, collection=col_driver_head)
 
@@ -833,7 +823,7 @@ def build_otl_superleggero():
     }
 
     # =========================================================================
-    # MATHEMATICAL 3D CLEARANCE VERIFICATION (NORMAL & FULL STEERING LOCK)
+    # MATHEMATICAL 3D CLEARANCE & CONNECTIVITY VERIFICATION (STATIC & FULL LOCK)
     # =========================================================================
     def collect_verts(batches: dict[str, tuple[list[float], list[float], list[int]]]) -> list[tuple[float, float, float]]:
         pts = []
@@ -844,22 +834,22 @@ def build_otl_superleggero():
 
     stat_verts = collect_verts(groups_data["stationary"])
     driver_verts = collect_verts(groups_data["driverFixed"])
+    head_verts = collect_verts(groups_data["driverHead"])
     steer_verts = collect_verts(groups_data["steeringWheel"])
     glove_l_verts = collect_verts(groups_data["gloveLeft"])
     glove_r_verts = collect_verts(groups_data["gloveRight"])
 
     # 1. Verify front and rear wheel clearances at steer = 0 and steer = ±MAX_STEER_ANGLE_RAD
-    # Exclude only the axle shaft / kingpin vertices that intentionally sit between inner wheel hubs
+    # Exclude only the axle shaft / kingpin vertices that intentionally pass into the wheel hubs
     for steer_rad in (-MAX_STEER_ANGLE_RAD, 0.0, MAX_STEER_ANGLE_RAD):
         c_s, s_s = math.cos(-steer_rad), math.sin(-steer_rad)
         for side in (-1, 1):
             wx, wy, wz = FRONT_AXLE_X, TIRE_RADIUS, side * FRONT_TRACK_HALF_Z
             for (px, py, pz) in stat_verts + driver_verts:
-                # Ignore central kingpin beam vertices inside |z| <= 0.195 at x ~= 0.54
-                if abs(px - FRONT_AXLE_X) <= 0.025 and abs(py - TIRE_RADIUS) <= 0.025 and abs(pz) <= 0.195:
+                # Ignore central kingpin beam vertices along (x ~= 0.54, y ~= 0.145) passing into front wheel hubs
+                if abs(px - FRONT_AXLE_X) <= 0.025 and abs(py - TIRE_RADIUS) <= 0.025 and abs(pz) <= FRONT_TRACK_HALF_Z + 0.005:
                     continue
                 dx, dy, dz = px - wx, py - wy, pz - wz
-                # Rotate into front wheel local frame
                 lx = dx * c_s - dz * s_s
                 lz = dx * s_s + dz * c_s
                 radial = math.hypot(lx, dy)
@@ -871,25 +861,29 @@ def build_otl_superleggero():
     for side in (-1, 1):
         wx, wy, wz = REAR_AXLE_X, TIRE_RADIUS, side * REAR_TRACK_HALF_Z
         for (px, py, pz) in stat_verts + driver_verts:
-            # Ignore rear live axle shaft inside |z| <= 0.252 at x ~= -0.52
-            if abs(px - REAR_AXLE_X) <= 0.025 and abs(py - TIRE_RADIUS) <= 0.025 and abs(pz) <= 0.252:
+            # Ignore coaxial rear live axle shaft (dx^2 + dy^2 <= 0.025^2) passing into rear wheel hubs
+            if abs(px - REAR_AXLE_X) <= 0.025 and abs(py - TIRE_RADIUS) <= 0.025 and abs(pz) <= REAR_TRACK_HALF_Z + 0.005:
                 continue
             dx, dy, dz = px - wx, py - wy, pz - wz
             radial = math.hypot(dx, dy)
             if radial < TIRE_RADIUS + 0.015 and abs(dz) < WHEEL_HALF_WIDTH + 0.015:
                 raise AssertionError(f"Rear wheel overlap at side={side}: point=({px:.3f}, {py:.3f}, {pz:.3f})")
 
-    # 2. Verify rotating steeringWheel + gloves clearance against stationary bodywork & driver legs
-    # In steeringMount local space (origin=(0.21, 0.36, 0), rot_z=0.40), the rotating assembly
-    # occupies x_l in [-0.055, +0.018] and r_l <= 0.145 m.
+    # 2. Verify rotating steeringWheel + gloves clearance against stationary bodywork & driver legs,
+    # and verify coaxial telescopic connection between OTL_F1_Wheel_Hub_Boss and OTL_Steering_Column_Shaft!
     cm, sm = math.cos(STEER_MOUNT_ROT_Z), math.sin(STEER_MOUNT_ROT_Z)
     max_rot_xl = -1e9
     min_rot_xl = 1e9
     max_rot_rl = 0.0
+    max_boss_xl = -1e9
     for (lx, ly, lz) in steer_verts:
-        max_rot_xl = max(max_rot_xl, lx)
-        min_rot_xl = min(min_rot_xl, lx)
-        max_rot_rl = max(max_rot_rl, math.hypot(ly, lz))
+        rl = math.hypot(ly, lz)
+        if rl <= 0.022:
+            max_boss_xl = max(max_boss_xl, lx)
+        else:
+            max_rot_xl = max(max_rot_xl, lx)
+            min_rot_xl = min(min_rot_xl, lx)
+            max_rot_rl = max(max_rot_rl, rl)
     for side, g_verts in ((-1, glove_l_verts), (1, glove_r_verts)):
         for (gx, gy, gz) in g_verts:
             lx, ly, lz = gx - 0.010, gy, gz + side * GLOVE_OFFSET_Z
@@ -897,15 +891,30 @@ def build_otl_superleggero():
             min_rot_xl = min(min_rot_xl, lx)
             max_rot_rl = max(max_rot_rl, math.hypot(ly, lz))
 
+    min_shaft_xl = 1e9
     for (px, py, pz) in stat_verts + driver_verts:
         dx, dy = px - STEER_MOUNT_POS[0], py - STEER_MOUNT_POS[1]
         xl = dx * cm + dy * sm
         yl = -dx * sm + dy * cm
         rl = math.hypot(yl, pz)
+        # Coaxial steering column shaft (rl <= 0.020, xl in [-0.005, 0.130]) mates inside OTL_F1_Wheel_Hub_Boss
+        if rl <= 0.020 and -0.005 <= xl <= 0.130:
+            min_shaft_xl = min(min_shaft_xl, xl)
+            continue
         if (min_rot_xl - 0.010) <= xl <= (max_rot_xl + 0.010) and rl <= (max_rot_rl + 0.010):
             raise AssertionError(
                 f"Steering wheel / glove swept envelope overlap at point=({px:.3f}, {py:.3f}, {pz:.3f}), xl={xl:.3f}, rl={rl:.3f}"
             )
+
+    if max_boss_xl < min_shaft_xl:
+        raise AssertionError(
+            f"Steering shaft disconnected from wheel hub boss: max_boss_xl={max_boss_xl:.3f} < min_shaft_xl={min_shaft_xl:.3f}"
+        )
+
+    # 3. Verify helmet shell stays strictly clear of headrest pad & roll hoop (zero third-person overlap)
+    min_helmet_x = min(px for (px, py, pz) in head_verts if py >= 0.62)
+    if min_helmet_x < -0.450:
+        raise AssertionError(f"Driver helmet overlaps headrest/roll hoop: min_helmet_x={min_helmet_x:.3f} < -0.450")
 
     # Write TypeScript synchronous mesh module
     lines = [
@@ -940,15 +949,11 @@ def build_otl_superleggero():
 
     # =========================================================================
     # ASSEMBLE WORLD POSES FOR .BLEND, .GLB, AND CYCLES PREVIEW RENDER
-    # Apply the exact Three.js steeringMount transform (pos=(0.21, 0.36, 0), rot_z=0.4)
-    # and KART_WHEEL_GEOMETRY wheel centers so .blend/.glb/preview match Three.js 1:1.
     # =========================================================================
     def transform_mesh_in_three_space(obj: bpy.types.Object, offset_local: tuple[float, float, float]) -> None:
         ox, oy, oz = offset_local
         for v in obj.data.vertices:
-            # Convert Blender vertex (bx, by, bz) -> Three.js (tx, ty, tz)
             tx, ty, tz = v.co.x + ox, v.co.z + oy, -v.co.y + oz
-            # Apply steeringMount rotation.z = 0.40 and translation (0.21, 0.36, 0)
             wx = STEER_MOUNT_POS[0] + tx * cm - ty * sm
             wy = STEER_MOUNT_POS[1] + tx * sm + ty * cm
             wz = STEER_MOUNT_POS[2] + tz
@@ -996,13 +1001,23 @@ def build_otl_superleggero():
             c.objects.unlink(rim_obj)
         col_wheel.objects.link(rim_obj)
 
+        if label in ("FL", "FR"):
+            side = -1 if label == "FL" else 1
+            create_tube_curve(
+                f"OTL_Knuckle_Axle_{label}",
+                [(wx, TIRE_RADIUS, wz), (wx, TIRE_RADIUS, wz - side * 0.092)],
+                0.014,
+                mats["steel"],
+                collection=col_wheel,
+            )
+
     for side in (-1, 1):
         arm_pts = [
-            (-0.368, 0.482, side * 0.165),
-            (-0.095, 0.375, side * 0.195),
+            (-0.332, 0.488, side * 0.142),
+            (-0.085, 0.372, side * 0.188),
             (0.160, 0.352, side * GLOVE_OFFSET_Z),
         ]
-        create_tube_curve(f"Driver_Sleeve_Posed_{side}", arm_pts, 0.042, mats["suit"], collection=col_driver_body)
+        create_tube_curve(f"Driver_Sleeve_Posed_{side}", arm_pts, 0.040, mats["suit"], collection=col_driver_body)
 
     bpy.ops.wm.save_as_mainfile(filepath=BLEND_OUT)
     bpy.ops.export_scene.gltf(

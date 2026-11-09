@@ -55,15 +55,18 @@ describe('Barrier graze rule', () => {
 });
 
 describe('OTL Superleggero 3D rig proportions and non-overlapping clearance', () => {
-  it('matches true-scale reclined heights and maintains zero mesh overlap across full steering lock', () => {
+  it('matches true-scale reclined heights and maintains zero mesh overlap or disconnection statically and in action', () => {
     const rig = createKartRig();
-    const snapshot = createSimulationSession().getSnapshot();
+    const session = createSimulationSession();
+    const snapshot = session.getSnapshot();
 
     expect(STEERING_WHEEL_HUB_HEIGHT_METERS).toBeCloseTo(0.355, 3);
     expect(DASH_BINNACLE_HEIGHT_METERS).toBeCloseTo(0.478, 3);
     expect(HELMET_CAM_EYE_HEIGHT_METERS).toBeCloseTo(0.75, 2);
 
     rig.update(snapshot);
+    rig.root.position.set(0, 0, 0);
+    rig.root.rotation.set(0, 0, 0);
     rig.root.updateMatrixWorld(true);
 
     const overallBox = new THREE.Box3().setFromObject(rig.root);
@@ -77,21 +80,40 @@ describe('OTL Superleggero 3D rig proportions and non-overlapping clearance', ()
     expect(helmetBox.max.y).toBeGreaterThan(0.79);
     expect(helmetBox.max.y).toBeLessThan(0.84);
     expect(helmetBox.max.y).toBeLessThan(overallBox.max.y);
+    // Helmet back stays strictly ahead of the headrest pad (x <= -0.454 m) so no clipping occurs in Chase Cam
+    expect(helmetBox.min.x).toBeGreaterThan(-0.448);
 
-    for (const steer of [-MAX_STEER_ANGLE_RAD, 0, MAX_STEER_ANGLE_RAD]) {
-      rig.update({
-        ...snapshot,
-        kart: {
-          ...snapshot.kart,
-          steerAngleRad: steer,
-          steeringWheelAngleRad: steer * 2.2,
-        },
-      });
+    const validateDynamicState = (state: typeof snapshot) => {
+      rig.update(state);
+      rig.root.position.set(0, 0, 0);
+      rig.root.rotation.set(0, 0, 0);
       rig.root.updateMatrixWorld(true);
+
+      // Every mesh must have finite coordinates
+      let allFinite = true;
+      rig.root.traverse((obj) => {
+        if (obj instanceof THREE.Mesh) {
+          const pos = obj.geometry.getAttribute('position');
+          if (pos.count === 0) allFinite = false;
+          for (let i = 0; i < pos.count; i++) {
+            if (!Number.isFinite(pos.getX(i)) || !Number.isFinite(pos.getY(i)) || !Number.isFinite(pos.getZ(i))) {
+              allFinite = false;
+              break;
+            }
+          }
+        }
+      });
+      expect(allFinite).toBe(true);
+
       const leftGlove = rig.root.getObjectByName('Left hand grip')!;
       const rightGlove = rig.root.getObjectByName('Right hand grip')!;
+      const leftSleeve = rig.root.getObjectByName('Left arm sleeve') as THREE.Mesh;
+      const rightSleeve = rig.root.getObjectByName('Right arm sleeve') as THREE.Mesh;
       expect(leftGlove).toBeDefined();
       expect(rightGlove).toBeDefined();
+      expect(leftSleeve).toBeDefined();
+      expect(rightSleeve).toBeDefined();
+
       const leftGloveBox = new THREE.Box3().setFromObject(leftGlove);
       const rightGloveBox = new THREE.Box3().setFromObject(rightGlove);
       // Rotating gloves stay strictly above the driver's legs (y <= 0.165 m in the central z <= 0.125 m corridor)
@@ -100,6 +122,59 @@ describe('OTL Superleggero 3D rig proportions and non-overlapping clearance', ()
       expect(rightGloveBox.min.y).toBeGreaterThan(0.215);
       expect(leftGloveBox.max.y).toBeLessThan(0.49);
       expect(rightGloveBox.max.y).toBeLessThan(0.49);
+
+      // Dynamic arm sleeves stay connected at the shoulder (-0.332, 0.488, ±0.142) and wrist cuff,
+      // in front of the bucket seat back (x > -0.39 m) and above the driver's legs (y > 0.21 m).
+      for (const [side, sleeve, glove] of [
+        [-1, leftSleeve, leftGlove],
+        [1, rightSleeve, rightGlove],
+      ] as const) {
+        const sleeveBox = new THREE.Box3().setFromObject(sleeve);
+        expect(sleeveBox.min.x).toBeGreaterThan(-0.39);
+        expect(sleeveBox.min.y).toBeGreaterThan(0.21);
+        expect(Math.max(Math.abs(sleeveBox.min.z), Math.abs(sleeveBox.max.z))).toBeLessThan(0.24);
+
+        // Verify wrist end of sleeve connects to the rotating glove cuff (distance < 0.045 m)
+        const wristTarget = rig.root.worldToLocal(glove.localToWorld(new THREE.Vector3(-0.032, 0, 0)));
+        const pos = sleeve.geometry.getAttribute('position');
+        let minWristDist = Infinity;
+        let minShoulderDist = Infinity;
+        const shoulderTarget = new THREE.Vector3(-0.335, 0.485, side * 0.122);
+        for (let i = 0; i < pos.count; i++) {
+          const v = new THREE.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i));
+          minWristDist = Math.min(minWristDist, v.distanceTo(wristTarget));
+          minShoulderDist = Math.min(minShoulderDist, v.distanceTo(shoulderTarget));
+        }
+        expect(minShoulderDist).toBeLessThan(0.055);
+        expect(minWristDist).toBeLessThan(0.045);
+      }
+    };
+
+    // 1. Static steering sweep across full left, center, and full right lock
+    for (const steer of [-MAX_STEER_ANGLE_RAD, -0.5 * MAX_STEER_ANGLE_RAD, 0, 0.5 * MAX_STEER_ANGLE_RAD, MAX_STEER_ANGLE_RAD]) {
+      validateDynamicState({
+        ...snapshot,
+        kart: {
+          ...snapshot.kart,
+          steerAngleRad: steer,
+          steeringWheelAngleRad: steer * 2.2,
+        },
+      });
+    }
+
+    // 2. Live simulation action: acceleration, hard left turn, hard right turn, and braking
+    const maneuvers = [
+      { throttle: 1, brake: 0, steer: 0, ticks: 60 },
+      { throttle: 0.8, brake: 0, steer: -1, ticks: 45 },
+      { throttle: 0.8, brake: 0, steer: 1, ticks: 60 },
+      { throttle: 0, brake: 1, steer: -0.6, ticks: 40 },
+    ];
+    for (const maneuver of maneuvers) {
+      let current = session.getSnapshot();
+      for (let t = 0; t < maneuver.ticks; t++) {
+        current = session.step(1 / 120, maneuver);
+      }
+      validateDynamicState(current);
     }
   });
 });

@@ -254,17 +254,17 @@ def build_otl_superleggero():
     # Every bumper tube is non-overlapping and connects solidly into the chassis rails.
     # =========================================================================
     front_bumper_pts = [
-        (0.700, 0.110, -0.095),
-        (0.755, 0.118, -0.128),
-        (0.790, 0.122, -0.242),
-        (0.832, 0.124, -0.185),
-        (0.856, 0.125, 0.0),
-        (0.832, 0.124, 0.185),
-        (0.790, 0.122, 0.242),
-        (0.755, 0.118, 0.128),
-        (0.700, 0.110, 0.095),
+        (0.700, 0.110, -0.092),
+        (0.768, 0.118, -0.118),
+        (0.805, 0.122, -0.238),
+        (0.840, 0.124, -0.180),
+        (0.858, 0.125, 0.0),
+        (0.840, 0.124, 0.180),
+        (0.805, 0.122, 0.238),
+        (0.768, 0.118, 0.118),
+        (0.700, 0.110, 0.092),
     ]
-    create_tube_curve("OTL_Front_Bumper_Main", front_bumper_pts, 0.019, mats["rubber"], closed=False, collection=col_stationary)
+    create_tube_curve("OTL_Front_Bumper_Main", front_bumper_pts, 0.018, mats["rubber"], closed=False, collection=col_stationary)
 
     # Rear wraparound Protex bumper behind rear tires (x <= -0.708 where tires end at -0.665),
     # solidly joining the rear ends of Chassis_Main_Rail at (-0.680, 0.105, ±0.155)
@@ -311,9 +311,9 @@ def build_otl_superleggero():
             (-0.328, 0.105, side * 0.185),
             (-0.315, 0.115, side * 0.385),
             (-0.100, 0.118, side * 0.398),
-            (0.150, 0.118, side * 0.395),
-            (0.310, 0.115, side * 0.365),
-            (0.328, 0.105, side * 0.160),
+            (0.140, 0.118, side * 0.395),
+            (0.285, 0.115, side * 0.355),
+            (0.300, 0.105, side * 0.160),
         ]
         create_tube_curve(f"OTL_Side_Bumper_Main_{side}", side_bumper_main, 0.017, mats["rubber"], closed=False, collection=col_stationary)
 
@@ -342,30 +342,39 @@ def build_otl_superleggero():
         ]
         create_tube_curve(f"Chassis_Main_Rail_{side}", chassis_rail, 0.013, mats["red"], collection=col_stationary)
 
-        # Triangulated front axle gusset tubes bracing the kingpin beam to the main chassis rails
+        # Triangulated front chassis A-frame outriggers flaring from the narrow front waist
+        # out to the stationary Kingpin C-Yoke at (0.540, 0.145, side * 0.185) — NO rigid shaft
+        # between the two front wheels!
         create_tube_curve(
-            f"OTL_Front_Axle_Gusset_{side}",
-            [(0.435, 0.106, side * 0.100), (0.540, 0.142, side * 0.156)],
-            0.009,
+            f"OTL_Front_Chassis_Outrigger_{side}",
+            [(0.455, 0.106, side * 0.100), (0.515, 0.130, side * 0.138), (0.540, 0.145, side * 0.175)],
+            0.011,
+            mats["red"],
+            collection=col_stationary,
+        )
+        create_tube_curve(
+            f"OTL_Front_Chassis_Forward_Leg_{side}",
+            [(0.635, 0.109, side * 0.095), (0.565, 0.130, side * 0.138), (0.540, 0.145, side * 0.175)],
+            0.010,
             mats["red"],
             collection=col_stationary,
         )
 
-        # Stationary C-shaped kingpin yoke at (0.540, 0.145, side * 0.168) holding the vertical kingpin bolt
+        # Stationary C-shaped kingpin yoke welded to the chassis outrigger apex at (0.540, 0.145, side * 0.185)
         c_yoke_pts = [
-            (0.540, 0.172, side * 0.172),
-            (0.540, 0.172, side * 0.154),
-            (0.540, 0.145, side * 0.148),
-            (0.540, 0.118, side * 0.154),
-            (0.540, 0.118, side * 0.172),
+            (0.540, 0.172, side * 0.187),
+            (0.540, 0.172, side * 0.170),
+            (0.540, 0.145, side * 0.165),
+            (0.540, 0.118, side * 0.170),
+            (0.540, 0.118, side * 0.187),
         ]
-        create_tube_curve(f"OTL_Kingpin_C_Yoke_{side}", c_yoke_pts, 0.0075, mats["black"], collection=col_stationary)
+        create_tube_curve(f"OTL_Kingpin_C_Yoke_{side}", c_yoke_pts, 0.007, mats["black"], collection=col_stationary)
 
-        # Vertical steel kingpin bolt + anodized caster adjuster pill at (0.540, 0.112..0.182, side * 0.168)
+        # Vertical steel kingpin bolt + anodized eccentric caster/camber pill at (0.540, 0.112..0.182, side * 0.185)
         create_tube_curve(
             f"OTL_Kingpin_Bolt_{side}",
-            [(0.540, 0.112, side * 0.168), (0.540, 0.182, side * 0.168)],
-            0.0065,
+            [(0.540, 0.112, side * 0.185), (0.540, 0.182, side * 0.185)],
+            0.006,
             mats["alloy"],
             collection=col_stationary,
         )
@@ -471,16 +480,6 @@ def build_otl_superleggero():
         collection=col_stationary,
     )
 
-    # Front axle kingpin beam along x = 0.54, y = 0.145, spanning all the way to both front wheel
-    # pivot centers (|z| = 0.285 m) so the front wheels never disconnect at any steering angle!
-    create_tube_curve(
-        "OTL_Front_Kingpin_Beam",
-        [(FRONT_AXLE_X, TIRE_RADIUS, -FRONT_TRACK_HALF_Z), (FRONT_AXLE_X, TIRE_RADIUS, FRONT_TRACK_HALF_Z)],
-        0.014,
-        mats["steel"],
-        collection=col_stationary,
-    )
-
     # =========================================================================
     # 3. OTL SUPERLEGGERO SCULPTED NOSE CONE & NASSAU FAIRING
     # Arched over x in [0.35, 0.50] (y_bottom = 0.212 m above lower splitter y_top = 0.118 m)
@@ -519,7 +518,7 @@ def build_otl_superleggero():
     create_loft_mesh("OTL_Nassau_Fairing", nassau_fairing, mats["red"], subsurf_levels=1, collection=col_stationary)
 
     # =========================================================================
-    # 4. OTL SUPERLEGGERO SCULPTED SIDEPODS (x in [-0.320, +0.320])
+    # 4. OTL SUPERLEGGERO SCULPTED SIDEPODS (x in [-0.320, +0.302])
     # Single clean non-overlapping shell per side with a flat upper plateau (y_top = 0.288 m,
     # power_y = 0.25) so the K1 / 07 decal plate at y = 0.292 m sits parallel with zero clipping.
     # =========================================================================
@@ -528,9 +527,9 @@ def build_otl_superleggero():
             superellipse_ring(-0.320, 0.138, 0.235, side * 0.280, 0.028, power_y=0.35, power_z=0.50),
             superellipse_ring(-0.230, 0.138, 0.288, side * 0.290, 0.062, power_y=0.25, power_z=0.50),
             superellipse_ring(-0.020, 0.138, 0.288, side * 0.290, 0.066, power_y=0.25, power_z=0.50),
-            superellipse_ring(0.180, 0.138, 0.288, side * 0.290, 0.062, power_y=0.25, power_z=0.50),
-            superellipse_ring(0.270, 0.138, 0.250, side * 0.280, 0.044, power_y=0.35, power_z=0.50),
-            superellipse_ring(0.320, 0.140, 0.205, side * 0.260, 0.024, power_y=0.35, power_z=0.50),
+            superellipse_ring(0.175, 0.138, 0.288, side * 0.290, 0.062, power_y=0.25, power_z=0.50),
+            superellipse_ring(0.255, 0.138, 0.250, side * 0.278, 0.042, power_y=0.35, power_z=0.50),
+            superellipse_ring(0.302, 0.140, 0.205, side * 0.258, 0.022, power_y=0.35, power_z=0.50),
         ]
         create_loft_mesh(f"OTL_Sidepod_Red_{side}", pod_red, mats["red"], subsurf_levels=1, collection=col_stationary)
 
@@ -1021,23 +1020,29 @@ def build_otl_superleggero():
     glove_l_verts = collect_verts(groups_data["gloveLeft"])
     glove_r_verts = collect_verts(groups_data["gloveRight"])
 
-    # 1. Verify front and rear wheel clearances at steer = 0 and steer = ±MAX_STEER_ANGLE_RAD
-    # Exclude only the axle shaft / kingpin vertices that intentionally pass into the wheel hubs
+    # 1. Verify front and rear wheel clearances at steer = 0 and full Ackermann steering lock
+    # Front wheels pivot around the Kingpin at z = side * 0.185 m with a 0.100 m stub axle!
+    KINGPIN_HALF_Z = 0.185
+    SPINDLE_LENGTH = FRONT_TRACK_HALF_Z - KINGPIN_HALF_Z
+    WHEELBASE = 1.06
     for steer_rad in (-MAX_STEER_ANGLE_RAD, 0.0, MAX_STEER_ANGLE_RAD):
-        c_s, s_s = math.cos(-steer_rad), math.sin(-steer_rad)
         for side in (-1, 1):
-            wx, wy, wz = FRONT_AXLE_X, TIRE_RADIUS, side * FRONT_TRACK_HALF_Z
+            tan_s = math.tan(steer_rad)
+            ack_steer = math.atan((WHEELBASE * tan_s) / (WHEELBASE - side * KINGPIN_HALF_Z * tan_s))
+            yaw = -ack_steer
+            c_s, s_s = math.cos(yaw), math.sin(yaw)
+            # Wheel center swings around kingpin (FRONT_AXLE_X, TIRE_RADIUS, side * KINGPIN_HALF_Z)
+            wx = FRONT_AXLE_X + (side * SPINDLE_LENGTH) * s_s
+            wy = TIRE_RADIUS
+            wz = side * KINGPIN_HALF_Z + (side * SPINDLE_LENGTH) * c_s
             for (px, py, pz) in stat_verts + driver_verts:
-                # Ignore central kingpin beam vertices along (x ~= 0.54, y ~= 0.145) passing into front wheel hubs
-                if abs(px - FRONT_AXLE_X) <= 0.025 and abs(py - TIRE_RADIUS) <= 0.025 and abs(pz) <= FRONT_TRACK_HALF_Z + 0.005:
-                    continue
                 dx, dy, dz = px - wx, py - wy, pz - wz
                 lx = dx * c_s - dz * s_s
                 lz = dx * s_s + dz * c_s
                 radial = math.hypot(lx, dy)
-                if radial < TIRE_RADIUS + 0.015 and abs(lz) < WHEEL_HALF_WIDTH + 0.015:
+                if radial < TIRE_RADIUS + 0.012 and abs(lz) < WHEEL_HALF_WIDTH + 0.012:
                     raise AssertionError(
-                        f"Front wheel overlap at steer={steer_rad:.2f} rad, side={side}: point=({px:.3f}, {py:.3f}, {pz:.3f})"
+                        f"Front wheel overlap at steer={steer_rad:.2f} rad (ack={ack_steer:.3f}), side={side}: point=({px:.3f}, {py:.3f}, {pz:.3f}), lx={lx:.3f}, lz={lz:.3f}"
                     )
 
     for side in (-1, 1):
@@ -1186,14 +1191,14 @@ def build_otl_superleggero():
         if label in ("FL", "FR"):
             side = -1 if label == "FL" else 1
             create_tube_curve(
-                f"OTL_Knuckle_Axle_{label}",
-                [(wx, TIRE_RADIUS, wz), (wx, TIRE_RADIUS, wz - side * 0.092)],
+                f"OTL_Spindle_Stub_Axle_{label}",
+                [(wx, TIRE_RADIUS, side * 0.185), (wx, TIRE_RADIUS, wz + side * 0.072)],
                 0.014,
                 mats["steel"],
                 collection=col_wheel,
             )
 
-    # Posed mechanical steering linkage (Pitman arm, knuckle steering arms, tie rods & Heim joints)
+    # Posed mechanical steering linkage (Pitman arm, Ackermann spindle steering arms, tie rods & Heim joints)
     # and articulated footwell pedals for .blend / .glb / Cycles preview completeness
     for side in (-1, 1):
         create_tube_curve(
@@ -1205,14 +1210,14 @@ def build_otl_superleggero():
         )
         create_tube_curve(
             f"OTL_Knuckle_Steering_Arm_{side}",
-            [(0.540, 0.170, side * 0.168), (0.510, 0.188, side * 0.164), (0.472, 0.192, side * 0.158)],
+            [(0.540, 0.170, side * 0.185), (0.508, 0.188, side * 0.174), (0.474, 0.192, side * 0.163)],
             0.0075,
             mats["alloy"],
             collection=col_wheel,
         )
         create_tube_curve(
             f"OTL_Tie_Rod_{side}",
-            [(0.450, 0.192, side * 0.038), (0.472, 0.192, side * 0.158)],
+            [(0.450, 0.192, side * 0.038), (0.474, 0.192, side * 0.163)],
             0.0065,
             mats["alloy"],
             collection=col_wheel,

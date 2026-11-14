@@ -1,8 +1,11 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import {
+  ackermannSteeringAngles,
   createKartRig,
   DASH_BINNACLE_HEIGHT_METERS,
+  KINGPIN_HALF_TRACK_METERS,
+  SPINDLE_STUB_LENGTH_METERS,
   STEERING_WHEEL_HUB_HEIGHT_METERS,
 } from '../src/render/kart';
 import { HELMET_CAM_EYE_HEIGHT_METERS } from '../src/simulation/camera';
@@ -169,19 +172,33 @@ describe('OTL Superleggero 3D rig proportions and non-overlapping clearance', ()
       expect(rearRotor).toBeDefined();
       expect(rearPulley).toBeDefined();
 
+      expect(KINGPIN_HALF_TRACK_METERS).toBeCloseTo(0.185, 4);
+      expect(SPINDLE_STUB_LENGTH_METERS).toBeCloseTo(0.100, 4);
+      expect(leftKnuckle.position.z).toBeCloseTo(-KINGPIN_HALF_TRACK_METERS, 4);
+      expect(rightKnuckle.position.z).toBeCloseTo(KINGPIN_HALF_TRACK_METERS, 4);
+
+      const { leftRad, rightRad } = ackermannSteeringAngles(state.kart.steerAngleRad);
+      if (state.kart.steerAngleRad < -1e-4) {
+        // Left turn: inside (left) wheel steers sharper than outside (right) wheel
+        expect(Math.abs(leftRad)).toBeGreaterThan(Math.abs(rightRad));
+      } else if (state.kart.steerAngleRad > 1e-4) {
+        // Right turn: inside (right) wheel steers sharper than outside (left) wheel
+        expect(Math.abs(rightRad)).toBeGreaterThan(Math.abs(leftRad));
+      }
+
       expect(pitmanArm.rotation.y).toBeCloseTo(-state.kart.steerAngleRad, 4);
-      expect(leftKnuckle.rotation.y).toBeCloseTo(-state.kart.steerAngleRad, 4);
-      expect(rightKnuckle.rotation.y).toBeCloseTo(-state.kart.steerAngleRad, 4);
+      expect(leftKnuckle.rotation.y).toBeCloseTo(-leftRad, 4);
+      expect(rightKnuckle.rotation.y).toBeCloseTo(-rightRad, 4);
       expect(brakePedal.rotation.z).toBeCloseTo(-state.kart.brakeInput * 0.24, 4);
       expect(throttlePedal.rotation.z).toBeCloseTo(-state.kart.throttleInput * 0.24, 4);
 
-      // Verify each tie rod's midpoint and orientation match the exact Pitman ear -> Knuckle steering arm endpoints
+      // Verify each tie rod's midpoint and orientation match the exact Pitman ear -> Ackermann Knuckle steering arm endpoints
       for (const [side, knuckle, tieRod] of [
         [-1, leftKnuckle, leftTieRod],
         [1, rightKnuckle, rightTieRod],
       ] as const) {
         const innerBallWorld = pitmanArm.localToWorld(new THREE.Vector3(-0.008, 0, side * 0.038));
-        const outerBallWorld = knuckle.localToWorld(new THREE.Vector3(-0.068, 0.047, -side * 0.010));
+        const outerBallWorld = knuckle.localToWorld(new THREE.Vector3(-0.066, 0.047, -side * 0.022));
         const expectedMid = innerBallWorld.clone().add(outerBallWorld).multiplyScalar(0.5);
         expect(tieRod.position.distanceTo(expectedMid)).toBeLessThan(0.002);
       }

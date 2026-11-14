@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createSeatedDriver } from './driver';
-import { KART_WHEEL_GEOMETRY } from '../simulation/kart-parameters';
+import { KART_DIMENSIONS, KART_WHEEL_GEOMETRY } from '../simulation/kart-parameters';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { SessionSnapshot } from '../simulation/types';
 import {
@@ -16,12 +16,35 @@ export const STEERING_WHEEL_TILT_RAD = 0.35;
 export const DASH_BINNACLE_X_METERS = 0.262;
 export const DASH_BINNACLE_HEIGHT_METERS = 0.478;
 
+/** Real go-kart kingpin & stub-axle spindle geometry (no rigid front cross-shaft). */
+export const KINGPIN_HALF_TRACK_METERS = 0.185;
+export const SPINDLE_STUB_LENGTH_METERS =
+  KART_WHEEL_GEOMETRY.frontTrackHalfMeters - KINGPIN_HALF_TRACK_METERS;
+
+/**
+ * Computes true Ackermann left/right front spindle steering angles for a given
+ * virtual center steering angle (`steerAngleRad`, where negative = left, positive = right).
+ * The inside wheel turns sharper than the outside wheel so both front spindles
+ * trace concentric arcs around the instant center on the rear live axle line.
+ */
+export function ackermannSteeringAngles(steerAngleRad: number): {
+  leftRad: number;
+  rightRad: number;
+} {
+  const tanS = Math.tan(steerAngleRad);
+  const L = KART_DIMENSIONS.wheelbaseMeters;
+  const kHalf = KINGPIN_HALF_TRACK_METERS;
+  return {
+    leftRad: Math.atan((L * tanS) / (L + kHalf * tanS)),
+    rightRad: Math.atan((L * tanS) / (L - kHalf * tanS)),
+  };
+}
+
 // Metres, +X forward, +Z right. The OTL Superleggero wraparound bumper remains
 // inside the solver's 0.45 m half-width; front and rear axles retain 1.06 m wheelbase.
 const FRONT_AXLE = KART_WHEEL_GEOMETRY.frontAxleMeters;
 const REAR_AXLE = KART_WHEEL_GEOMETRY.rearAxleMeters;
 const TIRE_RADIUS = KART_WHEEL_GEOMETRY.tireRadiusMeters;
-const FRONT_TRACK_HALF = KART_WHEEL_GEOMETRY.frontTrackHalfMeters;
 const REAR_TRACK_HALF = KART_WHEEL_GEOMETRY.rearTrackHalfMeters;
 
 export interface KartRig {
@@ -277,8 +300,9 @@ export function createKartRig(): KartRig {
   }
   consolidate(rearDrivePulley);
 
-  // Articulated front steering knuckles, Pitman arm, and 3D kinematic tie-rod linkages
-  const frontKnuckles: THREE.Group[] = [];
+  // Articulated front kingpin-pivoted spindles (knuckle + stub axle + Ackermann steering arm),
+  // Pitman arm, and 3D kinematic tie-rod linkages
+  const frontKnuckles: { group: THREE.Group; side: -1 | 1 }[] = [];
   const tieRods: { group: THREE.Group; side: -1 | 1; baseLength: number }[] = [];
 
   const pitmanPivot = new THREE.Group();
@@ -303,34 +327,49 @@ export function createKartRig(): KartRig {
   for (const side of [-1, 1] as const) {
     const knuckle = new THREE.Group();
     knuckle.name = side < 0 ? 'Left steering knuckle' : 'Right steering knuckle';
-    knuckle.position.set(FRONT_AXLE, TIRE_RADIUS, side * 0.168);
+    knuckle.position.set(FRONT_AXLE, TIRE_RADIUS, side * KINGPIN_HALF_TRACK_METERS);
     root.add(knuckle);
-    frontKnuckles.push(knuckle);
+    frontKnuckles.push({ group: knuckle, side });
 
     // Kingpin upright barrel coaxial with OTL_Kingpin_Bolt inside OTL_Kingpin_C_Yoke
-    add(new THREE.CylinderGeometry(0.013, 0.013, 0.056, 14), alloy, 0, 0, 0, knuckle);
-    // Forged knuckle steering arm rising rearward to outer Heim joint at (-0.068, +0.047, -side * 0.010)
-    const arm = add(
-      new THREE.CapsuleGeometry(0.007, 0.068, 4, 8),
-      alloy,
-      -0.034,
-      0.035,
-      -side * 0.005,
+    add(new THREE.CylinderGeometry(0.012, 0.012, 0.056, 14), alloy, 0, 0, 0, knuckle);
+    // Welded spindle gusset plate & hardened steel stub axle extending outward to the front wheel hub
+    add(new THREE.BoxGeometry(0.024, 0.032, 0.042), steel, 0, 0, side * 0.021, knuckle);
+    const stubAxle = add(
+      new THREE.CylinderGeometry(0.013, 0.015, 0.106, 16),
+      steel,
+      0,
+      0,
+      side * 0.053,
       knuckle,
     );
-    arm.rotation.set(side * 0.14, 0, 1.24);
+    stubAxle.rotation.x = Math.PI / 2;
+
+    // Inward-angled Ackermann steering arm rising rearward & inward (~18.4°) to outer Heim joint at (-0.066, +0.047, -side * 0.022)
+    const arm = add(
+      new THREE.CapsuleGeometry(0.007, 0.064, 4, 8),
+      alloy,
+      -0.033,
+      0.0335,
+      -side * 0.011,
+      knuckle,
+    );
+    arm.quaternion.setFromUnitVectors(
+      new THREE.Vector3(0, 1, 0),
+      new THREE.Vector3(-0.066, 0.027, -side * 0.022).normalize(),
+    );
     add(
       new THREE.CylinderGeometry(0.0085, 0.0085, 0.016, 12),
       steel,
-      -0.068,
+      -0.066,
       0.047,
-      -side * 0.010,
+      -side * 0.022,
       knuckle,
     );
     consolidate(knuckle);
 
     // Kinematic Tie Rod with turnbuckle shaft, jam nuts, and spherical Heim joints at both ends
-    const baseLength = Math.hypot(0.472 - 0.450, 0.158 - 0.038);
+    const baseLength = Math.hypot(0.474 - 0.450, 0.163 - 0.038);
     const tieRod = new THREE.Group();
     tieRod.name = side < 0 ? 'Left tie rod' : 'Right tie rod';
     root.add(tieRod);
@@ -407,9 +446,8 @@ export function createKartRig(): KartRig {
     pedalPivots.push({ group: pedal, side });
   }
 
-  // Articulated 4-wheel indoor slick assemblies
+  // Articulated 4-wheel indoor slick assemblies (rear wheels on rear axle; front wheels mounted on the kingpin spindles)
   const wheels: THREE.Group[] = [];
-  const frontPivots: THREE.Group[] = [];
   const tireProfile = [
     [0.096, -0.071],
     [0.123, -0.069],
@@ -424,29 +462,18 @@ export function createKartRig(): KartRig {
   tireGeometry.rotateX(Math.PI / 2);
 
   for (const front of [false, true]) {
-    for (const side of [-1, 1]) {
-      const pivot = new THREE.Group();
-      pivot.position.set(
-        front ? FRONT_AXLE : REAR_AXLE,
-        TIRE_RADIUS,
-        side * (front ? FRONT_TRACK_HALF : REAR_TRACK_HALF),
-      );
-      root.add(pivot);
-      if (front) {
-        frontPivots.push(pivot);
-        // Kingpin hub collar centered on the front wheel pivot so it stays joined to the kingpin axle at all steer angles
-        const kingpinCollar = add(
-          new THREE.CylinderGeometry(0.022, 0.022, 0.065, 16),
-          steel,
-          0,
-          0,
-          -side * 0.045,
-          pivot,
-        );
-        kingpinCollar.rotation.x = Math.PI / 2;
-      }
+    for (const side of [-1, 1] as const) {
       const roll = new THREE.Group();
-      pivot.add(roll);
+      if (front) {
+        const spindle = frontKnuckles.find((k) => k.side === side)!;
+        roll.position.set(0, 0, side * SPINDLE_STUB_LENGTH_METERS);
+        spindle.group.add(roll);
+      } else {
+        const rearHubMount = new THREE.Group();
+        rearHubMount.position.set(REAR_AXLE, TIRE_RADIUS, side * REAR_TRACK_HALF);
+        root.add(rearHubMount);
+        rearHubMount.add(roll);
+      }
       wheels.push(roll);
       add(tireGeometry, rubber, 0, 0, 0, roll);
       const rim = add(new THREE.CylinderGeometry(0.092, 0.092, 0.13, 24), alloy, 0, 0, 0, roll);
@@ -582,21 +609,23 @@ export function createKartRig(): KartRig {
     const { kart, elapsedSeconds } = snapshot;
     root.position.set(kart.position.x, 0, kart.position.z);
     root.rotation.y = -kart.headingRad;
-    const steerYaw = -kart.steerAngleRad;
-    frontPivots.forEach((pivot) => {
-      pivot.rotation.y = steerYaw;
-    });
-    frontKnuckles.forEach((knuckle) => {
-      knuckle.rotation.y = steerYaw;
-    });
-    pitmanPivot.rotation.y = steerYaw;
-    const cs = Math.cos(steerYaw);
-    const ss = Math.sin(steerYaw);
+    const { leftRad, rightRad } = ackermannSteeringAngles(kart.steerAngleRad);
+    const pitmanYaw = -kart.steerAngleRad;
+    pitmanPivot.rotation.y = pitmanYaw;
+    for (const k of frontKnuckles) {
+      k.group.rotation.y = k.side < 0 ? -leftRad : -rightRad;
+    }
+    const cp = Math.cos(pitmanYaw);
+    const sp = Math.sin(pitmanYaw);
     for (const tr of tieRods) {
-      const innerX = 0.458 + (-0.008 * cs + tr.side * 0.038 * ss);
-      const innerZ = 0.008 * ss + tr.side * 0.038 * cs;
-      const outerX = FRONT_AXLE + (-0.068 * cs - tr.side * 0.010 * ss);
-      const outerZ = tr.side * 0.168 + 0.068 * ss - tr.side * 0.010 * cs;
+      const knuckleYaw = tr.side < 0 ? -leftRad : -rightRad;
+      const ck = Math.cos(knuckleYaw);
+      const sk = Math.sin(knuckleYaw);
+      const innerX = 0.458 + (-0.008 * cp + tr.side * 0.038 * sp);
+      const innerZ = 0.008 * sp + tr.side * 0.038 * cp;
+      const outerX = FRONT_AXLE + (-0.066 * ck - tr.side * 0.022 * sk);
+      const outerZ =
+        tr.side * KINGPIN_HALF_TRACK_METERS + 0.066 * sk - tr.side * 0.022 * ck;
       tr.group.position.set((innerX + outerX) * 0.5, 0.192, (innerZ + outerZ) * 0.5);
       tr.group.rotation.y = Math.atan2(outerX - innerX, outerZ - innerZ);
       tr.group.scale.z = Math.hypot(outerX - innerX, outerZ - innerZ) / tr.baseLength;

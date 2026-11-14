@@ -27,16 +27,33 @@ TS_OUT = os.path.join(ROOT_DIR, "src", "render", "otl-superleggero-meshes.ts")
 PREVIEW_OUT = os.path.join(ROOT_DIR, "public", "models", "otl-superleggero-preview.png")
 
 # Shared wheel & steering geometry constants from src/simulation/kart-parameters.ts
+WHEELBASE_M = 1.06
 FRONT_AXLE_X = 0.54
 REAR_AXLE_X = -0.52
 FRONT_TRACK_HALF_Z = 0.285
 REAR_TRACK_HALF_Z = 0.335
+KINGPIN_HALF_Z = 0.185
+SPINDLE_LENGTH = FRONT_TRACK_HALF_Z - KINGPIN_HALF_Z
 TIRE_RADIUS = 0.145
 WHEEL_HALF_WIDTH = 0.076
 MAX_STEER_ANGLE_RAD = 0.46
-STEER_MOUNT_POS = (0.185, 0.355, 0.0)
+STEER_MOUNT_POS = (0.185, 0.360, 0.0)
 STEER_MOUNT_ROT_Z = 0.35
-GLOVE_OFFSET_Z = 0.105
+DASH_BINNACLE_POS = (0.262, 0.483)
+PITMAN_PIVOT = (0.458, 0.192, 0.0)
+PITMAN_BALL_LOCAL = (-0.008, 0.0, 0.038)
+KNUCKLE_ARM_BALL_LOCAL = (-0.066, 0.047, -0.022)
+PEDAL_PIVOT_POS = (0.428, 0.095, 0.075)
+DRIVER_SHOULDER = (-0.335, 0.485, 0.122)
+GLOVE_OFFSET = (-0.010, 0.0, 0.105)
+GLOVE_WRIST_LOCAL = (-0.032, 0.0, 0.0)
+GLOVE_OFFSET_Z = GLOVE_OFFSET[2]
+
+
+def ackermann_steer_angle(steer_rad: float, side: int) -> float:
+    """True Ackermann steering angle for left (side=-1) or right (side=+1) kingpin."""
+    tan_s = math.tan(steer_rad)
+    return math.atan((WHEELBASE_M * tan_s) / (WHEELBASE_M - side * KINGPIN_HALF_Z * tan_s))
 
 
 def t2b(x: float, y: float, z: float) -> Vector:
@@ -265,6 +282,14 @@ def build_otl_superleggero():
         (0.700, 0.110, 0.092),
     ]
     create_tube_curve("OTL_Front_Bumper_Main", front_bumper_pts, 0.018, mats["rubber"], closed=False, collection=col_stationary)
+    front_bumper_strip = [
+        (0.818, 0.122, -0.236),
+        (0.854, 0.124, -0.180),
+        (0.873, 0.125, 0.0),
+        (0.854, 0.124, 0.180),
+        (0.818, 0.122, 0.236),
+    ]
+    create_tube_curve("OTL_Front_Bumper_Red_Strip", front_bumper_strip, 0.0055, mats["red"], closed=False, collection=col_stationary)
 
     # Rear wraparound Protex bumper behind rear tires (x <= -0.708 where tires end at -0.665),
     # solidly joining the rear ends of Chassis_Main_Rail at (-0.680, 0.105, ±0.155)
@@ -280,6 +305,12 @@ def build_otl_superleggero():
         (-0.660, 0.105, 0.155),
     ]
     create_tube_curve("OTL_Rear_Bumper_Main", rear_bumper_pts, 0.018, mats["rubber"], closed=False, collection=col_stationary)
+    rear_bumper_strip = [
+        (-0.785, 0.122, -0.220),
+        (-0.793, 0.122, 0.0),
+        (-0.785, 0.122, 0.220),
+    ]
+    create_tube_curve("OTL_Rear_Bumper_Red_Strip", rear_bumper_strip, 0.0055, mats["red"], closed=False, collection=col_stationary)
 
     # Upper rear protection bar spaced 4.6 cm above OTL_Rear_Bumper_Main and anchored into the rear shroud
     rear_bumper_upper = [
@@ -316,6 +347,13 @@ def build_otl_superleggero():
             (0.300, 0.105, side * 0.160),
         ]
         create_tube_curve(f"OTL_Side_Bumper_Main_{side}", side_bumper_main, 0.017, mats["rubber"], closed=False, collection=col_stationary)
+        side_rub_strip = [
+            (-0.260, 0.118, side * 0.402),
+            (-0.100, 0.118, side * 0.413),
+            (0.140, 0.118, side * 0.410),
+            (0.220, 0.117, side * 0.392),
+        ]
+        create_tube_curve(f"OTL_Side_Rub_Strip_{side}", side_rub_strip, 0.0055, mats["red"], closed=False, collection=col_stationary)
 
     # =========================================================================
     # 2. FLOOR PAN, CHASSIS RAILS, STRUCTURAL BRACING, KINGPIN AXLE & FOOTWELL
@@ -506,12 +544,19 @@ def build_otl_superleggero():
     ]
     create_loft_mesh("OTL_Nose_Red_Cowling", nose_red_shell, mats["red"], subsurf_levels=1, collection=col_stationary)
 
+    # White racing livery panel across forward nose tip ahead of noseDecal (x in [0.678, 0.740], |z| <= 0.064)
+    nose_white_livery = [
+        superellipse_ring(0.678, 0.224, 0.229, 0.0, 0.064, power_y=0.25, power_z=0.35),
+        superellipse_ring(0.738, 0.212, 0.217, 0.0, 0.056, power_y=0.25, power_z=0.35),
+    ]
+    create_loft_mesh("OTL_Nose_White_Livery", nose_white_livery, mats["white"], subsurf_levels=0, collection=col_stationary)
+
     # Sculpted Nassau tower starts at x = 0.270 m (strictly forward of the rotating steering
-    # wheel & gloves), rising to cradle the digital dash binnacle at y = 0.445 m and joining
+    # wheel & gloves), rising to cradle the digital dash binnacle at y = 0.450 m and joining
     # the nose cone cleanly through x = 0.485 m above the tie-rod tunnel (y_bottom >= 0.214 m).
     nassau_fairing = [
-        superellipse_ring(0.268, 0.235, 0.445, 0.0, 0.066, power_y=0.35, power_z=0.50),
-        superellipse_ring(0.308, 0.225, 0.448, 0.0, 0.074, power_y=0.35, power_z=0.50),
+        superellipse_ring(0.268, 0.235, 0.450, 0.0, 0.066, power_y=0.35, power_z=0.50),
+        superellipse_ring(0.308, 0.225, 0.453, 0.0, 0.074, power_y=0.35, power_z=0.50),
         superellipse_ring(0.390, 0.218, 0.335, 0.0, 0.080, power_y=0.40, power_z=0.52),
         superellipse_ring(0.485, 0.214, 0.252, 0.0, 0.082, power_y=0.35, power_z=0.52),
     ]
@@ -532,6 +577,13 @@ def build_otl_superleggero():
             superellipse_ring(0.302, 0.140, 0.205, side * 0.258, 0.022, power_y=0.35, power_z=0.50),
         ]
         create_loft_mesh(f"OTL_Sidepod_Red_{side}", pod_red, mats["red"], subsurf_levels=1, collection=col_stationary)
+        # Upper outer white livery panel along the sidepod shoulder outside the K1/07 decal plate (|z| in [0.324, 0.344])
+        pod_white = [
+            superellipse_ring(-0.215, 0.287, 0.291, side * 0.334, 0.010, power_y=0.25, power_z=0.35),
+            superellipse_ring(-0.020, 0.287, 0.291, side * 0.338, 0.010, power_y=0.25, power_z=0.35),
+            superellipse_ring(0.165, 0.287, 0.291, side * 0.334, 0.010, power_y=0.25, power_z=0.35),
+        ]
+        create_loft_mesh(f"OTL_Sidepod_White_Livery_{side}", pod_white, mats["white"], subsurf_levels=0, collection=col_stationary)
 
     # =========================================================================
     # 5. DEEP RECLINED BUCKET SEAT (~35°), ROLL HOOP / HEADREST & 4-POINT HARNESS
@@ -724,10 +776,10 @@ def build_otl_superleggero():
     )
 
     # Integrated rectangular dash binnacle housing seated solidly into the Nassau tower brow
-    # flush behind dashScreen at (0.262, 0.478, 0)
+    # flush behind dashScreen at (0.262, 0.483, 0)
     dash_housing_rings = [
-        superellipse_ring(0.265, 0.422, 0.510, 0.0, 0.074, power_y=0.25, power_z=0.25),
-        superellipse_ring(0.305, 0.418, 0.506, 0.0, 0.070, power_y=0.25, power_z=0.25),
+        superellipse_ring(0.265, 0.427, 0.515, 0.0, 0.074, power_y=0.25, power_z=0.25),
+        superellipse_ring(0.305, 0.423, 0.511, 0.0, 0.070, power_y=0.25, power_z=0.25),
     ]
     create_loft_mesh("OTL_Dash_Housing", dash_housing_rings, mats["black"], subsurf_levels=0, collection=col_stationary)
 
@@ -1021,14 +1073,10 @@ def build_otl_superleggero():
     glove_r_verts = collect_verts(groups_data["gloveRight"])
 
     # 1. Verify front and rear wheel clearances at steer = 0 and full Ackermann steering lock
-    # Front wheels pivot around the Kingpin at z = side * 0.185 m with a 0.100 m stub axle!
-    KINGPIN_HALF_Z = 0.185
-    SPINDLE_LENGTH = FRONT_TRACK_HALF_Z - KINGPIN_HALF_Z
-    WHEELBASE = 1.06
+    # Front wheels pivot around the Kingpin at z = side * KINGPIN_HALF_Z with SPINDLE_LENGTH stub axle!
     for steer_rad in (-MAX_STEER_ANGLE_RAD, 0.0, MAX_STEER_ANGLE_RAD):
         for side in (-1, 1):
-            tan_s = math.tan(steer_rad)
-            ack_steer = math.atan((WHEELBASE * tan_s) / (WHEELBASE - side * KINGPIN_HALF_Z * tan_s))
+            ack_steer = ackermann_steer_angle(steer_rad, side)
             yaw = -ack_steer
             c_s, s_s = math.cos(yaw), math.sin(yaw)
             # Wheel center swings around kingpin (FRONT_AXLE_X, TIRE_RADIUS, side * KINGPIN_HALF_Z)
@@ -1103,7 +1151,7 @@ def build_otl_superleggero():
     if min_helmet_x < -0.450:
         raise AssertionError(f"Driver helmet overlaps headrest/roll hoop: min_helmet_x={min_helmet_x:.3f} < -0.450")
 
-    # Write TypeScript synchronous mesh module
+    # Write TypeScript synchronous mesh module and shared mechanical rig constants
     lines = [
         "// AUTO-GENERATED BY tools/build-kart-model.py via Blender 5.2 CLI — DO NOT EDIT MANUALLY",
         "export interface BlenderMeshBatch {",
@@ -1113,6 +1161,20 @@ def build_otl_superleggero():
         "}",
         "",
         "export type BlenderGroupBatches = Record<string, BlenderMeshBatch>;",
+        "",
+        "export const OTL_RIG_CONFIG = {",
+        f"  wheelbaseMeters: {WHEELBASE_M},",
+        f"  kingpinHalfTrackMeters: {KINGPIN_HALF_Z},",
+        f"  steeringWheelHub: {{ x: {STEER_MOUNT_POS[0]}, y: {STEER_MOUNT_POS[1]}, z: {STEER_MOUNT_POS[2]}, tiltRad: {STEER_MOUNT_ROT_Z} }},",
+        f"  dashBinnacle: {{ x: {DASH_BINNACLE_POS[0]}, y: {DASH_BINNACLE_POS[1]} }},",
+        f"  pitmanPivot: [{PITMAN_PIVOT[0]}, {PITMAN_PIVOT[1]}, {PITMAN_PIVOT[2]}] as const,",
+        f"  pitmanBallLocal: [{PITMAN_BALL_LOCAL[0]}, {PITMAN_BALL_LOCAL[1]}, {PITMAN_BALL_LOCAL[2]}] as const,",
+        f"  knuckleArmBallLocal: [{KNUCKLE_ARM_BALL_LOCAL[0]}, {KNUCKLE_ARM_BALL_LOCAL[1]}, {KNUCKLE_ARM_BALL_LOCAL[2]}] as const,",
+        f"  pedalPivot: [{PEDAL_PIVOT_POS[0]}, {PEDAL_PIVOT_POS[1]}, {PEDAL_PIVOT_POS[2]}] as const,",
+        f"  driverShoulder: [{DRIVER_SHOULDER[0]}, {DRIVER_SHOULDER[1]}, {DRIVER_SHOULDER[2]}] as const,",
+        f"  gloveGripOffset: [{GLOVE_OFFSET[0]}, {GLOVE_OFFSET[1]}, {GLOVE_OFFSET[2]}] as const,",
+        f"  gloveWristLocal: [{GLOVE_WRIST_LOCAL[0]}, {GLOVE_WRIST_LOCAL[1]}, {GLOVE_WRIST_LOCAL[2]}] as const,",
+        "} as const;",
         "",
     ]
     total_tris = 0

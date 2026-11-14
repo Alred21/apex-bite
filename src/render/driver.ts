@@ -5,6 +5,7 @@ import {
   DRIVERHEAD_BATCHES,
   GLOVELEFT_BATCHES,
   GLOVERIGHT_BATCHES,
+  OTL_RIG_CONFIG,
 } from './otl-superleggero-meshes';
 import { addBlenderBatches } from './blender-batches';
 
@@ -168,25 +169,34 @@ export function createSeatedDriver(root: THREE.Group, steeringWheel: THREE.Group
     const glove = new THREE.Group();
     glove.name = side < 0 ? 'Left hand grip' : 'Right hand grip';
     steeringWheel.add(glove);
-    glove.position.set(-0.01, 0, side * 0.105);
+    glove.position.set(
+      OTL_RIG_CONFIG.gloveGripOffset[0],
+      OTL_RIG_CONFIG.gloveGripOffset[1],
+      side * OTL_RIG_CONFIG.gloveGripOffset[2],
+    );
     addBlenderBatches(side < 0 ? GLOVELEFT_BATCHES : GLOVERIGHT_BATCHES, materials, glove, 'suit');
 
     return {
       side,
       geometry,
       glove,
-      shoulder: new THREE.Vector3(-0.335, 0.485, side * 0.122),
+      shoulder: new THREE.Vector3(
+        OTL_RIG_CONFIG.driverShoulder[0],
+        OTL_RIG_CONFIG.driverShoulder[1],
+        side * OTL_RIG_CONFIG.driverShoulder[2],
+      ),
     };
   });
 
   let lastSteering = Number.NaN;
+  const wristLocal = new THREE.Vector3(...OTL_RIG_CONFIG.gloveWristLocal);
   function update(snapshot: SessionSnapshot) {
     head.visible = snapshot.camera.mode !== 'Helmet Cam';
     if (lastSteering === snapshot.kart.steeringWheelAngleRad) return;
     lastSteering = snapshot.kart.steeringWheelAngleRad;
     root.updateWorldMatrix(true, true);
     for (const arm of arms) {
-      const wrist = root.worldToLocal(arm.glove.localToWorld(new THREE.Vector3(-0.032, 0, 0)));
+      const wrist = root.worldToLocal(arm.glove.localToWorld(wristLocal.clone()));
       poseSleeve(arm.geometry, arm.shoulder, elbowFor(arm.shoulder, wrist, arm.side), wrist);
     }
   }

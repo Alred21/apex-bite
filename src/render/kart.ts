@@ -4,22 +4,27 @@ import { KART_DIMENSIONS, KART_WHEEL_GEOMETRY } from '../simulation/kart-paramet
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { SessionSnapshot } from '../simulation/types';
 import {
+  OTL_RIG_CONFIG,
   STATIONARY_BATCHES,
   STEERINGWHEEL_BATCHES,
 } from './otl-superleggero-meshes';
 import { addBlenderBatches } from './blender-batches';
 
-/** Calibrated OTL Superleggero cockpit reference coordinates. */
-export const STEERING_WHEEL_HUB_X_METERS = 0.185;
-export const STEERING_WHEEL_HUB_HEIGHT_METERS = 0.355;
-export const STEERING_WHEEL_TILT_RAD = 0.35;
-export const DASH_BINNACLE_X_METERS = 0.262;
-export const DASH_BINNACLE_HEIGHT_METERS = 0.478;
+/** Calibrated OTL Superleggero cockpit reference coordinates (sourced from Blender rig config). */
+export const STEERING_WHEEL_HUB_X_METERS = OTL_RIG_CONFIG.steeringWheelHub.x;
+export const STEERING_WHEEL_HUB_HEIGHT_METERS = OTL_RIG_CONFIG.steeringWheelHub.y;
+export const STEERING_WHEEL_TILT_RAD = OTL_RIG_CONFIG.steeringWheelHub.tiltRad;
+export const DASH_BINNACLE_X_METERS = OTL_RIG_CONFIG.dashBinnacle.x;
+export const DASH_BINNACLE_HEIGHT_METERS = OTL_RIG_CONFIG.dashBinnacle.y;
 
 /** Real go-kart kingpin & stub-axle spindle geometry (no rigid front cross-shaft). */
-export const KINGPIN_HALF_TRACK_METERS = 0.185;
+export const KINGPIN_HALF_TRACK_METERS = OTL_RIG_CONFIG.kingpinHalfTrackMeters;
 export const SPINDLE_STUB_LENGTH_METERS =
   KART_WHEEL_GEOMETRY.frontTrackHalfMeters - KINGPIN_HALF_TRACK_METERS;
+
+function mirroredTupleVec3(triple: readonly [number, number, number], side: -1 | 1): THREE.Vector3 {
+  return new THREE.Vector3(triple[0], triple[1], side * triple[2]);
+}
 
 /**
  * Computes true Ackermann left/right front spindle steering angles for a given
@@ -303,24 +308,38 @@ export function createKartRig(): KartRig {
   // Articulated front kingpin-pivoted spindles (knuckle + stub axle + Ackermann steering arm),
   // Pitman arm, and 3D kinematic tie-rod linkages
   const frontKnuckles: { group: THREE.Group; side: -1 | 1 }[] = [];
-  const tieRods: { group: THREE.Group; side: -1 | 1; baseLength: number }[] = [];
+  const tieRods: {
+    group: THREE.Group;
+    knuckle: THREE.Group;
+    innerBall: THREE.Vector3;
+    outerBall: THREE.Vector3;
+    baseLength: number;
+  }[] = [];
 
   const pitmanPivot = new THREE.Group();
   pitmanPivot.name = 'Steering pitman arm';
-  pitmanPivot.position.set(0.458, 0.192, 0);
+  pitmanPivot.position.set(...OTL_RIG_CONFIG.pitmanPivot);
   root.add(pitmanPivot);
   add(new THREE.CylinderGeometry(0.015, 0.015, 0.022, 14), steel, 0, 0, 0, pitmanPivot);
   for (const side of [-1, 1] as const) {
+    const innerBall = mirroredTupleVec3(OTL_RIG_CONFIG.pitmanBallLocal, side);
     const ear = add(
       new THREE.BoxGeometry(0.016, 0.010, 0.042),
       alloy,
-      -0.004,
-      0,
-      side * 0.019,
+      innerBall.x * 0.5,
+      innerBall.y,
+      innerBall.z * 0.5,
       pitmanPivot,
     );
     ear.rotation.y = -side * 0.18;
-    add(new THREE.CylinderGeometry(0.008, 0.008, 0.016, 12), steel, -0.008, 0, side * 0.038, pitmanPivot);
+    add(
+      new THREE.CylinderGeometry(0.008, 0.008, 0.016, 12),
+      steel,
+      innerBall.x,
+      innerBall.y,
+      innerBall.z,
+      pitmanPivot,
+    );
   }
   consolidate(pitmanPivot);
 
@@ -345,31 +364,36 @@ export function createKartRig(): KartRig {
     );
     stubAxle.rotation.x = Math.PI / 2;
 
-    // Inward-angled Ackermann steering arm rising rearward & inward (~18.4°) to outer Heim joint at (-0.066, +0.047, -side * 0.022)
+    // Inward-angled Ackermann steering arm rising rearward & inward (~18.4°) to outer Heim joint
+    const innerBall = mirroredTupleVec3(OTL_RIG_CONFIG.pitmanBallLocal, side);
+    const outerBall = mirroredTupleVec3(OTL_RIG_CONFIG.knuckleArmBallLocal, side);
+    const armOrigin = new THREE.Vector3(0, 0.020, 0);
+    const armDelta = outerBall.clone().sub(armOrigin);
     const arm = add(
       new THREE.CapsuleGeometry(0.007, 0.064, 4, 8),
       alloy,
-      -0.033,
-      0.0335,
-      -side * 0.011,
+      outerBall.x * 0.5,
+      armOrigin.y + armDelta.y * 0.5,
+      outerBall.z * 0.5,
       knuckle,
     );
-    arm.quaternion.setFromUnitVectors(
-      new THREE.Vector3(0, 1, 0),
-      new THREE.Vector3(-0.066, 0.027, -side * 0.022).normalize(),
-    );
+    arm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), armDelta.clone().normalize());
     add(
       new THREE.CylinderGeometry(0.0085, 0.0085, 0.016, 12),
       steel,
-      -0.066,
-      0.047,
-      -side * 0.022,
+      outerBall.x,
+      outerBall.y,
+      outerBall.z,
       knuckle,
     );
     consolidate(knuckle);
 
     // Kinematic Tie Rod with turnbuckle shaft, jam nuts, and spherical Heim joints at both ends
-    const baseLength = Math.hypot(0.474 - 0.450, 0.163 - 0.038);
+    pitmanPivot.updateMatrix();
+    knuckle.updateMatrix();
+    const restInner = innerBall.clone().applyMatrix4(pitmanPivot.matrix);
+    const restOuter = outerBall.clone().applyMatrix4(knuckle.matrix);
+    const baseLength = restOuter.distanceTo(restInner);
     const tieRod = new THREE.Group();
     tieRod.name = side < 0 ? 'Left tie rod' : 'Right tie rod';
     root.add(tieRod);
@@ -410,7 +434,7 @@ export function createKartRig(): KartRig {
       );
     }
     consolidate(tieRod);
-    tieRods.push({ group: tieRod, side, baseLength });
+    tieRods.push({ group: tieRod, knuckle, innerBall, outerBall, baseLength });
   }
 
   // Articulated footwell pedals (Brake on left side = -1, Throttle on right side = +1)
@@ -418,7 +442,7 @@ export function createKartRig(): KartRig {
   for (const side of [-1, 1] as const) {
     const pedal = new THREE.Group();
     pedal.name = side < 0 ? 'Brake pedal' : 'Throttle pedal';
-    pedal.position.set(0.428, 0.095, side * 0.075);
+    pedal.position.copy(mirroredTupleVec3(OTL_RIG_CONFIG.pedalPivot, side));
     root.add(pedal);
     const hinge = add(new THREE.CylinderGeometry(0.010, 0.010, 0.028, 12), steel, 0, 0, 0, pedal);
     hinge.rotation.x = Math.PI / 2;
@@ -605,30 +629,26 @@ export function createKartRig(): KartRig {
   let wheelAngle = 0;
   let displayedSpeed = -1;
 
+  const innerWorld = new THREE.Vector3();
+  const outerWorld = new THREE.Vector3();
+
   function update(snapshot: SessionSnapshot): void {
     const { kart, elapsedSeconds } = snapshot;
     root.position.set(kart.position.x, 0, kart.position.z);
     root.rotation.y = -kart.headingRad;
     const { leftRad, rightRad } = ackermannSteeringAngles(kart.steerAngleRad);
-    const pitmanYaw = -kart.steerAngleRad;
-    pitmanPivot.rotation.y = pitmanYaw;
+    pitmanPivot.rotation.y = -kart.steerAngleRad;
+    pitmanPivot.updateMatrix();
     for (const k of frontKnuckles) {
       k.group.rotation.y = k.side < 0 ? -leftRad : -rightRad;
+      k.group.updateMatrix();
     }
-    const cp = Math.cos(pitmanYaw);
-    const sp = Math.sin(pitmanYaw);
     for (const tr of tieRods) {
-      const knuckleYaw = tr.side < 0 ? -leftRad : -rightRad;
-      const ck = Math.cos(knuckleYaw);
-      const sk = Math.sin(knuckleYaw);
-      const innerX = 0.458 + (-0.008 * cp + tr.side * 0.038 * sp);
-      const innerZ = 0.008 * sp + tr.side * 0.038 * cp;
-      const outerX = FRONT_AXLE + (-0.066 * ck - tr.side * 0.022 * sk);
-      const outerZ =
-        tr.side * KINGPIN_HALF_TRACK_METERS + 0.066 * sk - tr.side * 0.022 * ck;
-      tr.group.position.set((innerX + outerX) * 0.5, 0.192, (innerZ + outerZ) * 0.5);
-      tr.group.rotation.y = Math.atan2(outerX - innerX, outerZ - innerZ);
-      tr.group.scale.z = Math.hypot(outerX - innerX, outerZ - innerZ) / tr.baseLength;
+      innerWorld.copy(tr.innerBall).applyMatrix4(pitmanPivot.matrix);
+      outerWorld.copy(tr.outerBall).applyMatrix4(tr.knuckle.matrix);
+      tr.group.position.copy(innerWorld).add(outerWorld).multiplyScalar(0.5);
+      tr.group.rotation.y = Math.atan2(outerWorld.x - innerWorld.x, outerWorld.z - innerWorld.z);
+      tr.group.scale.z = innerWorld.distanceTo(outerWorld) / tr.baseLength;
     }
     for (const p of pedalPivots) {
       const input = p.side < 0 ? kart.brakeInput : kart.throttleInput;

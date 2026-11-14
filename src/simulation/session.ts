@@ -398,6 +398,13 @@ export function createSimulationSession(
     return getSnapshot();
   }
 
+  function isCurrentBarrierContactDirty(): boolean {
+    return (
+      kart.barrierContact &&
+      isBarrierContactDirty(kart.barrierImpactSpeedMps, continuousBarrierContactSeconds)
+    );
+  }
+
   function fixedStep(dtSeconds: number, input: DriverInput): void {
     if (mode === 'Time Trial' && timeTrial.status === 'Finished') return;
     const command = keyboardAssistance.step(input, kart.speedMps, dtSeconds);
@@ -409,11 +416,11 @@ export function createSimulationSession(
     const nextPosition = kart.position;
     const nextHeading = kart.headingRad;
     const nextSpeedKph = kart.speedKph;
-    const { axleScrub, barrierContact, barrierImpactSpeedMps } = kart;
+    const { axleScrub, barrierContact } = kart;
     const nearest = { distanceMeters: kart.lapDistanceMeters, progress: kart.lapProgress };
     if (barrierContact) {
       continuousBarrierContactSeconds += dtSeconds;
-      if (isBarrierContactDirty(barrierImpactSpeedMps, continuousBarrierContactSeconds)) {
+      if (isCurrentBarrierContactDirty()) {
         lap.isClean = false;
         drillIsClean = false;
       }
@@ -569,8 +576,8 @@ export function createSimulationSession(
       lapStartProgressMeters = kart.unwrappedDistanceMeters - kart.lapDistanceMeters;
       lap.lapNumber += 1;
       lap.currentLapSeconds = 0;
-      continuousBarrierContactSeconds = 0;
-      lap.isClean = !(barrierContact && isBarrierContactDirty(barrierImpactSpeedMps, 0));
+      if (!barrierContact) continuousBarrierContactSeconds = 0;
+      lap.isClean = !isCurrentBarrierContactDirty();
       lap.currentSectorSplits = [null, null, null];
       sectorEntryLapSeconds = 0;
       activeLapGhostFrames = [

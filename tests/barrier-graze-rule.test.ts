@@ -148,6 +148,43 @@ describe('OTL Superleggero 3D rig proportions and non-overlapping clearance', ()
         expect(minShoulderDist).toBeLessThan(0.055);
         expect(minWristDist).toBeLessThan(0.045);
       }
+
+      // Verify kinematic front steering linkage: Pitman arm, steering knuckles, and tie rods
+      const pitmanArm = rig.root.getObjectByName('Steering pitman arm')!;
+      const leftKnuckle = rig.root.getObjectByName('Left steering knuckle')!;
+      const rightKnuckle = rig.root.getObjectByName('Right steering knuckle')!;
+      const leftTieRod = rig.root.getObjectByName('Left tie rod')!;
+      const rightTieRod = rig.root.getObjectByName('Right tie rod')!;
+      const brakePedal = rig.root.getObjectByName('Brake pedal')!;
+      const throttlePedal = rig.root.getObjectByName('Throttle pedal')!;
+      const rearRotor = rig.root.getObjectByName('Rear brake rotor')!;
+      const rearPulley = rig.root.getObjectByName('Rear drive pulley')!;
+      expect(pitmanArm).toBeDefined();
+      expect(leftKnuckle).toBeDefined();
+      expect(rightKnuckle).toBeDefined();
+      expect(leftTieRod).toBeDefined();
+      expect(rightTieRod).toBeDefined();
+      expect(brakePedal).toBeDefined();
+      expect(throttlePedal).toBeDefined();
+      expect(rearRotor).toBeDefined();
+      expect(rearPulley).toBeDefined();
+
+      expect(pitmanArm.rotation.y).toBeCloseTo(-state.kart.steerAngleRad, 4);
+      expect(leftKnuckle.rotation.y).toBeCloseTo(-state.kart.steerAngleRad, 4);
+      expect(rightKnuckle.rotation.y).toBeCloseTo(-state.kart.steerAngleRad, 4);
+      expect(brakePedal.rotation.z).toBeCloseTo(-state.kart.brakeInput * 0.24, 4);
+      expect(throttlePedal.rotation.z).toBeCloseTo(-state.kart.throttleInput * 0.24, 4);
+
+      // Verify each tie rod's midpoint and orientation match the exact Pitman ear -> Knuckle steering arm endpoints
+      for (const [side, knuckle, tieRod] of [
+        [-1, leftKnuckle, leftTieRod],
+        [1, rightKnuckle, rightTieRod],
+      ] as const) {
+        const innerBallWorld = pitmanArm.localToWorld(new THREE.Vector3(-0.008, 0, side * 0.038));
+        const outerBallWorld = knuckle.localToWorld(new THREE.Vector3(-0.068, 0.047, -side * 0.010));
+        const expectedMid = innerBallWorld.clone().add(outerBallWorld).multiplyScalar(0.5);
+        expect(tieRod.position.distanceTo(expectedMid)).toBeLessThan(0.002);
+      }
     };
 
     // 1. Static steering sweep across full left, center, and full right lock

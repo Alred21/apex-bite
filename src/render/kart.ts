@@ -220,9 +220,192 @@ export function createKartRig(): KartRig {
   const noseDecal = add(new THREE.PlaneGeometry(0.16, 0.080), decal, 0.585, 0.242, 0);
   noseDecal.rotation.set(-Math.PI / 2, 0.148, -Math.PI / 2);
 
-  // Ventilated rear brake rotor mounted coaxially on the rear live axle
-  const brake = add(new THREE.CylinderGeometry(0.095, 0.095, 0.009, 28), alloy, REAR_AXLE, TIRE_RADIUS, -0.215);
-  brake.rotation.x = Math.PI / 2;
+  // Ventilated cross-slotted rear brake rotor + hub carrier mounted coaxially on the rear live axle (spins with wheelAngle)
+  const rearBrakeDisc = new THREE.Group();
+  rearBrakeDisc.name = 'Rear brake rotor';
+  rearBrakeDisc.position.set(REAR_AXLE, TIRE_RADIUS, -0.215);
+  root.add(rearBrakeDisc);
+  const rotorRing = add(new THREE.CylinderGeometry(0.095, 0.095, 0.009, 28), alloy, 0, 0, 0, rearBrakeDisc);
+  rotorRing.rotation.x = Math.PI / 2;
+  const rotorBell = add(new THREE.CylinderGeometry(0.052, 0.052, 0.018, 20), black, 0, 0, 0, rearBrakeDisc);
+  rotorBell.rotation.x = Math.PI / 2;
+  for (let i = 0; i < 6; i++) {
+    const ang = (i / 6) * Math.PI * 2;
+    const slot = add(
+      new THREE.BoxGeometry(0.006, 0.034, 0.011),
+      black,
+      Math.cos(ang) * 0.072,
+      Math.sin(ang) * 0.072,
+      0,
+      rearBrakeDisc,
+    );
+    slot.rotation.z = ang + 0.35;
+    const bobbin = add(
+      boltGeometry,
+      steel,
+      Math.cos(ang) * 0.052,
+      Math.sin(ang) * 0.052,
+      0,
+      rearBrakeDisc,
+    );
+    bobbin.rotation.x = Math.PI / 2;
+  }
+  consolidate(rearBrakeDisc);
+
+  // Toothed synchronous rear drive pulley mounted coaxially on the right side of the rear live axle (spins with wheelAngle)
+  const rearDrivePulley = new THREE.Group();
+  rearDrivePulley.name = 'Rear drive pulley';
+  rearDrivePulley.position.set(REAR_AXLE, TIRE_RADIUS, 0.210);
+  root.add(rearDrivePulley);
+  const pulleyCore = add(new THREE.CylinderGeometry(0.068, 0.068, 0.020, 24), alloy, 0, 0, 0, rearDrivePulley);
+  pulleyCore.rotation.x = Math.PI / 2;
+  for (const fz of [-0.011, 0.011]) {
+    const flange = add(new THREE.CylinderGeometry(0.073, 0.073, 0.003, 24), black, 0, 0, fz, rearDrivePulley);
+    flange.rotation.x = Math.PI / 2;
+  }
+  for (let i = 0; i < 6; i++) {
+    const ang = (i / 6) * Math.PI * 2;
+    const spokeBar = add(
+      new THREE.BoxGeometry(0.010, 0.036, 0.022),
+      black,
+      Math.cos(ang) * 0.042,
+      Math.sin(ang) * 0.042,
+      0,
+      rearDrivePulley,
+    );
+    spokeBar.rotation.z = ang;
+  }
+  consolidate(rearDrivePulley);
+
+  // Articulated front steering knuckles, Pitman arm, and 3D kinematic tie-rod linkages
+  const frontKnuckles: THREE.Group[] = [];
+  const tieRods: { group: THREE.Group; side: -1 | 1; baseLength: number }[] = [];
+
+  const pitmanPivot = new THREE.Group();
+  pitmanPivot.name = 'Steering pitman arm';
+  pitmanPivot.position.set(0.458, 0.192, 0);
+  root.add(pitmanPivot);
+  add(new THREE.CylinderGeometry(0.015, 0.015, 0.022, 14), steel, 0, 0, 0, pitmanPivot);
+  for (const side of [-1, 1] as const) {
+    const ear = add(
+      new THREE.BoxGeometry(0.016, 0.010, 0.042),
+      alloy,
+      -0.004,
+      0,
+      side * 0.019,
+      pitmanPivot,
+    );
+    ear.rotation.y = -side * 0.18;
+    add(new THREE.CylinderGeometry(0.008, 0.008, 0.016, 12), steel, -0.008, 0, side * 0.038, pitmanPivot);
+  }
+  consolidate(pitmanPivot);
+
+  for (const side of [-1, 1] as const) {
+    const knuckle = new THREE.Group();
+    knuckle.name = side < 0 ? 'Left steering knuckle' : 'Right steering knuckle';
+    knuckle.position.set(FRONT_AXLE, TIRE_RADIUS, side * 0.168);
+    root.add(knuckle);
+    frontKnuckles.push(knuckle);
+
+    // Kingpin upright barrel coaxial with OTL_Kingpin_Bolt inside OTL_Kingpin_C_Yoke
+    add(new THREE.CylinderGeometry(0.013, 0.013, 0.056, 14), alloy, 0, 0, 0, knuckle);
+    // Forged knuckle steering arm rising rearward to outer Heim joint at (-0.068, +0.047, -side * 0.010)
+    const arm = add(
+      new THREE.CapsuleGeometry(0.007, 0.068, 4, 8),
+      alloy,
+      -0.034,
+      0.035,
+      -side * 0.005,
+      knuckle,
+    );
+    arm.rotation.set(side * 0.14, 0, 1.24);
+    add(
+      new THREE.CylinderGeometry(0.0085, 0.0085, 0.016, 12),
+      steel,
+      -0.068,
+      0.047,
+      -side * 0.010,
+      knuckle,
+    );
+    consolidate(knuckle);
+
+    // Kinematic Tie Rod with turnbuckle shaft, jam nuts, and spherical Heim joints at both ends
+    const baseLength = Math.hypot(0.472 - 0.450, 0.158 - 0.038);
+    const tieRod = new THREE.Group();
+    tieRod.name = side < 0 ? 'Left tie rod' : 'Right tie rod';
+    root.add(tieRod);
+    const shaft = add(
+      new THREE.CylinderGeometry(0.0055, 0.0055, baseLength - 0.022, 8),
+      alloy,
+      0,
+      0,
+      0,
+      tieRod,
+    );
+    shaft.rotation.x = Math.PI / 2;
+    for (const endSign of [-1, 1] as const) {
+      const nut = add(
+        new THREE.CylinderGeometry(0.0078, 0.0078, 0.010, 6),
+        red,
+        0,
+        0,
+        endSign * (baseLength * 0.5 - 0.018),
+        tieRod,
+      );
+      nut.rotation.x = Math.PI / 2;
+      add(
+        new THREE.CylinderGeometry(0.0105, 0.0105, 0.010, 14),
+        steel,
+        0,
+        0,
+        endSign * (baseLength * 0.5),
+        tieRod,
+      );
+      add(
+        new THREE.CylinderGeometry(0.0048, 0.0048, 0.022, 10),
+        alloy,
+        0,
+        0,
+        endSign * (baseLength * 0.5),
+        tieRod,
+      );
+    }
+    consolidate(tieRod);
+    tieRods.push({ group: tieRod, side, baseLength });
+  }
+
+  // Articulated footwell pedals (Brake on left side = -1, Throttle on right side = +1)
+  const pedalPivots: { group: THREE.Group; side: -1 | 1 }[] = [];
+  for (const side of [-1, 1] as const) {
+    const pedal = new THREE.Group();
+    pedal.name = side < 0 ? 'Brake pedal' : 'Throttle pedal';
+    pedal.position.set(0.428, 0.095, side * 0.075);
+    root.add(pedal);
+    const hinge = add(new THREE.CylinderGeometry(0.010, 0.010, 0.028, 12), steel, 0, 0, 0, pedal);
+    hinge.rotation.x = Math.PI / 2;
+    const arm = add(new THREE.CapsuleGeometry(0.006, 0.076, 4, 8), alloy, -0.003, 0.044, 0, pedal);
+    arm.rotation.z = 0.08;
+    add(new THREE.BoxGeometry(0.006, 0.068, 0.042), alloy, -0.007, 0.056, 0, pedal);
+    add(
+      new THREE.BoxGeometry(0.004, 0.028, 0.038),
+      side < 0 ? red : accent,
+      -0.010,
+      0.072,
+      0,
+      pedal,
+    );
+    const pushrod = add(
+      new THREE.CylinderGeometry(0.004, 0.004, 0.042, 8),
+      steel,
+      -0.024,
+      0.018,
+      side * 0.032,
+      pedal,
+    );
+    pushrod.rotation.z = Math.PI / 2;
+    consolidate(pedal);
+    pedalPivots.push({ group: pedal, side });
+  }
 
   // Articulated 4-wheel indoor slick assemblies
   const wheels: THREE.Group[] = [];
@@ -272,6 +455,35 @@ export function createKartRig(): KartRig {
       well.rotation.x = Math.PI / 2;
       const hub = add(new THREE.CylinderGeometry(0.035, 0.035, 0.141, 16), alloy, 0, 0, 0, roll);
       hub.rotation.x = Math.PI / 2;
+      // Inboard splined wheel hub carrier & outboard center spindle locknut + valve stem
+      const innerCarrier = add(
+        new THREE.CylinderGeometry(0.028, 0.032, 0.036, 16),
+        alloy,
+        0,
+        0,
+        -side * 0.068,
+        roll,
+      );
+      innerCarrier.rotation.x = Math.PI / 2;
+      const spindleNut = add(
+        new THREE.CylinderGeometry(0.015, 0.015, 0.012, 6),
+        steel,
+        0,
+        0,
+        side * 0.073,
+        roll,
+      );
+      spindleNut.rotation.x = Math.PI / 2;
+      const hubCap = add(
+        new THREE.CylinderGeometry(0.010, 0.010, 0.014, 12),
+        red,
+        0,
+        0,
+        side * 0.074,
+        roll,
+      );
+      hubCap.rotation.x = Math.PI / 2;
+      add(new THREE.CylinderGeometry(0.0025, 0.0025, 0.014, 8), steel, 0, -0.076, side * 0.064, roll);
       for (let i = 0; i < 3; i++) {
         const angle = (i / 3) * Math.PI * 2;
         const spoke = add(
@@ -370,9 +582,29 @@ export function createKartRig(): KartRig {
     const { kart, elapsedSeconds } = snapshot;
     root.position.set(kart.position.x, 0, kart.position.z);
     root.rotation.y = -kart.headingRad;
+    const steerYaw = -kart.steerAngleRad;
     frontPivots.forEach((pivot) => {
-      pivot.rotation.y = -kart.steerAngleRad;
+      pivot.rotation.y = steerYaw;
     });
+    frontKnuckles.forEach((knuckle) => {
+      knuckle.rotation.y = steerYaw;
+    });
+    pitmanPivot.rotation.y = steerYaw;
+    const cs = Math.cos(steerYaw);
+    const ss = Math.sin(steerYaw);
+    for (const tr of tieRods) {
+      const innerX = 0.458 + (-0.008 * cs + tr.side * 0.038 * ss);
+      const innerZ = 0.008 * ss + tr.side * 0.038 * cs;
+      const outerX = FRONT_AXLE + (-0.068 * cs - tr.side * 0.010 * ss);
+      const outerZ = tr.side * 0.168 + 0.068 * ss - tr.side * 0.010 * cs;
+      tr.group.position.set((innerX + outerX) * 0.5, 0.192, (innerZ + outerZ) * 0.5);
+      tr.group.rotation.y = Math.atan2(outerX - innerX, outerZ - innerZ);
+      tr.group.scale.z = Math.hypot(outerX - innerX, outerZ - innerZ) / tr.baseLength;
+    }
+    for (const p of pedalPivots) {
+      const input = p.side < 0 ? kart.brakeInput : kart.throttleInput;
+      p.group.rotation.z = -input * 0.24;
+    }
     steeringWheel.rotation.x = kart.steeringWheelAngleRad;
     driver.update(snapshot);
     const dt = lastElapsed === undefined ? 0 : elapsedSeconds - lastElapsed;
@@ -385,6 +617,8 @@ export function createKartRig(): KartRig {
     wheels.forEach((wheel) => {
       wheel.rotation.z = wheelAngle;
     });
+    rearBrakeDisc.rotation.z = wheelAngle;
+    rearDrivePulley.rotation.z = wheelAngle;
     lastElapsed = elapsedSeconds;
     lastSpeed = kart.speedMps;
     lastPosition = { ...kart.position };

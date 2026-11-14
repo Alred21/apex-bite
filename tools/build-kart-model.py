@@ -318,7 +318,7 @@ def build_otl_superleggero():
         create_tube_curve(f"OTL_Side_Bumper_Main_{side}", side_bumper_main, 0.017, mats["rubber"], closed=False, collection=col_stationary)
 
     # =========================================================================
-    # 2. FLOOR PAN, CHASSIS RAILS, KINGPIN AXLE & FOOTWELL PEDALS
+    # 2. FLOOR PAN, CHASSIS RAILS, STRUCTURAL BRACING, KINGPIN AXLE & FOOTWELL
     # =========================================================================
     floor_sections = [
         superellipse_ring(-0.62, 0.064, 0.080, 0.0, 0.148, power_y=0.35, power_z=0.35),
@@ -342,14 +342,111 @@ def build_otl_superleggero():
         ]
         create_tube_curve(f"Chassis_Main_Rail_{side}", chassis_rail, 0.013, mats["red"], collection=col_stationary)
 
-        # Sculpted alloy pedals tucked cleanly inside the narrow footwell (z = ±0.078 m, ahead of boots at x <= 0.448 m)
-        pedal_rings = [
-            superellipse_ring(0.456, 0.105, 0.195, side * 0.078, 0.022, power_y=0.4, power_z=0.4),
-            superellipse_ring(0.468, 0.105, 0.195, side * 0.078, 0.022, power_y=0.4, power_z=0.4),
-        ]
-        create_loft_mesh(f"Pedal_Face_{side}", pedal_rings, mats["alloy"], subsurf_levels=0, collection=col_stationary)
+        # Triangulated front axle gusset tubes bracing the kingpin beam to the main chassis rails
+        create_tube_curve(
+            f"OTL_Front_Axle_Gusset_{side}",
+            [(0.435, 0.106, side * 0.100), (0.540, 0.142, side * 0.156)],
+            0.009,
+            mats["red"],
+            collection=col_stationary,
+        )
 
-    for x_cross, z_span in ((-0.60, 0.155), (-0.18, 0.180), (0.24, 0.160)):
+        # Stationary C-shaped kingpin yoke at (0.540, 0.145, side * 0.168) holding the vertical kingpin bolt
+        c_yoke_pts = [
+            (0.540, 0.172, side * 0.172),
+            (0.540, 0.172, side * 0.154),
+            (0.540, 0.145, side * 0.148),
+            (0.540, 0.118, side * 0.154),
+            (0.540, 0.118, side * 0.172),
+        ]
+        create_tube_curve(f"OTL_Kingpin_C_Yoke_{side}", c_yoke_pts, 0.0075, mats["black"], collection=col_stationary)
+
+        # Vertical steel kingpin bolt + anodized caster adjuster pill at (0.540, 0.112..0.182, side * 0.168)
+        create_tube_curve(
+            f"OTL_Kingpin_Bolt_{side}",
+            [(0.540, 0.112, side * 0.168), (0.540, 0.182, side * 0.168)],
+            0.0065,
+            mats["alloy"],
+            collection=col_stationary,
+        )
+
+        # Central steering column support hoop rising between the driver's shins (|z| = 0.038 m,
+        # leaving > 2.5 cm clearance to the legs at |z| >= 0.065 m) into the Nassau tower
+        create_tube_curve(
+            f"OTL_Steering_Support_Upright_{side}",
+            [(0.320, 0.082, side * 0.038), (0.312, 0.210, side * 0.038), (0.302, 0.330, side * 0.034)],
+            0.0085,
+            mats["steel"],
+            collection=col_stationary,
+        )
+
+        # Lateral sidepod nerf bars supporting the sculpted sidepods from the main chassis rails
+        for x_nerf in (-0.180, 0.150):
+            create_tube_curve(
+                f"OTL_Sidepod_Nerf_Bar_{side}_{x_nerf:.2f}",
+                [(x_nerf, 0.105, side * 0.175), (x_nerf, 0.155, side * 0.215), (x_nerf, 0.168, side * 0.255)],
+                0.009,
+                mats["steel"],
+                collection=col_stationary,
+            )
+
+        # Tubular steel seat support struts bracing the lower bucket seat bolster below the sidepod deck
+        create_tube_curve(
+            f"OTL_Seat_Support_Strut_{side}",
+            [(-0.285, 0.105, side * 0.180), (-0.335, 0.175, side * 0.156), (-0.355, 0.235, side * 0.142)],
+            0.0085,
+            mats["steel"],
+            collection=col_stationary,
+        )
+
+        # Diagonal rear bumper energy-absorber stays connecting chassis frame to upper rear bumper
+        create_tube_curve(
+            f"OTL_Rear_Bumper_Stay_{side}",
+            [(-0.600, 0.105, side * 0.152), (-0.755, 0.165, side * 0.215)],
+            0.009,
+            mats["red"],
+            collection=col_stationary,
+        )
+
+    # Hydraulic brake master cylinder + fluid reservoir on left floor pan (z = -0.114 m)
+    master_cyl = [
+        superellipse_ring(0.352, 0.084, 0.114, -0.114, 0.015, power_y=0.45, power_z=0.45),
+        superellipse_ring(0.416, 0.084, 0.114, -0.114, 0.015, power_y=0.45, power_z=0.45),
+    ]
+    create_loft_mesh("OTL_Brake_Master_Cylinder", master_cyl, mats["alloy"], subsurf_levels=0, collection=col_stationary)
+    reservoir = [
+        oriented_ellipse_ring((0.375, 0.114, -0.114), (0.0, 1.0, 0.0), 0.011, 0.011, n=12),
+        oriented_ellipse_ring((0.375, 0.140, -0.114), (0.0, 1.0, 0.0), 0.011, 0.011, n=12),
+    ]
+    create_loft_mesh("OTL_Brake_Fluid_Reservoir", reservoir, mats["white"], subsurf_levels=0, collection=col_stationary)
+
+    # Braided hydraulic brake line routed along left chassis rail from master cylinder to rear brake caliper
+    brake_line_pts = [
+        (0.352, 0.096, -0.118),
+        (0.240, 0.098, -0.148),
+        (-0.180, 0.098, -0.172),
+        (-0.460, 0.118, -0.162),
+        (-0.545, 0.182, -0.208),
+    ]
+    create_tube_curve("OTL_Hydraulic_Brake_Line", brake_line_pts, 0.0038, mats["black"], collection=col_stationary)
+
+    # Electronic drive-by-wire throttle position sensor (TPS) box on right floor pan (z = +0.114 m)
+    tps_box = [
+        superellipse_ring(0.362, 0.084, 0.112, 0.114, 0.015, power_y=0.35, power_z=0.35),
+        superellipse_ring(0.416, 0.084, 0.112, 0.114, 0.015, power_y=0.35, power_z=0.35),
+    ]
+    create_loft_mesh("OTL_Throttle_Sensor_Box", tps_box, mats["black"], subsurf_levels=0, collection=col_stationary)
+
+    # Footwell pedal pivot crossbar across front frame at x = 0.428 m, y = 0.095 m
+    create_tube_curve(
+        "OTL_Pedal_Pivot_Crossbar",
+        [(0.428, 0.095, -0.102), (0.428, 0.095, 0.102)],
+        0.0075,
+        mats["steel"],
+        collection=col_stationary,
+    )
+
+    for x_cross, z_span in ((-0.60, 0.155), (-0.18, 0.180), (0.24, 0.160), (0.50, 0.098)):
         create_tube_curve(
             f"Chassis_Crossmember_{x_cross:.2f}",
             [(x_cross, 0.105, -z_span), (x_cross, 0.105, z_span)],
@@ -357,6 +454,22 @@ def build_otl_superleggero():
             mats["steel"],
             collection=col_stationary,
         )
+
+    # Lower steering column heim bearing block mounted on the front steering support at x = 0.458 m
+    lower_bearing = [
+        superellipse_ring(0.446, 0.104, 0.198, 0.0, 0.020, power_y=0.35, power_z=0.35),
+        superellipse_ring(0.470, 0.104, 0.198, 0.0, 0.020, power_y=0.35, power_z=0.35),
+    ]
+    create_loft_mesh("OTL_Steering_Lower_Bearing", lower_bearing, mats["alloy"], subsurf_levels=0, collection=col_stationary)
+
+    # Lower steering column shaft running from the lower bearing (0.458, 0.192, 0) up into the Nassau fairing
+    create_tube_curve(
+        "OTL_Lower_Steering_Shaft",
+        [(0.472, 0.145, 0.0), (0.458, 0.192, 0.0), (0.378, 0.295, 0.0), (0.300, 0.395, 0.0)],
+        0.011,
+        mats["steel"],
+        collection=col_stationary,
+    )
 
     # Front axle kingpin beam along x = 0.54, y = 0.145, spanning all the way to both front wheel
     # pivot centers (|z| = 0.285 m) so the front wheels never disconnect at any steering angle!
@@ -370,23 +483,25 @@ def build_otl_superleggero():
 
     # =========================================================================
     # 3. OTL SUPERLEGGERO SCULPTED NOSE CONE & NASSAU FAIRING
-    # Between the front wheels (x in [0.36, 0.73]), half_width <= 0.108 m so turned
-    # tires (|z| >= 0.1525 m) have > 4.4 cm air gap. Ends at x = 0.750 m right against
-    # the front Protex bumper loop so the cowling and bumper meet cleanly.
+    # Arched over x in [0.35, 0.50] (y_bottom = 0.212 m above lower splitter y_top = 0.118 m)
+    # to form a prominent open mechanical steering bay for the Pitman arm and tie rods at y = 0.192 m!
     # =========================================================================
     nose_lower_black = [
-        superellipse_ring(0.350, 0.118, 0.152, 0.0, 0.104, power_y=0.4, power_z=0.55),
-        superellipse_ring(0.550, 0.120, 0.152, 0.0, 0.106, power_y=0.4, power_z=0.55),
+        superellipse_ring(0.350, 0.096, 0.118, 0.0, 0.088, power_y=0.4, power_z=0.55),
+        superellipse_ring(0.520, 0.098, 0.120, 0.0, 0.092, power_y=0.4, power_z=0.55),
+        superellipse_ring(0.580, 0.116, 0.150, 0.0, 0.104, power_y=0.4, power_z=0.55),
         superellipse_ring(0.755, 0.122, 0.150, 0.0, 0.104, power_y=0.4, power_z=0.55),
     ]
     create_loft_mesh("OTL_Nose_Splitter_Base", nose_lower_black, mats["black"], subsurf_levels=1, collection=col_stationary)
 
     # Flat-crowned upper slope (power_y=0.25) over x in [0.48, 0.68] so the noseDecal sits
-    # 3 mm above the surface with zero clipping!
+    # 3 mm above the surface with zero clipping, while y_bottom = 0.212 m over x in [0.35, 0.49]
+    # leaves full clearance above the tie rods and Pitman arm (y = 0.192 m)!
     nose_red_shell = [
-        superellipse_ring(0.350, 0.148, 0.272, 0.0, 0.100, power_y=0.25, power_z=0.55),
-        superellipse_ring(0.485, 0.148, 0.254, 0.0, 0.106, power_y=0.25, power_z=0.55),
-        superellipse_ring(0.585, 0.148, 0.239, 0.0, 0.106, power_y=0.25, power_z=0.55),
+        superellipse_ring(0.350, 0.214, 0.272, 0.0, 0.076, power_y=0.25, power_z=0.55),
+        superellipse_ring(0.485, 0.212, 0.254, 0.0, 0.086, power_y=0.25, power_z=0.55),
+        superellipse_ring(0.545, 0.152, 0.245, 0.0, 0.098, power_y=0.25, power_z=0.55),
+        superellipse_ring(0.585, 0.148, 0.239, 0.0, 0.104, power_y=0.25, power_z=0.55),
         superellipse_ring(0.685, 0.148, 0.224, 0.0, 0.102, power_y=0.25, power_z=0.55),
         superellipse_ring(0.755, 0.145, 0.210, 0.0, 0.084, power_y=0.35, power_z=0.55),
     ]
@@ -394,12 +509,12 @@ def build_otl_superleggero():
 
     # Sculpted Nassau tower starts at x = 0.270 m (strictly forward of the rotating steering
     # wheel & gloves), rising to cradle the digital dash binnacle at y = 0.445 m and joining
-    # the nose cone cleanly through x = 0.495 m.
+    # the nose cone cleanly through x = 0.485 m above the tie-rod tunnel (y_bottom >= 0.214 m).
     nassau_fairing = [
         superellipse_ring(0.268, 0.235, 0.445, 0.0, 0.066, power_y=0.35, power_z=0.50),
-        superellipse_ring(0.308, 0.215, 0.448, 0.0, 0.076, power_y=0.35, power_z=0.50),
-        superellipse_ring(0.390, 0.195, 0.335, 0.0, 0.092, power_y=0.40, power_z=0.52),
-        superellipse_ring(0.495, 0.180, 0.248, 0.0, 0.098, power_y=0.35, power_z=0.52),
+        superellipse_ring(0.308, 0.225, 0.448, 0.0, 0.074, power_y=0.35, power_z=0.50),
+        superellipse_ring(0.390, 0.218, 0.335, 0.0, 0.080, power_y=0.40, power_z=0.52),
+        superellipse_ring(0.485, 0.214, 0.252, 0.0, 0.082, power_y=0.35, power_z=0.52),
     ]
     create_loft_mesh("OTL_Nassau_Fairing", nassau_fairing, mats["red"], subsurf_levels=1, collection=col_stationary)
 
@@ -526,6 +641,73 @@ def build_otl_superleggero():
         collection=col_stationary,
     )
 
+    # Rear axle CNC bearing hangers & spherical bearing cassettes clamping the live axle to the chassis rails
+    for side in (-1, 1):
+        hanger_rings = [
+            superellipse_ring(-0.552, 0.102, 0.178, side * 0.162, 0.010, power_y=0.35, power_z=0.35),
+            superellipse_ring(-0.488, 0.102, 0.178, side * 0.162, 0.010, power_y=0.35, power_z=0.35),
+        ]
+        create_loft_mesh(f"OTL_Rear_Bearing_Hanger_{side}", hanger_rings, mats["black"], subsurf_levels=0, collection=col_stationary)
+        cassette_rings = [
+            oriented_ellipse_ring((REAR_AXLE_X, TIRE_RADIUS, side * 0.152), (0.0, 0.0, 1.0), 0.030, 0.030, n=16),
+            oriented_ellipse_ring((REAR_AXLE_X, TIRE_RADIUS, side * 0.172), (0.0, 0.0, 1.0), 0.030, 0.030, n=16),
+        ]
+        create_loft_mesh(f"OTL_Rear_Bearing_Cassette_{side}", cassette_rings, mats["alloy"], subsurf_levels=0, collection=col_stationary)
+
+        # High-voltage orange insulated battery-to-inverter cables routed low along the chassis into the rear shroud
+        hv_cable_pts = [
+            (-0.310, 0.158, side * 0.235),
+            (-0.385, 0.158, side * 0.175),
+            (-0.455, 0.168, side * 0.132),
+        ]
+        create_tube_curve(f"OTL_HV_Cable_{side}", hv_cable_pts, 0.0065, mats["orange"], collection=col_stationary)
+
+    # Twin-piston hydraulic rear brake caliper + torque bracket straddling the rear brake rotor at z = -0.215 m
+    caliper_body = [
+        superellipse_ring(-0.588, 0.175, 0.236, -0.215, 0.018, power_y=0.35, power_z=0.35),
+        superellipse_ring(-0.532, 0.175, 0.236, -0.215, 0.018, power_y=0.35, power_z=0.35),
+    ]
+    create_loft_mesh("OTL_Rear_Brake_Caliper", caliper_body, mats["red"], subsurf_levels=0, collection=col_stationary)
+    create_tube_curve(
+        "OTL_Brake_Caliper_Bracket",
+        [(-0.535, 0.155, -0.172), (-0.555, 0.195, -0.202)],
+        0.007,
+        mats["alloy"],
+        collection=col_stationary,
+    )
+
+    # Kevlar synchronous drive belt loop connecting the electric motor output shaft to the rear axle pulley at z = +0.210 m
+    belt_pts = [
+        (-0.520, 0.212, 0.210),
+        (-0.445, 0.218, 0.210),
+        (-0.435, 0.175, 0.210),
+        (-0.445, 0.132, 0.210),
+        (-0.520, 0.078, 0.210),
+        (-0.585, 0.145, 0.210),
+    ]
+    create_tube_curve("OTL_Drive_Belt_Loop", belt_pts, 0.007, mats["rubber"], closed=True, collection=col_stationary)
+
+    # Finned aluminum motor heatsink on rear face of powertrain housing
+    for fin_idx in range(5):
+        fz = -0.064 + fin_idx * 0.032
+        fin_rings = [
+            superellipse_ring(-0.684, 0.168, 0.268, fz, 0.0035, power_y=0.25, power_z=0.25),
+            superellipse_ring(-0.662, 0.168, 0.268, fz, 0.0035, power_y=0.25, power_z=0.25),
+        ]
+        create_loft_mesh(f"OTL_Motor_Cooling_Fin_{fin_idx}", fin_rings, mats["alloy"], subsurf_levels=0, collection=col_stationary)
+
+    # Emergency E-Stop mushroom switch on top of the rear shroud
+    estop_base = [
+        oriented_ellipse_ring((-0.635, 0.296, 0.0), (0.0, 1.0, 0.0), 0.018, 0.018, n=12),
+        oriented_ellipse_ring((-0.635, 0.312, 0.0), (0.0, 1.0, 0.0), 0.018, 0.018, n=12),
+    ]
+    create_loft_mesh("OTL_EStop_Collar", estop_base, mats["accent"], subsurf_levels=0, collection=col_stationary)
+    estop_btn = [
+        oriented_ellipse_ring((-0.635, 0.312, 0.0), (0.0, 1.0, 0.0), 0.014, 0.014, n=12),
+        oriented_ellipse_ring((-0.635, 0.328, 0.0), (0.0, 1.0, 0.0), 0.016, 0.016, n=12),
+    ]
+    create_loft_mesh("OTL_EStop_Button", estop_btn, mats["red"], subsurf_levels=0, collection=col_stationary)
+
     # Straight steering column shaft along the exact wheel rotation axis (y_l = 0, z_l = 0,
     # x_l in [0.000, 0.125]), starting right inside the center of OTL_F1_Wheel_Hub (xl = 0)
     # and extending deep into OTL_Nassau_Fairing (x >= 0.268 m) with zero disconnection!
@@ -637,7 +819,7 @@ def build_otl_superleggero():
     for side in (-1, 1):
         # 4-point racing harness straps riding strictly on the front chest surface (+14 mm forward-upward normal offset)
         harness_pts = []
-        for idx, z_frac in ((5, 0.34), (4, 0.30), (3, 0.24), (2, 0.16)):
+        for idx, z_frac in ((4, 0.32), (3, 0.24), (2, 0.15)):
             x, y, _, tx, ty, rn, rs = torso_spine[idx]
             tlen = math.hypot(tx, ty) or 1.0
             nx, ny = ty / tlen, -tx / tlen  # Forward-upward chest normal (+X, +Y)
@@ -649,15 +831,15 @@ def build_otl_superleggero():
             harness_pts.append((px, py, pz))
         create_tube_curve(f"Driver_Harness_Strap_{side}", harness_pts, 0.008, mats["harness"], collection=col_driver_body)
 
-        # Bent legs extending deep into the hip socket (-0.195, 0.205) and down into the boots (0.420, 0.130)
+        # Bent legs extending deep into the hip socket (-0.195, 0.205) and down into the boots (0.382, 0.128)
         # so there is zero gap at the hips or ankles even after Subsurf!
         leg_spine = [
             ((-0.195, 0.205, side * 0.062), (0.94, 0.22, 0.0), 0.056, 0.058),
             ((-0.130, 0.172, side * 0.075), (0.96, 0.16, 0.0), 0.052, 0.054),
             ((-0.010, 0.170, side * 0.120), (0.98, 0.05, 0.0), 0.046, 0.046),
             ((0.140, 0.168, side * 0.148), (0.98, -0.14, 0.0), 0.040, 0.040),
-            ((0.280, 0.146, side * 0.112), (0.96, -0.22, 0.0), 0.035, 0.035),
-            ((0.420, 0.128, side * 0.078), (0.98, -0.15, 0.0), 0.029, 0.029),
+            ((0.265, 0.146, side * 0.108), (0.96, -0.22, 0.0), 0.035, 0.035),
+            ((0.382, 0.128, side * 0.075), (0.98, -0.15, 0.0), 0.029, 0.029),
         ]
         leg_rings = [
             oriented_ellipse_ring(center, tangent, rn, rs, n=16)
@@ -665,11 +847,11 @@ def build_otl_superleggero():
         ]
         create_loft_mesh(f"Driver_Leg_{side}", leg_rings, mats["suit"], subsurf_levels=1, collection=col_driver_body)
 
-        # Racing boot on pedal inside the narrow front footwell (z = ±0.078 m, x <= 0.450 m just behind pedal face at 0.456 m)
+        # Racing boot on pedal inside the narrow front footwell (z = ±0.075 m, x <= 0.415 m just behind articulated pedal plate at 0.422 m)
         boot_rings = [
-            superellipse_ring(0.380, 0.096, 0.156, side * 0.078, 0.030, power_y=0.5, power_z=0.5),
-            superellipse_ring(0.425, 0.102, 0.180, side * 0.078, 0.030, power_y=0.5, power_z=0.5),
-            superellipse_ring(0.452, 0.122, 0.192, side * 0.078, 0.025, power_y=0.5, power_z=0.5),
+            superellipse_ring(0.345, 0.096, 0.156, side * 0.075, 0.028, power_y=0.5, power_z=0.5),
+            superellipse_ring(0.388, 0.102, 0.180, side * 0.075, 0.028, power_y=0.5, power_z=0.5),
+            superellipse_ring(0.415, 0.122, 0.190, side * 0.075, 0.024, power_y=0.5, power_z=0.5),
         ]
         create_loft_mesh(f"Driver_Boot_{side}", boot_rings, mats["black"], subsurf_levels=1, collection=col_driver_body)
 
@@ -1011,10 +1193,47 @@ def build_otl_superleggero():
                 collection=col_wheel,
             )
 
+    # Posed mechanical steering linkage (Pitman arm, knuckle steering arms, tie rods & Heim joints)
+    # and articulated footwell pedals for .blend / .glb / Cycles preview completeness
+    for side in (-1, 1):
+        create_tube_curve(
+            f"OTL_Pitman_Ear_{side}",
+            [(0.458, 0.192, 0.0), (0.450, 0.192, side * 0.038)],
+            0.007,
+            mats["alloy"],
+            collection=col_wheel,
+        )
+        create_tube_curve(
+            f"OTL_Knuckle_Steering_Arm_{side}",
+            [(0.540, 0.170, side * 0.168), (0.510, 0.188, side * 0.164), (0.472, 0.192, side * 0.158)],
+            0.0075,
+            mats["alloy"],
+            collection=col_wheel,
+        )
+        create_tube_curve(
+            f"OTL_Tie_Rod_{side}",
+            [(0.450, 0.192, side * 0.038), (0.472, 0.192, side * 0.158)],
+            0.0065,
+            mats["alloy"],
+            collection=col_wheel,
+        )
+        create_tube_curve(
+            f"OTL_Pedal_Arm_{side}",
+            [(0.428, 0.095, side * 0.075), (0.422, 0.188, side * 0.075)],
+            0.006,
+            mats["alloy"],
+            collection=col_wheel,
+        )
+        pedal_plate = [
+            superellipse_ring(0.419, 0.115, 0.192, side * 0.075, 0.022, power_y=0.35, power_z=0.35),
+            superellipse_ring(0.425, 0.115, 0.192, side * 0.075, 0.022, power_y=0.35, power_z=0.35),
+        ]
+        create_loft_mesh(f"OTL_Pedal_Plate_{side}", pedal_plate, mats["red" if side < 0 else "accent"], subsurf_levels=0, collection=col_wheel)
+
     for side in (-1, 1):
         arm_pts = [
-            (-0.332, 0.488, side * 0.142),
-            (-0.085, 0.372, side * 0.188),
+            (-0.335, 0.485, side * 0.122),
+            (-0.085, 0.372, side * 0.180),
             (0.160, 0.352, side * GLOVE_OFFSET_Z),
         ]
         create_tube_curve(f"Driver_Sleeve_Posed_{side}", arm_pts, 0.040, mats["suit"], collection=col_driver_body)

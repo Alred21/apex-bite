@@ -43,7 +43,10 @@ import {
   MAX_STEER_ANGLE_RAD,
   WHEELBASE_METERS,
 } from './kart-parameters';
-import { stepKartOnCircuit } from './kart-world';
+import {
+  isBarrierContactDirty,
+  stepKartOnCircuit,
+} from './kart-world';
 export {
   FIXED_TIMESTEP_SECONDS, MAX_KART_SPEED_KPH, MAX_KART_SPEED_MPS,
   FLYING_START_SPEED_KPH, FLYING_START_SPEED_MPS, FLYING_START_DISTANCE_METERS,
@@ -237,6 +240,7 @@ export function createSimulationSession(
   let kart = cloneKartState(options.referenceReplay ? reference.initialState : flyingStartState);
   let lapStartProgressMeters = kart.unwrappedDistanceMeters - kart.lapDistanceMeters;
   let furthestProgressMeters = kart.unwrappedDistanceMeters;
+  let continuousBarrierContactSeconds = 0;
   if (options.referenceReplay) {
     lap.lapNumber = 1;
     timeTrial.status = 'Driving';
@@ -253,6 +257,7 @@ export function createSimulationSession(
     lap.currentLapSeconds = 0;
     lap.lapNumber = 0;
     lap.currentSectorSplits = [null, null, null];
+    continuousBarrierContactSeconds = 0;
 
     kart = cloneKartState(options.referenceReplay ? reference.initialState : flyingStartState);
     if (options.referenceReplay) { lap.lapNumber = 1; timeTrial.status = 'Driving'; }
@@ -265,6 +270,7 @@ export function createSimulationSession(
     keyboardAssistance.reset();
     drillCurrentSegmentSeconds = 0;
     drillIsClean = true;
+    continuousBarrierContactSeconds = 0;
     drillEntrySpeedKph = null;
     drillMinApexSpeedKph = Infinity;
     drillPeakAxleScrub = 0;
@@ -392,6 +398,13 @@ export function createSimulationSession(
     return getSnapshot();
   }
 
+  function isCurrentBarrierContactDirty(): boolean {
+    return (
+      kart.barrierContact &&
+      isBarrierContactDirty(kart.barrierImpactSpeedMps, continuousBarrierContactSeconds)
+    );
+  }
+
   function fixedStep(dtSeconds: number, input: DriverInput): void {
     if (mode === 'Time Trial' && timeTrial.status === 'Finished') return;
     const command = keyboardAssistance.step(input, kart.speedMps, dtSeconds);
@@ -406,8 +419,13 @@ export function createSimulationSession(
     const { axleScrub, barrierContact } = kart;
     const nearest = { distanceMeters: kart.lapDistanceMeters, progress: kart.lapProgress };
     if (barrierContact) {
-      lap.isClean = false;
-      drillIsClean = false;
+      continuousBarrierContactSeconds += dtSeconds;
+      if (isCurrentBarrierContactDirty()) {
+        lap.isClean = false;
+        drillIsClean = false;
+      }
+    } else {
+      continuousBarrierContactSeconds = 0;
     }
     tick += 1;
     elapsedSeconds += dtSeconds;
@@ -558,7 +576,8 @@ export function createSimulationSession(
       lapStartProgressMeters = kart.unwrappedDistanceMeters - kart.lapDistanceMeters;
       lap.lapNumber += 1;
       lap.currentLapSeconds = 0;
-      lap.isClean = !barrierContact;
+      if (!barrierContact) continuousBarrierContactSeconds = 0;
+      lap.isClean = !isCurrentBarrierContactDirty();
       lap.currentSectorSplits = [null, null, null];
       sectorEntryLapSeconds = 0;
       activeLapGhostFrames = [

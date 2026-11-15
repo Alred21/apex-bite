@@ -45,7 +45,7 @@ _Avoid_: Late braking
 ### Kart & Physics
 
 **Kart**:
-An indoor direct-drive electric go-kart capped at 45 km/h with instant low-end motor torque, a rigid suspensionless frame, a solid rear live axle, and rear-only mechanical and motor-drag braking.
+An indoor direct-drive electric go-kart modeled after K1 Speed Toronto's OTL Superleggero, capped at 45 km/h with instant low-end motor torque, a wraparound impact bumper, a rigid suspensionless frame, a solid rear live axle, and rear-only mechanical and motor-drag braking.
 _Avoid_: Car, vehicle, auto
 
 **Axle Scrub**:
@@ -63,7 +63,7 @@ _Avoid_: Autopilot, auto-steering, self-driving
 ### Cameras & Views
 
 **Helmet Cam**:
-The first-person camera perspective positioned at the driver's eye level looking over the rotating steering wheel, digital dash, front fairing, and front tires.
+The first-person camera perspective positioned at the reclined driver's visor eye level (~`0.75 m` above ground) looking over the rotating steering wheel, digital dash binnacle, front fairing, and front tires.
 _Avoid_: Cockpit cam, hood cam, bumper cam
 
 **Chase Cam**:
@@ -113,7 +113,7 @@ An evidence-based diagnostic message generated from a Turn pass describing measu
 _Avoid_: Tip, hint, AI advice
 
 **Clean Lap**:
-A completed lap in Time Trial (or attempt in Corner Drill) executed with zero Barrier contacts; only Clean Laps are eligible to set official Personal Best records.
+A completed lap in Time Trial (or attempt in Corner Drill) executed without any deflecting Barrier contact (a brief shallow graze with `<= 1.8 m/s` inward normal speed and `<= 0.35 s` continuous contact duration is permitted); only Clean Laps are eligible to set official Personal Best records.
 _Avoid_: Valid lap, legal lap, penalty-free lap
 
 **Ghost Kart**:

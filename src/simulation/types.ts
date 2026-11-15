@@ -104,6 +104,7 @@ export interface KartState {
   slipRatio: number; // 0..1 overall tire lateral slip / scrub intensity
   barrierContact: boolean;
   barrierContactCount: number;
+  barrierImpactSpeedMps: number; // inward normal speed (m/s) when contacting a Barrier; 0 when clear
   lapDistanceMeters: number;
   unwrappedDistanceMeters: number;
   lapProgress: number;

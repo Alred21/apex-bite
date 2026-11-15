@@ -35,7 +35,7 @@ try {
         };
         // A seated adult's helmet occupies this region above the seat. The old
         // box-only ghost has no pixels here; this assertion is independent of mesh layout.
-        const helmet = project(-.326, 1.02, 0);
+        const helmet = project(-.35, .76, 0);
         const corners = [];
         for (const x of [-1, 1]) for (const y of [0, 1.3]) for (const z of [-.6, .6]) corners.push(project(x, y, z));
         const box = { left: Math.min(...corners.map(p => p.x)) - 4, right: Math.max(...corners.map(p => p.x)) + 4,

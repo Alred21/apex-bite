@@ -1,3 +1,4 @@
+import { barrierImpactSeverity } from '../simulation/kart-world';
 import type { SessionSnapshot } from '../simulation/types';
 
 export interface KartAudioState {
@@ -182,16 +183,18 @@ export function createKartAudio(): KartAudio {
       fade(graph.motorWhine.gain.gain, rolling * (0.004 + load * 0.008));
       const gripUse = Math.max(0, Math.min(1, Math.max(kart.slipRatio, kart.axleScrub)));
       const scrub = Math.max(0, Math.min(1, kart.axleScrub));
-      fade(graph.tire.filter.frequency, 850 + speed * 950 + gripUse * 700);
-      fade(graph.tire.gain.gain, rolling * (0.006 + Math.max(0, gripUse - 0.25) * 0.09 + scrub * 0.025));
+      const barrierRub = kart.barrierContact ? Math.min(1, 0.3 + barrierImpactSeverity(kart.barrierImpactSpeedMps) * 0.7) : 0;
+      fade(graph.tire.filter.frequency, 850 + speed * 950 + gripUse * 700 - barrierRub * 250);
+      fade(graph.tire.gain.gain, rolling * (0.006 + Math.max(0, gripUse - 0.25) * 0.09 + scrub * 0.025 + barrierRub * 0.045));
       fade(graph.tireSqueal.oscillator.frequency, 1050 + gripUse * 360 + speed * 160);
       fade(graph.tireSqueal.gain.gain, rolling * Math.max(0, gripUse - 0.55) * 0.03);
       if (reset) {
         graph.impact.gain.gain.cancelScheduledValues(context.currentTime);
         graph.impact.gain.gain.setValueAtTime(0, context.currentTime);
       } else if (newImpact && freshTick && active && !muted && volume > 0) {
+        const normalImpact = barrierImpactSeverity(kart.barrierImpactSpeedMps);
         const intensity = Math.max(0.12, Math.min(1,
-          (lastSpeed - speedMps) / 5 + Math.max(0, -kart.forwardAccelMps2) / 55));
+          normalImpact + (lastSpeed - speedMps) / 5 + Math.max(0, -kart.forwardAccelMps2) / 55));
         const now = context.currentTime;
         graph.impact.gain.gain.cancelScheduledValues(now);
         graph.impact.gain.gain.setValueAtTime(0, now);

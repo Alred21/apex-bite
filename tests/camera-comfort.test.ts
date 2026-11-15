@@ -18,12 +18,12 @@ describe('Camera comfort through SimulationSession', () => {
     expect(reset.camera.rollRad).toBe(0);
   });
 
-  it('places Helmet Cam at a seated adult eye height while retaining a clear forward sightline', () => {
+  it('places Helmet Cam at a reclined seated adult eye height while retaining a clear forward sightline', () => {
     const session = createSimulationSession();
     session.setCameraSettings({ motionStrength: 0 });
     const snapshot = session.toggleCamera();
-    expect(snapshot.camera.position.y).toBeGreaterThanOrEqual(0.95);
-    expect(snapshot.camera.position.y).toBeLessThanOrEqual(1.05);
+    expect(snapshot.camera.position.y).toBeGreaterThanOrEqual(0.70);
+    expect(snapshot.camera.position.y).toBeLessThanOrEqual(0.82);
     expect(snapshot.camera.lookAt.y).toBeLessThan(snapshot.camera.position.y);
     // A gentle downward angle leaves the track ahead rather than the lap in view.
     const distance = Math.hypot(snapshot.camera.lookAt.x - snapshot.camera.position.x,

@@ -1,4 +1,7 @@
+import { barrierImpactSeverity } from './kart-world';
 import type { CameraMode, CameraSettings, CameraState, KartState } from './types';
+
+export const HELMET_CAM_EYE_HEIGHT_METERS = 0.75;
 
 /** Camera settings and pose are presentation state, never an input to dynamics. */
 export function createCameraPresentation() {
@@ -18,10 +21,11 @@ export function createCameraPresentation() {
     const clamp = (value: number): number => Math.max(-1, Math.min(1, value));
     longitudinal += (clamp(kart.forwardAccelMps2 / 8) - longitudinal) * blend;
     lateral += (clamp(kart.lateralAccelMps2 / 10) - lateral) * blend;
-    // One short displacement per new contact, without oscillating screen shake.
+    // One short displacement per new contact, scaled by normal impact severity.
     impact *= Math.exp(-dt / 0.1);
     if (kart.barrierContactCount > lastContactCount) {
-      impact = Math.min(1, Math.abs(kart.forwardAccelMps2) / 20);
+      const normalSeverity = barrierImpactSeverity(kart.barrierImpactSpeedMps);
+      impact = Math.min(1, Math.max(normalSeverity, Math.abs(kart.forwardAccelMps2) / 20));
     }
     lastContactCount = kart.barrierContactCount;
   }
@@ -49,13 +53,13 @@ export function createCameraPresentation() {
       rollRad: -lateral * strength * (helmet ? 0.018 : 0.009) || 0,
       position: {
         x: kart.position.x + forwardX * eyeDistance - forwardZ * sideOffset,
-        y: (helmet ? 0.99 : 2.1) + impact * strength * 0.009,
+        y: (helmet ? HELMET_CAM_EYE_HEIGHT_METERS : 2.1) + impact * strength * 0.012,
         z: kart.position.z + forwardZ * eyeDistance + forwardX * sideOffset,
       },
-      // A seated-eye sightline includes hands and rim in the lower frame.
+      // A reclined seated-eye sightline includes hands and F1 rim in the lower frame.
       lookAt: {
         x: kart.position.x + forwardX * lookDistance,
-        y: (helmet ? -0.2 : 0.4) + longitudinal * strength * 0.12,
+        y: (helmet ? -0.44 : 0.4) + longitudinal * strength * 0.12,
         z: kart.position.z + forwardZ * lookDistance,
       },
     };

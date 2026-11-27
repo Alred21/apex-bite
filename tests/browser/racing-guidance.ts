@@ -1,13 +1,16 @@
 import { createSimulationSession, FIXED_TIMESTEP_SECONDS } from '../../src/simulation/session';
+import { preloadRendererAssets } from '../../src/render/assets';
 import { createCircuitRenderer } from '../../src/render/scene';
 import { analogReferenceCommand } from '../analog-driver';
 import type { CameraMode, DriverInput, GhostMode, RacingLineDisplayMode } from '../../src/simulation/types';
 
+async function boot(): Promise<void> {
+const assets = await preloadRendererAssets();
 const session = createSimulationSession({ referenceReplay: true });
 const reference = session.getReferenceReplay();
 session.setTimeTrialLapLimit(null);
 session.setCameraSettings({ motionStrength: 0 });
-const renderer = createCircuitRenderer(document.querySelector<HTMLCanvasElement>('#viewport')!, session.getSnapshot());
+const renderer = createCircuitRenderer(document.querySelector<HTMLCanvasElement>('#viewport')!, session.getSnapshot(), assets);
 renderer.setGraphicsQuality('Balanced');
 const state = document.querySelector<HTMLOutputElement>('#state')!;
 const guidance = document.querySelector<HTMLOutputElement>('#guidance')!;
@@ -117,3 +120,6 @@ Object.assign(window, { guidanceReview: {
   mode(mode: RacingLineDisplayMode) { for (let i = 0; i < 3 && session.getSnapshot().racingLine.displayMode !== mode; i++) session.toggleRacingLine(); },
   read() { return { snapshot: session.getSnapshot(), diagnostics: renderer.getDiagnostics() }; },
 } });
+}
+
+void boot();

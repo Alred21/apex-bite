@@ -9,15 +9,18 @@
 <output id="state"></output><output id="budget"></output></nav>
 <script type="module">
 import * as THREE from 'three';
+import {preloadRendererAssets} from '../../src/render/assets.ts';
 import {createKartRig} from '../../src/render/kart.ts';
 import {createSimulationSession,FIXED_TIMESTEP_SECONDS} from '../../src/simulation/session.ts';
+async function boot(){
+const assets=await preloadRendererAssets();
 const renderer=new THREE.WebGLRenderer({canvas:document.querySelector('canvas'),antialias:true});
 renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;
 const scene=new THREE.Scene();scene.background=new THREE.Color('#202730');
 scene.add(new THREE.HemisphereLight(0xdce9ff,0x242019,2));
 for(const [x,z,intensity] of [[2,3,3],[-2,-2,2]]){const l=new THREE.DirectionalLight(0xfff2dc,intensity);l.position.set(x,5,z);l.castShadow=true;scene.add(l)}
 const floor=new THREE.Mesh(new THREE.PlaneGeometry(500,500),new THREE.MeshStandardMaterial({color:0x3c4248,roughness:.76}));floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;floor.position.y=-.002;scene.add(floor);
-const rig=createKartRig();scene.add(rig.root);const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.02,1000);
+const rig=createKartRig(assets);scene.add(rig.root);const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.02,1000);
 const session=createSimulationSession({referenceReplay:true});const reference=session.getReferenceReplay();let replaying=false,replayIndex=0,driverVisible=true,frontDetail=false;let view='detail',playing=false,steer=0,throttle=0,brake=0,acc=0,last=performance.now();
 const click=(id,fn)=>document.getElementById(id).addEventListener('click',fn);
 click('detail',()=>{view='detail';frontDetail=false;if(session.getSnapshot().camera.mode!=='Chase Cam')session.toggleCamera()});click('front',()=>{view='detail';frontDetail=true;if(session.getSnapshot().camera.mode!=='Chase Cam')session.toggleCamera()});
@@ -45,5 +48,7 @@ window.presentationReview={
   cameraSettings(settings){session.setCameraSettings(settings)},
   diagnostics(){const gl=renderer.getContext(),debug=gl.getExtension('WEBGL_debug_renderer_info');return {driverModelTriangles,calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,textures:renderer.info.memory.textures,programs:renderer.info.programs?.length,geometries:renderer.info.memory.geometries,gpu:debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):'unavailable',snapshot:session.getSnapshot()}},
 };
+}
+void boot();
 
 </script></html>

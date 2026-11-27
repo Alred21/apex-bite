@@ -16,8 +16,8 @@ At runtime, the application makes **zero** external network requests (no CDNs, r
 - **OTL Superleggero Kart & Articulated Driver** (`public/models/otl-superleggero.glb`, `assets/otl-superleggero.blend`)
   - **Author**: Apex Bite project (original Blender 5.2 procedural/sculpted geometry generated via `tools/build-kart-model.py`)
   - **License**: Project original asset (all rights reserved to repository terms)
-- **Indoor Karting Arena Props** (`public/models/venue-props.glb` — added in subsequent Iteration 6 tickets)
-  - **Author**: Apex Bite project (original Blender-authored modular geometry)
+- **Indoor Karting Arena Props** (`public/models/venue-props.glb`, `assets/venue-props.blend`)
+  - **Author**: Apex Bite project (original Blender 5.2 UV-unwrapped modular geometry generated via `tools/build-venue-props.py`)
   - **License**: Project original asset (all rights reserved to repository terms)
 
 ## Bundled Local PBR Textures

@@ -1,11 +1,28 @@
 import { createSimulationSession } from '../../src/simulation/session';
 import { createHudView } from '../../src/ui/hud';
 import { bindDriverControls } from '../../src/ui/driver-controls';
+import { preloadRendererAssets } from '../../src/render/assets';
 import { createCircuitRenderer } from '../../src/render/scene';
 import { analogReferenceCommand } from '../analog-driver';
 import { createKartAudio } from '../../src/audio/kart-audio';
 import type { CameraMode, CameraSettings, DrillTargetId, DriverInput, GhostMode } from '../../src/simulation/types';
 
+declare global { interface Window { recoveryHarness: {
+  step(ticks: number, analog?: DriverInput): unknown;
+  diagnostics(): unknown;
+  read(): unknown;
+  drive(ticks: number, speedScale?: number): unknown;
+  ghost(mode: GhostMode): unknown;
+  reset(): unknown;
+  release(): void;
+  view(mode: CameraMode): unknown;
+  settings(settings: Partial<CameraSettings>): unknown;
+  replay(ticks: number): unknown;
+  drill(target: DrillTargetId): unknown;
+}; } }
+
+async function boot(): Promise<void> {
+const assets = await preloadRendererAssets();
 // Actual browser adapter, HUD and Kart presentation driven by normal Session inputs.
 const session = createSimulationSession({ referenceReplay: true });
 const replay = session.getReferenceReplay();
@@ -45,7 +62,7 @@ const hud = createHudView(document.querySelector<HTMLElement>('#hud-root')!, {
   onExportData: () => session.exportTrainingDataJson(),
   onImportData: (json) => { session.importTrainingDataJson(json); },
 });
-const renderer = createCircuitRenderer(document.querySelector<HTMLCanvasElement>('#viewport')!, session.getSnapshot());
+const renderer = createCircuitRenderer(document.querySelector<HTMLCanvasElement>('#viewport')!, session.getSnapshot(), assets);
 function render() {
   const snapshot = session.getSnapshot();
   audio.update(snapshot, document.hasFocus() && !document.hidden && !document.querySelector('dialog[open]'));
@@ -88,6 +105,8 @@ const harness = {
     return render();
   },
 };
-declare global { interface Window { recoveryHarness: typeof harness; } }
 window.recoveryHarness = harness;
 render();
+}
+
+void boot();

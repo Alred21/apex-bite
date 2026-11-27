@@ -45,6 +45,24 @@ BRAKE_MASTER_BORE = Vector((0.382, 0.124, -0.122))
 THROTTLE_CLEVIS_LOCAL = Vector((0.0, 0.038, 0.047))
 THROTTLE_TPS_PIVOT = Vector((0.416, 0.124, 0.122))
 
+DRIVER_HIP_PIVOT = Vector((-0.220, 0.205, 0.0))
+DRIVER_SHOULDER = (-0.335, 0.485, 0.138)
+DRIVER_HIP_JOINT = (-0.175, 0.197, 0.078)
+DRIVER_UPPER_ARM_LEN = 0.305
+DRIVER_FOREARM_LEN = 0.285
+DRIVER_THIGH_LEN = 0.300
+DRIVER_SHIN_LEN = 0.265
+GLOVE_OFFSET = (-0.010, 0.0, 0.105)
+GLOVE_WRIST_LOCAL = Vector((
+    -0.032 * math.cos(STEER_MOUNT_ROT_Z),
+    -0.032 * math.sin(STEER_MOUNT_ROT_Z),
+    0.0,
+))
+PEDAL_SOLE_LOCAL = (-0.017, 0.068, 0.0)
+PEDAL_ANKLE_OFFSET = Vector((-0.047, -0.015, 0.0))
+PEDAL_SLIDE_M = 0.014
+MAX_TORSO_LEAN_RAD = math.radians(3.5)
+
 
 def t2b(v: Vector) -> Vector:
     return Vector((v.x, -v.z, v.y))
@@ -116,6 +134,47 @@ def three_quat_to_blender_quat(axis_three: Vector, angle_rad: float) -> Quaterni
     return Quaternion(axis_bl, angle_rad)
 
 
+def solve_two_bone_ik_three(
+    root: Vector,
+    target: Vector,
+    upper_len: float,
+    lower_len: float,
+    pole_dir: Vector,
+) -> tuple[Vector, Vector]:
+    to_t = target - root
+    raw_dist = to_t.length
+    direction = to_t / raw_dist if raw_dist > 1e-6 else Vector((1.0, 0.0, 0.0))
+    min_r = abs(upper_len - lower_len) + 1e-5
+    max_r = upper_len + lower_len - 1e-5
+    dist = max(min_r, min(max_r, raw_dist))
+    bend = pole_dir - direction * pole_dir.dot(direction)
+    if bend.length_squared < 1e-8:
+        bend = Vector((0.0, 1.0, 0.0)) - direction * direction.y
+        if bend.length_squared < 1e-8:
+            bend = Vector((0.0, 0.0, 1.0))
+    bend.normalize()
+    cos_a = max(-1.0, min(1.0, (upper_len * upper_len + dist * dist - lower_len * lower_len) / (2.0 * upper_len * dist)))
+    along = upper_len * cos_a
+    perp = math.sqrt(max(0.0, upper_len * upper_len - along * along))
+    return root + direction * along + bend * perp, root + direction * dist
+
+
+def orient_limb_three(obj: bpy.types.Object, start: Vector, end: Vector, pole_dir: Vector) -> None:
+    z_axis = (end - start).normalized()
+    x_axis = pole_dir.cross(z_axis)
+    if x_axis.length_squared < 1e-8:
+        x_axis = Vector((1.0, 0.0, 0.0))
+    else:
+        x_axis.normalize()
+    y_axis = z_axis.cross(x_axis).normalized()
+    col_bx = t2b(x_axis)
+    col_by = t2b(-z_axis)
+    col_bz = t2b(y_axis)
+    obj.location = t2b(start)
+    obj.rotation_mode = "QUATERNION"
+    obj.rotation_quaternion = Matrix((col_bx, col_by, col_bz)).transposed().to_quaternion()
+
+
 def build_world_bvh_and_bounds(obj: bpy.types.Object, depsgraph) -> tuple[BVHTree, Vector, Vector, list[Vector]]:
     eval_obj = obj.evaluated_get(depsgraph)
     mesh = eval_obj.to_mesh()
@@ -181,12 +240,30 @@ ALLOWED_CONTACT_PREFIXES = (
     ("OTL_Rear_Live_Axle", "Kart_Wheel_R"),
     # Stub axles pass coaxially into front wheel hub cores
     ("Kart_Knuckle_Stub_Axle_", "Kart_Wheel_F"),
-    # Driver reclined torso & legs rest inside bucket seat / floor pan / gloves on wheel
-    ("Driver_Reclined_Torso", "OTL_Reclined_Bucket_Seat"),
-    ("Driver_Leg_", "OTL_Reclined_Bucket_Seat"),
-    ("Driver_Leg_", "OTL_Floor_Pan"),
-    ("Driver_Boot_", "OTL_Floor_Pan"),
+    # Driver torso & harness seat interface & adjacent ball-joint limb sockets + gloves on wheel rim
+    ("Driver_Torso_Suit", "OTL_Reclined_Bucket_Seat"),
+    ("Driver_Harness_Shoulder_", "OTL_Harness_Anchor_"),
     ("Driver_Glove_", "Kart_F1_Wheel_Rim"),
+    ("Driver_UpperArm_-1", "Driver_Torso_Suit"),
+    ("Driver_UpperArm_1", "Driver_Torso_Suit"),
+    ("Driver_UpperArm_-1", "Driver_Shoulder_Pad_-1"),
+    ("Driver_UpperArm_1", "Driver_Shoulder_Pad_1"),
+    ("Driver_UpperArm_-1", "Driver_Forearm_-1"),
+    ("Driver_UpperArm_1", "Driver_Forearm_1"),
+    ("Driver_Forearm_-1", "Driver_Glove_Cuff_-1"),
+    ("Driver_Forearm_1", "Driver_Glove_Cuff_1"),
+    ("Driver_Thigh_-1", "Driver_Torso_Suit"),
+    ("Driver_Thigh_1", "Driver_Torso_Suit"),
+    ("Driver_Thigh_-1", "Driver_Shin_-1"),
+    ("Driver_Thigh_1", "Driver_Shin_1"),
+    ("Driver_Knee_Pad_-1", "Driver_Shin_-1"),
+    ("Driver_Knee_Pad_1", "Driver_Shin_1"),
+    ("Driver_Shin_-1", "Driver_Boot_Upper_-1"),
+    ("Driver_Shin_-1", "Driver_Boot_Strap_-1"),
+    ("Driver_Shin_1", "Driver_Boot_Upper_1"),
+    ("Driver_Shin_1", "Driver_Boot_Strap_1"),
+    ("Driver_Neck_Collar", "Driver_Torso_Suit"),
+    ("Driver_Neck_Collar", "Driver_Suit_Collar"),
     # Brake LED lens seated in LED housing
     ("Kart_Brake_LED_Lens", "OTL_Brake_LED_Housing"),
 )
@@ -224,10 +301,21 @@ def main():
         "Kart_Brake_Pushrod",
         "Kart_Pedal_Throttle",
         "Kart_Throttle_Link",
-        "Driver_Fixed",
+        "Driver_Torso",
+        "Driver_Neck_Pivot",
         "Driver_Head",
+        "Driver_UpperArm_L",
+        "Driver_UpperArm_R",
+        "Driver_Forearm_L",
+        "Driver_Forearm_R",
         "Driver_Glove_L",
         "Driver_Glove_R",
+        "Driver_Thigh_L",
+        "Driver_Thigh_R",
+        "Driver_Shin_L",
+        "Driver_Shin_R",
+        "Driver_Boot_L",
+        "Driver_Boot_R",
     ]
     for node_name in required_nodes:
         if bpy.data.objects.get(node_name) is None:
@@ -250,8 +338,26 @@ def main():
     pedal_t = bpy.data.objects["Kart_Pedal_Throttle"]
     pushrod = bpy.data.objects["Kart_Brake_Pushrod"]
     tlink = bpy.data.objects["Kart_Throttle_Link"]
+    driver_torso = bpy.data.objects["Driver_Torso"]
+    driver_neck = bpy.data.objects["Driver_Neck_Pivot"]
+    upper_arm_l = bpy.data.objects["Driver_UpperArm_L"]
+    upper_arm_r = bpy.data.objects["Driver_UpperArm_R"]
+    forearm_l = bpy.data.objects["Driver_Forearm_L"]
+    forearm_r = bpy.data.objects["Driver_Forearm_R"]
+    thigh_l = bpy.data.objects["Driver_Thigh_L"]
+    thigh_r = bpy.data.objects["Driver_Thigh_R"]
+    shin_l = bpy.data.objects["Driver_Shin_L"]
+    shin_r = bpy.data.objects["Driver_Shin_R"]
+    boot_l = bpy.data.objects["Driver_Boot_L"]
+    boot_r = bpy.data.objects["Driver_Boot_R"]
 
-    for obj in (steer_upper, steer_lower, knuckle_l, knuckle_r, tie_l, tie_r, pedal_b, pedal_t, pushrod, tlink):
+    for obj in (
+        steer_upper, steer_lower, knuckle_l, knuckle_r, tie_l, tie_r,
+        pedal_b, pedal_t, pushrod, tlink,
+        driver_torso, driver_neck,
+        upper_arm_l, upper_arm_r, forearm_l, forearm_r,
+        thigh_l, thigh_r, shin_l, shin_r, boot_l, boot_r,
+    ):
         obj.rotation_mode = "QUATERNION"
 
     static_meshes = collect_meshes_under("Kart_Chassis_Static")
@@ -274,8 +380,18 @@ def main():
         "Brake_Pushrod": collect_meshes_under("Kart_Brake_Pushrod"),
         "Throttle_Link": collect_meshes_under("Kart_Throttle_Link"),
         "Brake_LED": collect_meshes_under("Kart_Brake_LED"),
-        "Driver_Fixed": collect_meshes_under("Driver_Fixed"),
+        "Driver_Torso": [m for m in collect_meshes_under("Driver_Torso") if not m.name.startswith("Driver_Neck") and not m.name.startswith("Driver_Helmet")],
         "Driver_Head": collect_meshes_under("Driver_Head"),
+        "UpperArm_L": collect_meshes_under("Driver_UpperArm_L"),
+        "UpperArm_R": collect_meshes_under("Driver_UpperArm_R"),
+        "Forearm_L": collect_meshes_under("Driver_Forearm_L"),
+        "Forearm_R": collect_meshes_under("Driver_Forearm_R"),
+        "Thigh_L": collect_meshes_under("Driver_Thigh_L"),
+        "Thigh_R": collect_meshes_under("Driver_Thigh_R"),
+        "Shin_L": collect_meshes_under("Driver_Shin_L"),
+        "Shin_R": collect_meshes_under("Driver_Shin_R"),
+        "Boot_L": collect_meshes_under("Driver_Boot_L"),
+        "Boot_R": collect_meshes_under("Driver_Boot_R"),
     }
 
     steer_angles = [-MAX_STEER_RAD, -0.5 * MAX_STEER_RAD, 0.0, 0.5 * MAX_STEER_RAD, MAX_STEER_RAD]
@@ -285,12 +401,41 @@ def main():
     global_min = Vector((1e9, 1e9, 1e9))
     global_max = Vector((-1e9, -1e9, -1e9))
 
+    ct = math.cos(STEER_MOUNT_ROT_Z)
+    st = math.sin(STEER_MOUNT_ROT_Z)
+
     for steer_rad in steer_angles:
         sw_rad = steer_rad * STEER_RATIO
         four_bar = solve_four_bar(sw_rad)
 
         steer_upper.rotation_quaternion = three_quat_to_blender_quat(UPPER_AXIS_BACK_THREE, -sw_rad)
         steer_lower.rotation_quaternion = three_quat_to_blender_quat(LOWER_AXIS_BACK_THREE, -sw_rad)
+
+        # Lateral-G torso lean (±3.5 deg proportional to steering corner load) & look-to-apex neck yaw
+        torso_lean_rad = (-steer_rad / MAX_STEER_RAD) * MAX_TORSO_LEAN_RAD
+        driver_torso.rotation_quaternion = three_quat_to_blender_quat(Vector((1.0, 0.0, 0.0)), torso_lean_rad)
+        driver_neck.rotation_quaternion = three_quat_to_blender_quat(Vector((0.0, 1.0, 0.0)), -steer_rad * 0.25)
+
+        # 2-bone arm IK from leaned shoulder to rotated wheel wrist target
+        steer_q_three = Quaternion(UPPER_AXIS_BACK_THREE, -sw_rad)
+        for side, ua_obj, fa_obj in ((-1, upper_arm_l, forearm_l), (1, upper_arm_r, forearm_r)):
+            sh_local = Vector((DRIVER_SHOULDER[0], DRIVER_SHOULDER[1], side * DRIVER_SHOULDER[2])) - DRIVER_HIP_PIVOT
+            sh_world = (Quaternion(Vector((1.0, 0.0, 0.0)), torso_lean_rad) @ sh_local) + DRIVER_HIP_PIVOT
+            gx, gy, gz = GLOVE_OFFSET
+            wrist_hub = Vector((
+                gx * ct - gy * st + GLOVE_WRIST_LOCAL.x,
+                gx * st + gy * ct + GLOVE_WRIST_LOCAL.y,
+                side * gz + GLOVE_WRIST_LOCAL.z,
+            ))
+            wrist_world = (steer_q_three @ wrist_hub) + STEER_MOUNT_POS
+            arm_pole = Vector((-0.05, -0.15, side * 0.99)).normalized()
+            elbow_w, wrist_ik = solve_two_bone_ik_three(sh_world, wrist_world, DRIVER_UPPER_ARM_LEN, DRIVER_FOREARM_LEN, arm_pole)
+            if abs((elbow_w - sh_world).length - DRIVER_UPPER_ARM_LEN) > 1e-4 or abs((wrist_ik - elbow_w).length - DRIVER_FOREARM_LEN) > 1e-4:
+                failures.append(f"Arm IK bone stretch at steer={steer_rad:+.2f} side={side}")
+            if (wrist_ik - wrist_world).length > 5e-4:
+                failures.append(f"Arm IK wrist separation {(wrist_ik - wrist_world).length:.4f}m at steer={steer_rad:+.2f} side={side}")
+            orient_limb_three(ua_obj, sh_world, elbow_w, arm_pole)
+            orient_limb_three(fa_obj, elbow_w, wrist_ik, arm_pole)
 
         knuckle_l.rotation_quaternion = three_quat_to_blender_quat(four_bar["left"]["k_axis"], four_bar["left"]["k_rot"])
         knuckle_r.rotation_quaternion = three_quat_to_blender_quat(four_bar["right"]["k_axis"], four_bar["right"]["k_rot"])
@@ -317,6 +462,30 @@ def main():
                 tq = three_quat_to_blender_quat(Vector((0.0, 0.0, 1.0)), -throttle_in * 0.24)
                 pedal_b.rotation_quaternion = bq
                 pedal_t.rotation_quaternion = tq
+
+                # 2-bone leg IK + boot pitch tracking live pedals
+                for side, p_in, th_obj, sh_obj, bt_obj in (
+                    (-1, brake_in, thigh_l, shin_l, boot_l),
+                    (1, throttle_in, thigh_r, shin_r, boot_r),
+                ):
+                    pitch = -p_in * 0.24
+                    hip_local = Vector((DRIVER_HIP_JOINT[0], DRIVER_HIP_JOINT[1], side * DRIVER_HIP_JOINT[2])) - DRIVER_HIP_PIVOT
+                    hip_world = (Quaternion(Vector((1.0, 0.0, 0.0)), torso_lean_rad) @ hip_local) + DRIVER_HIP_PIVOT
+                    p_piv = Vector((PEDAL_PIVOT_POS[0], PEDAL_PIVOT_POS[1], side * PEDAL_PIVOT_POS[2]))
+                    p_q_three = Quaternion(Vector((0.0, 0.0, 1.0)), pitch)
+                    sole_local = Vector((PEDAL_SOLE_LOCAL[0], PEDAL_SOLE_LOCAL[1] - p_in * PEDAL_SLIDE_M, 0.0))
+                    sole_w = p_piv + (p_q_three @ sole_local)
+                    ankle_w = sole_w + (p_q_three @ PEDAL_ANKLE_OFFSET)
+                    leg_pole = Vector((0.0, 0.72, side * 0.69)).normalized()
+                    knee_w, ankle_ik = solve_two_bone_ik_three(hip_world, ankle_w, DRIVER_THIGH_LEN, DRIVER_SHIN_LEN, leg_pole)
+                    if abs((knee_w - hip_world).length - DRIVER_THIGH_LEN) > 1e-4 or abs((ankle_ik - knee_w).length - DRIVER_SHIN_LEN) > 1e-4:
+                        failures.append(f"Leg IK bone stretch at pedal={p_in} side={side}")
+                    if (ankle_ik - ankle_w).length > 5e-4:
+                        failures.append(f"Leg IK ankle separation {(ankle_ik - ankle_w).length:.4f}m at pedal={p_in} side={side}")
+                    orient_limb_three(th_obj, hip_world, knee_w, leg_pole)
+                    orient_limb_three(sh_obj, knee_w, ankle_ik, leg_pole)
+                    bt_obj.location = t2b(ankle_ik)
+                    bt_obj.rotation_quaternion = three_quat_to_blender_quat(Vector((0.0, 0.0, 1.0)), pitch)
 
                 b_piv = Vector((PEDAL_PIVOT_POS[0], PEDAL_PIVOT_POS[1], -PEDAL_PIVOT_POS[2]))
                 b_clevis_world = b_piv + (Quaternion(Vector((0.0, 0.0, 1.0)), -brake_in * 0.24) @ BRAKE_CLEVIS_LOCAL)
@@ -390,8 +559,8 @@ def main():
                 for i in range(len(dyn_names)):
                     for j in range(i + 1, len(dyn_names)):
                         ga, gb = dyn_names[i], dyn_names[j]
-                        # Skip parent-child wheel/knuckle & driver_fixed/driver_head internal joints
-                        if (ga == "Driver_Fixed" and gb == "Driver_Head") or (ga == "Rear_Axle" and gb in ("Wheel_RL", "Wheel_RR")):
+                        # Skip rear axle vs rear wheels (hub mounts coaxially on axle)
+                        if ga == "Rear_Axle" and gb in ("Wheel_RL", "Wheel_RR"):
                             continue
                         for ma, (bvha, _, _, _) in group_bvh[ga].items():
                             for mb, (bvhb, _, _, _) in group_bvh[gb].items():

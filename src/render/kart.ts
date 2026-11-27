@@ -227,10 +227,16 @@ function upgradeGltfMaterials(
           mName === 'Helmet_Iridium_Visor';
 
         if (isClearcoat) {
+          const fallbackMap =
+            mName === 'ApexBite_Livery'
+              ? getGltfTex('kart-livery-albedo')
+              : mName === 'Helmet_Pearl_White'
+                ? getGltfTex('helmet-livery-albedo')
+                : null;
           resolved = new THREE.MeshPhysicalMaterial({
             name: mName,
             color: oldMat.color.clone(),
-            map: oldMat.map ?? (mName === 'ApexBite_Livery' ? getGltfTex('kart-livery-albedo') : null),
+            map: oldMat.map ?? fallbackMap,
             normalMap: oldMat.normalMap,
             roughnessMap: oldMat.roughnessMap,
             roughness: oldMat.roughness,
@@ -243,6 +249,10 @@ function upgradeGltfMaterials(
             if (!oldMat.map) oldMat.map = getGltfTex('kart-carbon-albedo');
             if (!oldMat.normalMap) oldMat.normalMap = getGltfTex('kart-carbon-normal');
             if (!oldMat.roughnessMap) oldMat.roughnessMap = getGltfTex('kart-carbon-roughness');
+          } else if (mName === 'Driver_Suit_Navy') {
+            if (!oldMat.map) oldMat.map = getGltfTex('suit-fabric-albedo');
+            if (!oldMat.normalMap) oldMat.normalMap = getGltfTex('suit-fabric-normal');
+            if (!oldMat.roughnessMap) oldMat.roughnessMap = getGltfTex('suit-fabric-roughness');
           } else if (mName === 'Tire_Indoor_Slick') {
             if (!oldMat.map) oldMat.map = getGltfTex('tire-albedo');
             if (!oldMat.normalMap) oldMat.normalMap = getGltfTex('tire-normal');
@@ -291,7 +301,7 @@ function createGltfKartRig(assets: RendererAssets): KartRig {
 
   const dash = createDashDisplay(true);
   const beltTexture = createBeltTexture();
-  const { brakeLedMat, suitMat, tireMeshes, bumperMeshes } = upgradeGltfMaterials(
+  const { brakeLedMat, tireMeshes, bumperMeshes } = upgradeGltfMaterials(
     gltfRoot,
     assets,
     dash.material,
@@ -314,11 +324,24 @@ function createGltfKartRig(assets: RendererAssets): KartRig {
   const pedalThrottle = gltfRoot.getObjectByName('Kart_Pedal_Throttle');
   const brakePushrod = gltfRoot.getObjectByName('Kart_Brake_Pushrod');
   const throttleLink = gltfRoot.getObjectByName('Kart_Throttle_Link');
-  const driverHead = gltfRoot.getObjectByName('Driver_Head');
-  const gloveL = gltfRoot.getObjectByName('Driver_Glove_L');
-  const gloveR = gltfRoot.getObjectByName('Driver_Glove_R');
 
-  const driver = attachGltfDriver(visualRoot, driverHead, gloveL, gloveR, suitMat);
+  const driver = attachGltfDriver({
+    torso: gltfRoot.getObjectByName('Driver_Torso'),
+    neckPivot: gltfRoot.getObjectByName('Driver_Neck_Pivot'),
+    head: gltfRoot.getObjectByName('Driver_Head'),
+    upperArmL: gltfRoot.getObjectByName('Driver_UpperArm_L'),
+    upperArmR: gltfRoot.getObjectByName('Driver_UpperArm_R'),
+    forearmL: gltfRoot.getObjectByName('Driver_Forearm_L'),
+    forearmR: gltfRoot.getObjectByName('Driver_Forearm_R'),
+    gloveL: gltfRoot.getObjectByName('Driver_Glove_L'),
+    gloveR: gltfRoot.getObjectByName('Driver_Glove_R'),
+    thighL: gltfRoot.getObjectByName('Driver_Thigh_L'),
+    thighR: gltfRoot.getObjectByName('Driver_Thigh_R'),
+    shinL: gltfRoot.getObjectByName('Driver_Shin_L'),
+    shinR: gltfRoot.getObjectByName('Driver_Shin_R'),
+    bootL: gltfRoot.getObjectByName('Driver_Boot_L'),
+    bootR: gltfRoot.getObjectByName('Driver_Boot_R'),
+  });
 
   let lastElapsed: number | undefined;
   let lastPosition: { x: number; z: number } | undefined;

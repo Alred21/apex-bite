@@ -1,166 +1,142 @@
 import * as THREE from 'three';
 import type { SessionSnapshot } from '../simulation/types';
-import { OTL_RIG_CONFIG, solveTwoBoneIK } from './kinematics';
+import {
+  computeDriverHeadYawRad,
+  computeDriverTorsoLeanRad,
+  OTL_RIG_CONFIG,
+  solveDriverArmPose,
+  solveDriverLegPose,
+} from './kinematics';
 
-const SIDES = 16;
-const SLEEVE_RINGS = 13;
-const UPPER_ARM_LENGTH = 0.265;
-const LOWER_ARM_LENGTH = 0.255;
-
-function sleeveGeometry(): THREE.BufferGeometry {
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute(
-    'position',
-    new THREE.BufferAttribute(new Float32Array(SLEEVE_RINGS * (SIDES + 1) * 3), 3),
-  );
-  const indices: number[] = [];
-  const uvs: number[] = [];
-  for (let r = 0; r < SLEEVE_RINGS; r++) {
-    for (let j = 0; j <= SIDES; j++) {
-      uvs.push(j / SIDES, r / (SLEEVE_RINGS - 1));
-    }
-  }
-  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-  for (let r = 1; r < SLEEVE_RINGS; r++) {
-    for (let j = 0; j < SIDES; j++) {
-      const a = r * (SIDES + 1) + j;
-      const b = a - SIDES - 1;
-      indices.push(a, b, b + 1, a, b + 1, a + 1);
-    }
-  }
-  geometry.setIndex(indices);
-  return geometry;
+export interface GltfDriverNodes {
+  torso?: THREE.Object3D;
+  neckPivot?: THREE.Object3D;
+  head?: THREE.Object3D;
+  upperArmL?: THREE.Object3D;
+  upperArmR?: THREE.Object3D;
+  forearmL?: THREE.Object3D;
+  forearmR?: THREE.Object3D;
+  gloveL?: THREE.Object3D;
+  gloveR?: THREE.Object3D;
+  thighL?: THREE.Object3D;
+  thighR?: THREE.Object3D;
+  shinL?: THREE.Object3D;
+  shinR?: THREE.Object3D;
+  bootL?: THREE.Object3D;
+  bootR?: THREE.Object3D;
 }
 
-function poseSleeve(
-  geometry: THREE.BufferGeometry,
-  shoulder: THREE.Vector3,
-  elbow: THREE.Vector3,
-  wrist: THREE.Vector3,
+const tmpX = new THREE.Vector3();
+const tmpY = new THREE.Vector3();
+const tmpZ = new THREE.Vector3();
+const tmpMat = new THREE.Matrix4();
+
+/**
+ * Aligns a bone mesh authored along local `+Z` (with `+Y` facing `poleDir`)
+ * cleanly from `start` to `end` without any scaling or tube kinking.
+ */
+function orientLimbSegment(
+  node: THREE.Object3D | undefined,
+  start: THREE.Vector3,
+  end: THREE.Vector3,
+  poleDir: THREE.Vector3,
 ): void {
-  const curve = new THREE.CatmullRomCurve3([shoulder, elbow, wrist]);
-  const positions = geometry.getAttribute('position');
-  const upRef = new THREE.Vector3(0, 0, 1);
-  for (let r = 0; r < SLEEVE_RINGS; r++) {
-    const t = r / (SLEEVE_RINGS - 1);
-    const center = curve.getPoint(t);
-    const tangent = curve.getTangent(t);
-    const side = upRef.clone().cross(tangent).normalize();
-    const normal = tangent.clone().cross(side).normalize();
-    const radius =
-      (t < 0.5 ? 0.050 - t * 0.016 : 0.042 - (t - 0.5) * 0.026) +
-      0.002 * Math.sin(t * Math.PI * 10) * Math.exp(-Math.pow((t - 0.65) / 0.25, 2));
-    for (let j = 0; j <= SIDES; j++) {
-      const angle = (j / SIDES) * Math.PI * 2;
-      const p = center
-        .clone()
-        .addScaledVector(side, Math.cos(angle) * radius)
-        .addScaledVector(normal, Math.sin(angle) * radius);
-      positions.setXYZ(r * (SIDES + 1) + j, p.x, p.y, p.z);
-    }
+  if (!node) return;
+  node.position.copy(start);
+  tmpZ.copy(end).sub(start);
+  const len = tmpZ.length();
+  if (len > 1e-6) {
+    tmpZ.divideScalar(len);
+  } else {
+    tmpZ.set(0, 0, 1);
   }
-  positions.needsUpdate = true;
-  geometry.computeVertexNormals();
-  geometry.computeBoundingSphere();
-}
-
-function fabricTexture(): THREE.CanvasTexture | null {
-  if (typeof document === 'undefined') return null;
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 128;
-  const context = canvas.getContext('2d')!;
-  for (let y = 0; y < 128; y++) {
-    for (let x = 0; x < 128; x++) {
-      const shade = 185 + ((x * 13 + y * 7) % 17) + ((x + y) % 3 === 0 ? 18 : 0);
-      context.fillStyle = `rgb(${shade},${shade},${shade})`;
-      context.fillRect(x, y, 1, 1);
-    }
+  tmpX.copy(poleDir).cross(tmpZ);
+  if (tmpX.lengthSq() < 1e-8) {
+    tmpX.set(1, 0, 0);
+  } else {
+    tmpX.normalize();
   }
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(6, 4);
-  return texture;
-}
-
-function createArmSleeveSystem(
-  kartLocalRoot: THREE.Object3D,
-  suitMaterial: THREE.Material,
-  gloveLeft: THREE.Object3D,
-  gloveRight: THREE.Object3D,
-) {
-  const arms = (
-    [
-      [-1, gloveLeft],
-      [1, gloveRight],
-    ] as const
-  ).map(([side, glove]) => {
-    const geometry = sleeveGeometry();
-    const sleeveMesh = new THREE.Mesh(geometry, suitMaterial);
-    sleeveMesh.name = side < 0 ? 'Left arm sleeve' : 'Right arm sleeve';
-    sleeveMesh.castShadow = sleeveMesh.receiveShadow = true;
-    kartLocalRoot.add(sleeveMesh);
-
-    return {
-      side,
-      geometry,
-      glove,
-      shoulder: new THREE.Vector3(
-        OTL_RIG_CONFIG.driverShoulder[0],
-        OTL_RIG_CONFIG.driverShoulder[1],
-        side * OTL_RIG_CONFIG.driverShoulder[2],
-      ),
-      pole: new THREE.Vector3(-0.06, -0.25, side * 0.96),
-    };
-  });
-
-  const wristLocal = new THREE.Vector3(...OTL_RIG_CONFIG.gloveWristLocal);
-  let lastSteering = Number.NaN;
-
-  function updateArms(steeringWheelAngleRad: number): void {
-    if (lastSteering === steeringWheelAngleRad) return;
-    lastSteering = steeringWheelAngleRad;
-    kartLocalRoot.updateWorldMatrix(true, true);
-    for (const arm of arms) {
-      const wristWorld = arm.glove.localToWorld(wristLocal.clone());
-      const wrist = kartLocalRoot.worldToLocal(wristWorld);
-      const ik = solveTwoBoneIK(
-        arm.shoulder,
-        wrist,
-        UPPER_ARM_LENGTH,
-        LOWER_ARM_LENGTH,
-        arm.pole,
-      );
-      ik.mid.y = Math.max(ik.mid.y, 0.355);
-      ik.mid.z = arm.side * Math.min(Math.abs(ik.mid.z), 0.185);
-      poseSleeve(arm.geometry, arm.shoulder, ik.mid, ik.end);
-    }
-  }
-
-  return updateArms;
+  tmpY.copy(tmpZ).cross(tmpX).normalize();
+  tmpMat.makeBasis(tmpX, tmpY, tmpZ);
+  node.quaternion.setFromRotationMatrix(tmpMat);
+  node.scale.set(1, 1, 1);
 }
 
 /**
- * Wires the GLB-loaded Driver_Head, gloves, and dynamic 2-bone IK arm sleeves
- * onto the cloned Kart GLTF hierarchy.
+ * Wires the sculpted GLB driver hierarchy (lateral-G torso lean, look-to-apex
+ * neck yaw, 2-bone IK arms locked to F1 wheel grips, and 2-bone IK legs/boots
+ * tracking live brake & throttle pedals) onto the cloned Kart GLTF scene.
  */
-export function attachGltfDriver(
-  kartVisualRoot: THREE.Object3D,
-  headNode: THREE.Object3D | undefined,
-  gloveLeft: THREE.Object3D | undefined,
-  gloveRight: THREE.Object3D | undefined,
-  suitMaterial: THREE.Material,
-): { update(snapshot: SessionSnapshot): void } {
-  const updateArms =
-    gloveLeft && gloveRight
-      ? createArmSleeveSystem(kartVisualRoot, suitMaterial, gloveLeft, gloveRight)
-      : null;
+export function attachGltfDriver(nodes: GltfDriverNodes): { update(snapshot: SessionSnapshot): void } {
+  let lastSteer = Number.NaN;
+  let lastWheel = Number.NaN;
+  let lastLatAccel = Number.NaN;
+  let lastBrake = Number.NaN;
+  let lastThrottle = Number.NaN;
 
   return {
     update(snapshot: SessionSnapshot) {
-      if (headNode) headNode.visible = snapshot.camera.mode !== 'Helmet Cam';
-      updateArms?.(snapshot.kart.steeringWheelAngleRad);
+      const { kart, camera } = snapshot;
+      if (nodes.head) {
+        nodes.head.visible = camera.mode !== 'Helmet Cam';
+      }
+
+      const torsoLeanRad = computeDriverTorsoLeanRad(kart.lateralAccelMps2);
+      if (nodes.torso && lastLatAccel !== kart.lateralAccelMps2) {
+        nodes.torso.rotation.x = torsoLeanRad;
+      }
+
+      if (nodes.neckPivot && lastSteer !== kart.steerAngleRad) {
+        nodes.neckPivot.rotation.y = computeDriverHeadYawRad(kart.steerAngleRad);
+        lastSteer = kart.steerAngleRad;
+      }
+
+      if (lastWheel !== kart.steeringWheelAngleRad || lastLatAccel !== kart.lateralAccelMps2) {
+        const armL = solveDriverArmPose(-1, kart.steeringWheelAngleRad, torsoLeanRad);
+        const armR = solveDriverArmPose(1, kart.steeringWheelAngleRad, torsoLeanRad);
+        orientLimbSegment(nodes.upperArmL, armL.shoulder, armL.elbow, armL.pole);
+        orientLimbSegment(nodes.forearmL, armL.elbow, armL.wrist, armL.pole);
+        orientLimbSegment(nodes.upperArmR, armR.shoulder, armR.elbow, armR.pole);
+        orientLimbSegment(nodes.forearmR, armR.elbow, armR.wrist, armR.pole);
+        lastWheel = kart.steeringWheelAngleRad;
+      }
+
+      if (
+        lastBrake !== kart.brakeInput ||
+        lastThrottle !== kart.throttleInput ||
+        lastLatAccel !== kart.lateralAccelMps2
+      ) {
+        const legL = solveDriverLegPose(-1, kart.brakeInput, torsoLeanRad);
+        const legR = solveDriverLegPose(1, kart.throttleInput, torsoLeanRad);
+        orientLimbSegment(nodes.thighL, legL.hip, legL.knee, legL.pole);
+        orientLimbSegment(nodes.shinL, legL.knee, legL.ankle, legL.pole);
+        if (nodes.bootL) {
+          nodes.bootL.position.copy(legL.ankle);
+          nodes.bootL.rotation.set(0, 0, legL.bootPitchRad);
+        }
+        orientLimbSegment(nodes.thighR, legR.hip, legR.knee, legR.pole);
+        orientLimbSegment(nodes.shinR, legR.knee, legR.ankle, legR.pole);
+        if (nodes.bootR) {
+          nodes.bootR.position.copy(legR.ankle);
+          nodes.bootR.rotation.set(0, 0, legR.bootPitchRad);
+        }
+        lastBrake = kart.brakeInput;
+        lastThrottle = kart.throttleInput;
+      }
+
+      lastLatAccel = kart.lateralAccelMps2;
     },
   };
+}
+
+function makeBoneCapsule(length: number, radiusStart: number, radiusEnd: number, material: THREE.Material): THREE.Group {
+  const g = new THREE.Group();
+  const geo = new THREE.CylinderGeometry(radiusEnd, radiusStart, length, 8);
+  geo.rotateX(Math.PI / 2);
+  geo.translate(0, 0, length * 0.5);
+  const mesh = new THREE.Mesh(geo, material);
+  g.add(mesh);
+  return g;
 }
 
 /**
@@ -172,46 +148,57 @@ export function createSeatedDriver(root: THREE.Group, steeringWheel: THREE.Group
   driver.name = 'Seated helmeted driver';
   root.add(driver);
 
-  const fabric = fabricTexture();
-  const suitMat = new THREE.MeshStandardMaterial({
-    color: 0x22303c,
-    roughness: 0.9,
-    bumpMap: fabric,
-    bumpScale: 0.00018,
-  });
-  const helmetMat = new THREE.MeshStandardMaterial({
-    color: 0xe6e9e6,
-    metalness: 0.06,
-    roughness: 0.24,
-  });
-  const visorMat = new THREE.MeshStandardMaterial({
-    color: 0x182634,
-    metalness: 0.65,
-    roughness: 0.14,
-  });
+  const suitMat = new THREE.MeshStandardMaterial({ color: 0x1c2630, roughness: 0.88 });
+  const helmetMat = new THREE.MeshStandardMaterial({ color: 0xe6e9e6, metalness: 0.06, roughness: 0.24 });
+  const visorMat = new THREE.MeshStandardMaterial({ color: 0x182634, metalness: 0.65, roughness: 0.14 });
 
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.085, 0.32, 4, 10), suitMat);
-  torso.position.set(-0.27, 0.34, 0);
-  torso.rotation.z = 0.52;
-  driver.add(torso);
+  const torsoPivot = new THREE.Group();
+  torsoPivot.position.set(...OTL_RIG_CONFIG.driverHipPivot);
+  driver.add(torsoPivot);
+
+  const torsoMesh = new THREE.Mesh(new THREE.CapsuleGeometry(0.085, 0.32, 4, 10), suitMat);
+  torsoMesh.position.set(-0.05, 0.135, 0);
+  torsoMesh.rotation.z = 0.52;
+  torsoPivot.add(torsoMesh);
+
+  const neckPivot = new THREE.Group();
+  neckPivot.position.set(
+    OTL_RIG_CONFIG.driverNeckPivot[0] - OTL_RIG_CONFIG.driverHipPivot[0],
+    OTL_RIG_CONFIG.driverNeckPivot[1] - OTL_RIG_CONFIG.driverHipPivot[1],
+    0,
+  );
+  torsoPivot.add(neckPivot);
 
   const head = new THREE.Group();
   head.name = 'Helmet and neck';
-  driver.add(head);
-  const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.115, 16, 12), helmetMat);
-  helmet.position.set(-0.325, 0.703, 0);
+  neckPivot.add(head);
+  const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.112, 16, 12), helmetMat);
+  helmet.position.set(0.006, 0.12, 0);
   head.add(helmet);
-  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.19), visorMat);
-  visor.position.set(-0.22, 0.71, 0);
+  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.055, 0.18), visorMat);
+  visor.position.set(0.105, 0.122, 0);
   head.add(visor);
 
-  const gloves: THREE.Group[] = [];
-  for (const side of [-1, 1] as const) {
-    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.042, 0.45, 4, 8), suitMat);
-    leg.position.set(0.12, 0.16, side * 0.11);
-    leg.rotation.z = Math.PI / 2 - 0.12;
-    driver.add(leg);
+  const upperArmL = makeBoneCapsule(OTL_RIG_CONFIG.driverUpperArmLength, 0.04, 0.035, suitMat);
+  const forearmL = makeBoneCapsule(OTL_RIG_CONFIG.driverForearmLength, 0.035, 0.026, suitMat);
+  const upperArmR = makeBoneCapsule(OTL_RIG_CONFIG.driverUpperArmLength, 0.04, 0.035, suitMat);
+  const forearmR = makeBoneCapsule(OTL_RIG_CONFIG.driverForearmLength, 0.035, 0.026, suitMat);
+  const thighL = makeBoneCapsule(OTL_RIG_CONFIG.driverThighLength, 0.052, 0.042, suitMat);
+  const shinL = makeBoneCapsule(OTL_RIG_CONFIG.driverShinLength, 0.04, 0.03, suitMat);
+  const thighR = makeBoneCapsule(OTL_RIG_CONFIG.driverThighLength, 0.052, 0.042, suitMat);
+  const shinR = makeBoneCapsule(OTL_RIG_CONFIG.driverShinLength, 0.04, 0.03, suitMat);
 
+  const bootL = new THREE.Group();
+  const bootR = new THREE.Group();
+  for (const boot of [bootL, bootR]) {
+    const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 0.052), visorMat);
+    shoe.position.set(0.015, -0.015, 0);
+    boot.add(shoe);
+  }
+
+  driver.add(upperArmL, forearmL, upperArmR, forearmR, thighL, shinL, thighR, shinR, bootL, bootR);
+
+  for (const side of [-1, 1] as const) {
     const glove = new THREE.Group();
     glove.name = side < 0 ? 'Left hand grip' : 'Right hand grip';
     steeringWheel.add(glove);
@@ -220,16 +207,22 @@ export function createSeatedDriver(root: THREE.Group, steeringWheel: THREE.Group
       OTL_RIG_CONFIG.gloveGripOffset[1],
       side * OTL_RIG_CONFIG.gloveGripOffset[2],
     );
-    const gloveMesh = new THREE.Mesh(new THREE.SphereGeometry(0.024, 8, 8), visorMat);
-    glove.add(gloveMesh);
-    gloves.push(glove);
+    glove.add(new THREE.Mesh(new THREE.SphereGeometry(0.024, 8, 8), visorMat));
   }
 
-  const updateArms = createArmSleeveSystem(root, suitMat, gloves[0], gloves[1]);
-
-  function update(snapshot: SessionSnapshot) {
-    head.visible = snapshot.camera.mode !== 'Helmet Cam';
-    updateArms(snapshot.kart.steeringWheelAngleRad);
-  }
-  return { update };
+  return attachGltfDriver({
+    torso: torsoPivot,
+    neckPivot,
+    head,
+    upperArmL,
+    upperArmR,
+    forearmL,
+    forearmR,
+    thighL,
+    thighR,
+    shinL,
+    shinR,
+    bootL,
+    bootR,
+  });
 }

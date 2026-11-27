@@ -1,40 +1,11 @@
 import * as THREE from 'three';
 import type { SessionSnapshot } from '../simulation/types';
-import {
-  DRIVERFIXED_BATCHES,
-  DRIVERHEAD_BATCHES,
-  GLOVELEFT_BATCHES,
-  GLOVERIGHT_BATCHES,
-  OTL_RIG_CONFIG,
-} from './otl-superleggero-meshes';
-import { addBlenderBatches } from './blender-batches';
+import { OTL_RIG_CONFIG, solveTwoBoneIK } from './kinematics';
 
-// Reclined seated driver (~35° backrest angle, helmet crown y ≈ 0.82 m below the
-// 0.86 m OTL Superleggero roll hoop), authored in Blender via tools/build-kart-model.py.
-const SIDES = 20;
-const SLEEVE_RINGS = 15;
-
-/** Two-link arm solve from reclined shoulder to rotating F1 steering yoke grip. */
-function elbowFor(shoulder: THREE.Vector3, wrist: THREE.Vector3, side: number): THREE.Vector3 {
-  const axis = wrist.clone().sub(shoulder);
-  const distance = axis.length();
-  axis.normalize();
-  const upper = 0.265;
-  const lower = 0.255;
-  const along = Math.max(
-    0,
-    Math.min(distance, (upper * upper - lower * lower + distance * distance) / (2 * distance)),
-  );
-  const bend = new THREE.Vector3(-0.06, -0.25, side * 0.96);
-  bend.addScaledVector(axis, -bend.dot(axis)).normalize();
-  const elbow = shoulder
-    .clone()
-    .addScaledVector(axis, along)
-    .addScaledVector(bend, Math.sqrt(Math.max(0, upper * upper - along * along)));
-  elbow.y = Math.max(elbow.y, 0.355);
-  elbow.z = side * Math.min(Math.abs(elbow.z), 0.185);
-  return elbow;
-}
+const SIDES = 16;
+const SLEEVE_RINGS = 13;
+const UPPER_ARM_LENGTH = 0.265;
+const LOWER_ARM_LENGTH = 0.255;
 
 function sleeveGeometry(): THREE.BufferGeometry {
   const geometry = new THREE.BufferGeometry();
@@ -69,14 +40,15 @@ function poseSleeve(
 ): void {
   const curve = new THREE.CatmullRomCurve3([shoulder, elbow, wrist]);
   const positions = geometry.getAttribute('position');
+  const upRef = new THREE.Vector3(0, 0, 1);
   for (let r = 0; r < SLEEVE_RINGS; r++) {
     const t = r / (SLEEVE_RINGS - 1);
     const center = curve.getPoint(t);
     const tangent = curve.getTangent(t);
-    const side = new THREE.Vector3(0, 0, 1).cross(tangent).normalize();
+    const side = upRef.clone().cross(tangent).normalize();
     const normal = tangent.clone().cross(side).normalize();
     const radius =
-      (t < 0.5 ? 0.052 - t * 0.018 : 0.043 - (t - 0.5) * 0.030) +
+      (t < 0.5 ? 0.050 - t * 0.016 : 0.042 - (t - 0.5) * 0.026) +
       0.002 * Math.sin(t * Math.PI * 10) * Math.exp(-Math.pow((t - 0.65) / 0.25, 2));
     for (let j = 0; j <= SIDES; j++) {
       const angle = (j / SIDES) * Math.PI * 2;
@@ -110,71 +82,23 @@ function fabricTexture(): THREE.CanvasTexture | null {
   return texture;
 }
 
-export function createSeatedDriver(root: THREE.Group, steeringWheel: THREE.Group) {
-  const driver = new THREE.Group();
-  driver.name = 'Seated helmeted driver';
-  root.add(driver);
-  const fixed = new THREE.Group();
-  driver.add(fixed);
-  const head = new THREE.Group();
-  head.name = 'Helmet and neck';
-  driver.add(head);
-
-  const fabric = fabricTexture();
-  const materials: Record<string, THREE.Material> = {
-    suit: new THREE.MeshStandardMaterial({
-      color: 0x22303c,
-      roughness: 0.9,
-      bumpMap: fabric,
-      bumpScale: 0.00018,
-    }),
-    panel: new THREE.MeshStandardMaterial({
-      color: 0x566068,
-      roughness: 0.88,
-      bumpMap: fabric,
-      bumpScale: 0.00012,
-    }),
-    trim: new THREE.MeshStandardMaterial({ color: 0xc91e24, roughness: 0.62 }),
-    harness: new THREE.MeshStandardMaterial({ color: 0xc8151d, roughness: 0.68 }),
-    alloy: new THREE.MeshStandardMaterial({ color: 0xa4acb4, metalness: 0.88, roughness: 0.24 }),
-    black: new THREE.MeshStandardMaterial({ color: 0x15191d, roughness: 0.68 }),
-    glovePad: new THREE.MeshStandardMaterial({
-      color: 0x343c43,
-      roughness: 0.82,
-      bumpMap: fabric,
-      bumpScale: 0.00012,
-    }),
-    helmet: new THREE.MeshStandardMaterial({
-      color: 0xe6e9e6,
-      metalness: 0.06,
-      roughness: 0.24,
-    }),
-    visor: new THREE.MeshStandardMaterial({
-      color: 0x182634,
-      metalness: 0.65,
-      roughness: 0.14,
-    }),
-  };
-
-  addBlenderBatches(DRIVERFIXED_BATCHES, materials, fixed, 'suit');
-  addBlenderBatches(DRIVERHEAD_BATCHES, materials, head, 'suit');
-
-  const arms = ([-1, 1] as const).map((side) => {
+function createArmSleeveSystem(
+  kartLocalRoot: THREE.Object3D,
+  suitMaterial: THREE.Material,
+  gloveLeft: THREE.Object3D,
+  gloveRight: THREE.Object3D,
+) {
+  const arms = (
+    [
+      [-1, gloveLeft],
+      [1, gloveRight],
+    ] as const
+  ).map(([side, glove]) => {
     const geometry = sleeveGeometry();
-    const sleeveMesh = new THREE.Mesh(geometry, materials.suit);
+    const sleeveMesh = new THREE.Mesh(geometry, suitMaterial);
     sleeveMesh.name = side < 0 ? 'Left arm sleeve' : 'Right arm sleeve';
     sleeveMesh.castShadow = sleeveMesh.receiveShadow = true;
-    driver.add(sleeveMesh);
-
-    const glove = new THREE.Group();
-    glove.name = side < 0 ? 'Left hand grip' : 'Right hand grip';
-    steeringWheel.add(glove);
-    glove.position.set(
-      OTL_RIG_CONFIG.gloveGripOffset[0],
-      OTL_RIG_CONFIG.gloveGripOffset[1],
-      side * OTL_RIG_CONFIG.gloveGripOffset[2],
-    );
-    addBlenderBatches(side < 0 ? GLOVELEFT_BATCHES : GLOVERIGHT_BATCHES, materials, glove, 'suit');
+    kartLocalRoot.add(sleeveMesh);
 
     return {
       side,
@@ -185,20 +109,127 @@ export function createSeatedDriver(root: THREE.Group, steeringWheel: THREE.Group
         OTL_RIG_CONFIG.driverShoulder[1],
         side * OTL_RIG_CONFIG.driverShoulder[2],
       ),
+      pole: new THREE.Vector3(-0.06, -0.25, side * 0.96),
     };
   });
 
-  let lastSteering = Number.NaN;
   const wristLocal = new THREE.Vector3(...OTL_RIG_CONFIG.gloveWristLocal);
+  let lastSteering = Number.NaN;
+
+  function updateArms(steeringWheelAngleRad: number): void {
+    if (lastSteering === steeringWheelAngleRad) return;
+    lastSteering = steeringWheelAngleRad;
+    kartLocalRoot.updateWorldMatrix(true, true);
+    for (const arm of arms) {
+      const wristWorld = arm.glove.localToWorld(wristLocal.clone());
+      const wrist = kartLocalRoot.worldToLocal(wristWorld);
+      const ik = solveTwoBoneIK(
+        arm.shoulder,
+        wrist,
+        UPPER_ARM_LENGTH,
+        LOWER_ARM_LENGTH,
+        arm.pole,
+      );
+      ik.mid.y = Math.max(ik.mid.y, 0.355);
+      ik.mid.z = arm.side * Math.min(Math.abs(ik.mid.z), 0.185);
+      poseSleeve(arm.geometry, arm.shoulder, ik.mid, ik.end);
+    }
+  }
+
+  return updateArms;
+}
+
+/**
+ * Wires the GLB-loaded Driver_Head, gloves, and dynamic 2-bone IK arm sleeves
+ * onto the cloned Kart GLTF hierarchy.
+ */
+export function attachGltfDriver(
+  kartVisualRoot: THREE.Object3D,
+  headNode: THREE.Object3D | undefined,
+  gloveLeft: THREE.Object3D | undefined,
+  gloveRight: THREE.Object3D | undefined,
+  suitMaterial: THREE.Material,
+): { update(snapshot: SessionSnapshot): void } {
+  const updateArms =
+    gloveLeft && gloveRight
+      ? createArmSleeveSystem(kartVisualRoot, suitMaterial, gloveLeft, gloveRight)
+      : null;
+
+  return {
+    update(snapshot: SessionSnapshot) {
+      if (headNode) headNode.visible = snapshot.camera.mode !== 'Helmet Cam';
+      updateArms?.(snapshot.kart.steeringWheelAngleRad);
+    },
+  };
+}
+
+/**
+ * Lightweight synchronous fallback driver rig used only when `createKartRig()`
+ * is called without preloaded GLB assets (e.g. headless Node/Vitest tests).
+ */
+export function createSeatedDriver(root: THREE.Group, steeringWheel: THREE.Group) {
+  const driver = new THREE.Group();
+  driver.name = 'Seated helmeted driver';
+  root.add(driver);
+
+  const fabric = fabricTexture();
+  const suitMat = new THREE.MeshStandardMaterial({
+    color: 0x22303c,
+    roughness: 0.9,
+    bumpMap: fabric,
+    bumpScale: 0.00018,
+  });
+  const helmetMat = new THREE.MeshStandardMaterial({
+    color: 0xe6e9e6,
+    metalness: 0.06,
+    roughness: 0.24,
+  });
+  const visorMat = new THREE.MeshStandardMaterial({
+    color: 0x182634,
+    metalness: 0.65,
+    roughness: 0.14,
+  });
+
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.085, 0.32, 4, 10), suitMat);
+  torso.position.set(-0.27, 0.34, 0);
+  torso.rotation.z = 0.52;
+  driver.add(torso);
+
+  const head = new THREE.Group();
+  head.name = 'Helmet and neck';
+  driver.add(head);
+  const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.115, 16, 12), helmetMat);
+  helmet.position.set(-0.325, 0.703, 0);
+  head.add(helmet);
+  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.19), visorMat);
+  visor.position.set(-0.22, 0.71, 0);
+  head.add(visor);
+
+  const gloves: THREE.Group[] = [];
+  for (const side of [-1, 1] as const) {
+    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.042, 0.45, 4, 8), suitMat);
+    leg.position.set(0.12, 0.16, side * 0.11);
+    leg.rotation.z = Math.PI / 2 - 0.12;
+    driver.add(leg);
+
+    const glove = new THREE.Group();
+    glove.name = side < 0 ? 'Left hand grip' : 'Right hand grip';
+    steeringWheel.add(glove);
+    glove.position.set(
+      OTL_RIG_CONFIG.gloveGripOffset[0],
+      OTL_RIG_CONFIG.gloveGripOffset[1],
+      side * OTL_RIG_CONFIG.gloveGripOffset[2],
+    );
+    const gloveMesh = new THREE.Mesh(new THREE.SphereGeometry(0.024, 8, 8), visorMat);
+    glove.add(gloveMesh);
+    gloves.push(glove);
+  }
+
+  const updateArms = createArmSleeveSystem(root, suitMat, gloves[0], gloves[1]);
+
   function update(snapshot: SessionSnapshot) {
     head.visible = snapshot.camera.mode !== 'Helmet Cam';
-    if (lastSteering === snapshot.kart.steeringWheelAngleRad) return;
-    lastSteering = snapshot.kart.steeringWheelAngleRad;
-    root.updateWorldMatrix(true, true);
-    for (const arm of arms) {
-      const wrist = root.worldToLocal(arm.glove.localToWorld(wristLocal.clone()));
-      poseSleeve(arm.geometry, arm.shoulder, elbowFor(arm.shoulder, wrist, arm.side), wrist);
-    }
+    updateArms(snapshot.kart.steeringWheelAngleRad);
   }
   return { update };
 }

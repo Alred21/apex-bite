@@ -35,9 +35,26 @@ export const OTL_RIG_CONFIG = {
   throttleSensorPivot: [0.416, 0.124, 0.122] as const,
   brakeClevisLocal: [0.0, 0.038, -0.047] as const,
   throttleClevisLocal: [0.0, 0.038, 0.047] as const,
-  driverShoulder: [-0.335, 0.485, 0.122] as const,
+  driverHipPivot: [-0.220, 0.205, 0.0] as const,
+  driverNeckPivot: [-0.326, 0.585, 0.0] as const,
+  driverShoulder: [-0.335, 0.485, 0.138] as const,
+  driverHipJoint: [-0.175, 0.197, 0.078] as const,
+  driverUpperArmLength: 0.305,
+  driverForearmLength: 0.285,
+  driverThighLength: 0.300,
+  driverShinLength: 0.265,
+  driverMaxTorsoLeanRad: 3.5 * DEG_TO_RAD,
+  driverLookToApexGain: 0.25,
   gloveGripOffset: [-0.01, 0.0, 0.105] as const,
-  gloveWristLocal: [-0.032, 0.0, 0.0] as const,
+  gloveWristLocal: [
+    -0.032 * Math.cos(STEERING_WHEEL_TILT_RAD),
+    -0.032 * Math.sin(STEERING_WHEEL_TILT_RAD),
+    0.0,
+  ] as const,
+  pedalTravelAngleRad: 0.24,
+  pedalSoleLocal: [-0.017, 0.068, 0.0] as const,
+  pedalAnkleOffset: [-0.047, -0.015, 0.0] as const,
+  pedalSlideTangentialMeters: 0.014,
 } as const;
 
 export interface SteeringSideSolution {
@@ -255,4 +272,161 @@ export function solveTwoBoneIK(
   const end = root.clone().addScaledVector(dir, clampedDist);
 
   return { mid, end };
+}
+
+export interface DriverArmPose {
+  shoulder: THREE.Vector3;
+  elbow: THREE.Vector3;
+  wrist: THREE.Vector3;
+  wristTarget: THREE.Vector3;
+  pole: THREE.Vector3;
+}
+
+export interface DriverLegPose {
+  hip: THREE.Vector3;
+  knee: THREE.Vector3;
+  ankle: THREE.Vector3;
+  ankleTarget: THREE.Vector3;
+  soleContact: THREE.Vector3;
+  bootPitchRad: number;
+  pole: THREE.Vector3;
+}
+
+const HIP_PIVOT_VEC = new THREE.Vector3(...OTL_RIG_CONFIG.driverHipPivot);
+const STEER_HUB_VEC = new THREE.Vector3(
+  OTL_RIG_CONFIG.steeringWheelHub.x,
+  OTL_RIG_CONFIG.steeringWheelHub.y,
+  OTL_RIG_CONFIG.steeringWheelHub.z,
+);
+const X_AXIS_UNIT = new THREE.Vector3(1, 0, 0);
+const Z_AXIS_UNIT = new THREE.Vector3(0, 0, 1);
+
+/**
+ * Subtle lateral-G torso lean around pelvis pivot (`±3.5°` max):
+ * left turn (`lateralAccelMps2 < 0`) leans outward (`+X` roll -> `+Z` right bolster).
+ */
+export function computeDriverTorsoLeanRad(lateralAccelMps2: number): number {
+  const norm = THREE.MathUtils.clamp(-lateralAccelMps2 / 12, -1, 1);
+  return norm === 0 ? 0 : norm * OTL_RIG_CONFIG.driverMaxTorsoLeanRad;
+}
+
+/**
+ * Subtle look-to-apex neck yaw (`-steerAngleRad * 0.25`):
+ * left turn (`steerAngleRad < 0`) produces positive `+Y` yaw toward `-Z` left apex.
+ */
+export function computeDriverHeadYawRad(steerAngleRad: number): number {
+  const yaw = -steerAngleRad * OTL_RIG_CONFIG.driverLookToApexGain;
+  return yaw === 0 ? 0 : yaw;
+}
+
+/**
+ * Solves 2-bone arm IK from the lateral-G-leaned shoulder socket to the
+ * rotated F1 steering-wheel wrist target (`side: -1 = left, +1 = right`).
+ */
+export function solveDriverArmPose(
+  side: -1 | 1,
+  steeringWheelAngleRad: number,
+  torsoLeanRad = 0,
+): DriverArmPose {
+  const shoulderLocal = new THREE.Vector3(
+    OTL_RIG_CONFIG.driverShoulder[0],
+    OTL_RIG_CONFIG.driverShoulder[1],
+    side * OTL_RIG_CONFIG.driverShoulder[2],
+  ).sub(HIP_PIVOT_VEC);
+  if (torsoLeanRad !== 0) {
+    shoulderLocal.applyAxisAngle(X_AXIS_UNIT, torsoLeanRad);
+  }
+  const shoulder = shoulderLocal.add(HIP_PIVOT_VEC);
+
+  const tilt = OTL_RIG_CONFIG.steeringWheelHub.tiltRad;
+  const ct = Math.cos(tilt);
+  const st = Math.sin(tilt);
+  const [gx, gy, gz] = OTL_RIG_CONFIG.gloveGripOffset;
+  const wristLocalInHub = new THREE.Vector3(
+    gx * ct - gy * st + OTL_RIG_CONFIG.gloveWristLocal[0],
+    gx * st + gy * ct + OTL_RIG_CONFIG.gloveWristLocal[1],
+    side * gz + OTL_RIG_CONFIG.gloveWristLocal[2],
+  );
+  const steerQuat = new THREE.Quaternion().setFromAxisAngle(
+    UPPER_STEERING_COLUMN_AXIS_BACK,
+    -steeringWheelAngleRad,
+  );
+  const wristTarget = wristLocalInHub.applyQuaternion(steerQuat).add(STEER_HUB_VEC);
+
+  const pole = new THREE.Vector3(-0.05, -0.15, side * 0.99).normalize();
+  const ik = solveTwoBoneIK(
+    shoulder,
+    wristTarget,
+    OTL_RIG_CONFIG.driverUpperArmLength,
+    OTL_RIG_CONFIG.driverForearmLength,
+    pole,
+  );
+
+  return {
+    shoulder,
+    elbow: ik.mid,
+    wrist: ik.end,
+    wristTarget,
+    pole,
+  };
+}
+
+/**
+ * Solves 2-bone leg IK and live boot pitch tracking `Kart_Pedal_Brake` (`side = -1`)
+ * or `Kart_Pedal_Throttle` (`side = 1`) across `pedalInput ∈ [0, 1]`.
+ */
+export function solveDriverLegPose(
+  side: -1 | 1,
+  pedalInput: number,
+  torsoLeanRad = 0,
+): DriverLegPose {
+  const clamped = THREE.MathUtils.clamp(pedalInput, 0, 1);
+  const bootPitchRad = clamped === 0 ? 0 : -clamped * OTL_RIG_CONFIG.pedalTravelAngleRad;
+
+  const hipLocal = new THREE.Vector3(
+    OTL_RIG_CONFIG.driverHipJoint[0],
+    OTL_RIG_CONFIG.driverHipJoint[1],
+    side * OTL_RIG_CONFIG.driverHipJoint[2],
+  ).sub(HIP_PIVOT_VEC);
+  if (torsoLeanRad !== 0) {
+    hipLocal.applyAxisAngle(X_AXIS_UNIT, torsoLeanRad);
+  }
+  const hip = hipLocal.add(HIP_PIVOT_VEC);
+
+  const pedalPivot = new THREE.Vector3(
+    OTL_RIG_CONFIG.pedalPivot[0],
+    OTL_RIG_CONFIG.pedalPivot[1],
+    side * OTL_RIG_CONFIG.pedalPivot[2],
+  );
+  const pedalQuat = new THREE.Quaternion().setFromAxisAngle(Z_AXIS_UNIT, bootPitchRad);
+
+  // Contact point on pedal grip plate (with subtle tangential heel-pivot slide as depressed)
+  const soleLocal = new THREE.Vector3(
+    OTL_RIG_CONFIG.pedalSoleLocal[0],
+    OTL_RIG_CONFIG.pedalSoleLocal[1] - clamped * OTL_RIG_CONFIG.pedalSlideTangentialMeters,
+    0,
+  );
+  const soleContact = soleLocal.clone().applyQuaternion(pedalQuat).add(pedalPivot);
+
+  const ankleOffset = new THREE.Vector3(...OTL_RIG_CONFIG.pedalAnkleOffset).applyQuaternion(pedalQuat);
+  const ankleTarget = soleContact.clone().add(ankleOffset);
+
+  const pole = new THREE.Vector3(0.0, 0.72, side * 0.69).normalize();
+  const ik = solveTwoBoneIK(
+    hip,
+    ankleTarget,
+    OTL_RIG_CONFIG.driverThighLength,
+    OTL_RIG_CONFIG.driverShinLength,
+    pole,
+  );
+
+  return {
+    hip,
+    knee: ik.mid,
+    ankle: ik.end,
+    ankleTarget,
+    soleContact,
+    bootPitchRad,
+    pole,
+  };
 }

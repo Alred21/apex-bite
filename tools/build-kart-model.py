@@ -72,13 +72,69 @@ REAR_SPROCKET_RADIUS = 0.068
 MOTOR_PINION_POS = (-0.425, 0.215, 0.210)
 MOTOR_PINION_RADIUS = REAR_SPROCKET_RADIUS / REAR_GEAR_RATIO  # 0.02125 m
 
-DRIVER_SHOULDER = (-0.335, 0.485, 0.122)
+DRIVER_HIP_PIVOT = (-0.220, 0.205, 0.0)
+DRIVER_NECK_PIVOT = (-0.326, 0.585, 0.0)
+DRIVER_SHOULDER = (-0.335, 0.485, 0.138)
+DRIVER_HIP_JOINT = (-0.175, 0.197, 0.078)
+DRIVER_UPPER_ARM_LEN = 0.305
+DRIVER_FOREARM_LEN = 0.285
+DRIVER_THIGH_LEN = 0.300
+DRIVER_SHIN_LEN = 0.265
 GLOVE_OFFSET = (-0.010, 0.0, 0.105)
+GLOVE_WRIST_LOCAL = (
+    -0.032 * math.cos(STEER_MOUNT_ROT_Z),
+    -0.032 * math.sin(STEER_MOUNT_ROT_Z),
+    0.0,
+)
+PEDAL_SOLE_LOCAL = (-0.017, 0.068, 0.0)
+PEDAL_ANKLE_OFFSET = (-0.047, -0.015, 0.0)
 
 
 def t2b(x: float, y: float, z: float) -> Vector:
     """Convert Three.js (+X forward, +Y up, +Z right) to Blender (+X forward, -Y right, +Z up)."""
     return Vector((x, -z, y))
+
+
+def solve_two_bone_ik_three(
+    root: Vector,
+    target: Vector,
+    upper_len: float,
+    lower_len: float,
+    pole_dir: Vector,
+) -> tuple[Vector, Vector]:
+    to_t = target - root
+    raw_dist = to_t.length
+    direction = to_t / raw_dist if raw_dist > 1e-6 else Vector((1.0, 0.0, 0.0))
+    min_r = abs(upper_len - lower_len) + 1e-5
+    max_r = upper_len + lower_len - 1e-5
+    dist = max(min_r, min(max_r, raw_dist))
+    bend = pole_dir - direction * pole_dir.dot(direction)
+    if bend.length_squared < 1e-8:
+        bend = Vector((0.0, 1.0, 0.0)) - direction * direction.y
+        if bend.length_squared < 1e-8:
+            bend = Vector((0.0, 0.0, 1.0))
+    bend.normalize()
+    cos_a = max(-1.0, min(1.0, (upper_len * upper_len + dist * dist - lower_len * lower_len) / (2.0 * upper_len * dist)))
+    along = upper_len * cos_a
+    perp = math.sqrt(max(0.0, upper_len * upper_len - along * along))
+    return root + direction * along + bend * perp, root + direction * dist
+
+
+def orient_limb_object_three(obj: bpy.types.Object, start: Vector, end: Vector, pole_dir: Vector) -> None:
+    z_axis = (end - start).normalized()
+    x_axis = pole_dir.cross(z_axis)
+    if x_axis.length_squared < 1e-8:
+        x_axis = Vector((1.0, 0.0, 0.0))
+    else:
+        x_axis.normalize()
+    y_axis = z_axis.cross(x_axis).normalized()
+    # Blender local (+X, +Y, +Z) corresponds to Three.js (+X, -Z, +Y) via t2b()
+    col_bx = t2b(x_axis.x, x_axis.y, x_axis.z)
+    col_by = t2b(-z_axis.x, -z_axis.y, -z_axis.z)
+    col_bz = t2b(y_axis.x, y_axis.y, y_axis.z)
+    obj.location = t2b(start.x, start.y, start.z)
+    obj.rotation_mode = "QUATERNION"
+    obj.rotation_quaternion = Matrix((col_bx, col_by, col_bz)).transposed().to_quaternion()
 
 
 def vec_norm(v: tuple[float, float, float]) -> tuple[float, float, float]:
@@ -339,6 +395,77 @@ def generate_pbr_textures() -> dict[str, bpy.types.Image]:
     metal_rough[:, :, 1] = metal_r
     metal_rough[:, :, 2] = metal_r
 
+    # 9-11. Nomex Racing Suit Fabric (tileable dark navy/charcoal weave + quilted box-stitching)
+    s_cell = 4
+    stx = (xx // s_cell) % 2
+    sty = (yy // s_cell) % 2
+    s_warp = ((stx + sty) % 2) == 0
+    su_l = (xx % s_cell) / float(s_cell)
+    sv_l = (yy % s_cell) / float(s_cell)
+    s_prof = np.where(s_warp, np.sin(su_l * math.pi), np.sin(sv_l * math.pi))
+    quilt_y = np.exp(-(((yy % 96) - 48.0) / 2.2) ** 2)
+    quilt_x = np.exp(-(((xx % 128) - 64.0) / 2.0) ** 2) * 0.45
+    stitch_dip = np.clip(quilt_y + quilt_x, 0.0, 1.0)
+    fabric_noise = rng.normal(0.0, 0.008, (N, N)).astype(np.float32)
+    suit_shade = np.clip(0.86 + 0.14 * s_prof - 0.16 * stitch_dip + fabric_noise, 0.55, 1.05)
+
+    suit_albedo = np.ones((N, N, 4), dtype=np.float32)
+    suit_albedo[:, :, 0] = np.clip(0.105 * suit_shade, 0.0, 1.0)
+    suit_albedo[:, :, 1] = np.clip(0.140 * suit_shade, 0.0, 1.0)
+    suit_albedo[:, :, 2] = np.clip(0.185 * suit_shade, 0.0, 1.0)
+
+    suit_h = 0.035 * s_prof - 0.08 * stitch_dip + fabric_noise * 0.8
+    sgy, sgx = np.gradient(suit_h)
+    snz = np.ones((N, N), dtype=np.float32) * 0.22
+    snlen = np.sqrt(sgx * sgx + sgy * sgy + snz * snz)
+    suit_normal = np.ones((N, N, 4), dtype=np.float32)
+    suit_normal[:, :, 0] = 0.5 + 0.5 * (-sgx / snlen)
+    suit_normal[:, :, 1] = 0.5 + 0.5 * (-sgy / snlen)
+    suit_normal[:, :, 2] = 0.5 + 0.5 * (snz / snlen)
+
+    suit_r = np.clip(0.88 - 0.08 * s_prof + 0.07 * stitch_dip + fabric_noise * 1.5, 0.72, 0.96)
+    suit_rough = np.ones((N, N, 4), dtype=np.float32)
+    suit_rough[:, :, 0] = suit_r
+    suit_rough[:, :, 1] = suit_r
+    suit_rough[:, :, 2] = suit_r
+
+    # 12. Helmet Pearl-White + Crimson/Gold Livery Albedo (1024x1024)
+    # UV layout: u = lateral wrap around sagittal X (0.5 = crown/chin centerline), v = rear(0)..front(1)
+    u_norm = xx / float(N)
+    v_norm = yy / float(N)
+    pearl = rng.normal(0.0, 0.008, (N, N)).astype(np.float32)
+    helmet_albedo = np.ones((N, N, 4), dtype=np.float32)
+    helmet_albedo[:, :, 0] = np.clip(0.91 + pearl, 0.0, 1.0)
+    helmet_albedo[:, :, 1] = np.clip(0.93 + pearl, 0.0, 1.0)
+    helmet_albedo[:, :, 2] = np.clip(0.92 + pearl, 0.0, 1.0)
+
+    # Center crimson racing stripe + flanking gold pinstripes (crown & back down to rear spoiler)
+    stripe_v = (v_norm >= 0.04) & (v_norm <= 0.84)
+    center_crimson = stripe_v & (np.abs(u_norm - 0.50) <= 0.045)
+    gold_pin = stripe_v & (
+        ((np.abs(u_norm - 0.50) >= 0.052) & (np.abs(u_norm - 0.50) <= 0.064))
+    )
+    helmet_albedo[center_crimson, 0:3] = (0.72, 0.055, 0.10)
+    helmet_albedo[gold_pin, 0:3] = (0.85, 0.70, 0.16)
+
+    # Swept crimson & dark-slate side aero chevrons along left/right cheeks & temples
+    side_dist = np.abs(u_norm - 0.50)
+    diag_band = (side_dist >= 0.19) & (side_dist <= 0.36)
+    swoosh_y = 0.28 + 0.52 * (side_dist - 0.19) / 0.17
+    swoosh_crimson = diag_band & (np.abs(v_norm - swoosh_y) <= 0.055)
+    swoosh_gold = diag_band & (np.abs(v_norm - (swoosh_y + 0.068)) <= 0.015)
+    swoosh_slate = diag_band & (np.abs(v_norm - (swoosh_y - 0.075)) <= 0.032)
+    helmet_albedo[swoosh_crimson, 0:3] = (0.72, 0.055, 0.10)
+    helmet_albedo[swoosh_gold, 0:3] = (0.85, 0.70, 0.16)
+    helmet_albedo[swoosh_slate, 0:3] = (0.12, 0.15, 0.19)
+
+    # Rear carbon lower collar trim & subtle "07" number on rear & sides
+    rear_trim = v_norm < 0.09
+    helmet_albedo[rear_trim, 0:3] = (0.10, 0.12, 0.14)
+    draw_bitmap_text(helmet_albedo, "07", int(0.468 * N), int(0.14 * N), 6, (0.95, 0.96, 0.96, 1.0))
+    draw_bitmap_text(helmet_albedo, "07", int(0.17 * N), int(0.45 * N), 6, (0.95, 0.96, 0.96, 1.0))
+    draw_bitmap_text(helmet_albedo, "07", int(0.76 * N), int(0.45 * N), 6, (0.95, 0.96, 0.96, 1.0))
+
     return {
         "kart_livery_albedo": save_rgba_png(os.path.join(TEX_DIR, "kart-livery-albedo.png"), livery, "sRGB"),
         "kart_carbon_albedo": save_rgba_png(os.path.join(TEX_DIR, "kart-carbon-albedo.png"), carbon_albedo, "sRGB"),
@@ -348,6 +475,10 @@ def generate_pbr_textures() -> dict[str, bpy.types.Image]:
         "tire_normal": save_rgba_png(os.path.join(TEX_DIR, "tire-normal.png"), tire_normal, "Non-Color"),
         "tire_roughness": save_rgba_png(os.path.join(TEX_DIR, "tire-roughness.png"), tire_rough, "Non-Color"),
         "metal_alloy_roughness": save_rgba_png(os.path.join(TEX_DIR, "metal-alloy-roughness.png"), metal_rough, "Non-Color"),
+        "suit_fabric_albedo": save_rgba_png(os.path.join(TEX_DIR, "suit-fabric-albedo.png"), suit_albedo, "sRGB"),
+        "suit_fabric_normal": save_rgba_png(os.path.join(TEX_DIR, "suit-fabric-normal.png"), suit_normal, "Non-Color"),
+        "suit_fabric_roughness": save_rgba_png(os.path.join(TEX_DIR, "suit-fabric-roughness.png"), suit_rough, "Non-Color"),
+        "helmet_livery_albedo": save_rgba_png(os.path.join(TEX_DIR, "helmet-livery-albedo.png"), helmet_albedo, "sRGB"),
     }
 
 
@@ -1061,15 +1192,21 @@ def build_otl_superleggero():
             metalness=0.0,
         ),
         "harness": make_pbr_material("Racing_Harness_Red", rgb=(0.80, 0.08, 0.11), roughness=0.68),
-        "suit": make_pbr_material("Driver_Suit_Navy", rgb=(0.14, 0.20, 0.26), roughness=0.86),
-        "panel": make_pbr_material("Driver_Suit_Slate", rgb=(0.34, 0.39, 0.43), roughness=0.82),
+        "suit": make_pbr_material(
+            "Driver_Suit_Navy",
+            roughness=0.86,
+            albedo_img=textures["suit_fabric_albedo"],
+            normal_img=textures["suit_fabric_normal"],
+            roughness_img=textures["suit_fabric_roughness"],
+        ),
+        "panel": make_pbr_material("Driver_Suit_Slate", rgb=(0.035, 0.045, 0.060), roughness=0.78),
         "glovePad": make_pbr_material("Driver_Glove_Grip", rgb=(0.21, 0.25, 0.28), roughness=0.76),
         "helmet": make_pbr_material(
             "Helmet_Pearl_White",
-            rgb=(0.90, 0.92, 0.91),
-            roughness=0.18,
+            roughness=0.16,
             metalness=0.06,
-            coat_weight=0.9,
+            albedo_img=textures["helmet_livery_albedo"],
+            coat_weight=0.90,
             coat_roughness=0.05,
         ),
         "visor": make_pbr_material(
@@ -1147,10 +1284,25 @@ def build_otl_superleggero():
     brake_pushrod = make_empty("Kart_Brake_Pushrod", (0.405, 0.128, -0.122), parent=kart_root)
     throttle_link = make_empty("Kart_Throttle_Link", (0.422, 0.128, 0.122), parent=kart_root)
 
-    driver_fixed = make_empty("Driver_Fixed", parent=kart_root)
-    driver_head = make_empty("Driver_Head", parent=kart_root)
+    driver_torso = make_empty("Driver_Torso", DRIVER_HIP_PIVOT, parent=kart_root)
+    driver_neck_pivot = make_empty("Driver_Neck_Pivot", (
+        DRIVER_NECK_PIVOT[0] - DRIVER_HIP_PIVOT[0],
+        DRIVER_NECK_PIVOT[1] - DRIVER_HIP_PIVOT[1],
+        DRIVER_NECK_PIVOT[2] - DRIVER_HIP_PIVOT[2],
+    ), parent=driver_torso)
+    driver_head = make_empty("Driver_Head", (0.0, 0.0, 0.0), parent=driver_neck_pivot)
+    driver_upper_arm_l = make_empty("Driver_UpperArm_L", (DRIVER_SHOULDER[0], DRIVER_SHOULDER[1], -DRIVER_SHOULDER[2]), parent=kart_root)
+    driver_upper_arm_r = make_empty("Driver_UpperArm_R", (DRIVER_SHOULDER[0], DRIVER_SHOULDER[1], DRIVER_SHOULDER[2]), parent=kart_root)
+    driver_forearm_l = make_empty("Driver_Forearm_L", parent=kart_root)
+    driver_forearm_r = make_empty("Driver_Forearm_R", parent=kart_root)
     driver_glove_l = make_empty("Driver_Glove_L", parent=steering_upper)
     driver_glove_r = make_empty("Driver_Glove_R", parent=steering_upper)
+    driver_thigh_l = make_empty("Driver_Thigh_L", (DRIVER_HIP_JOINT[0], DRIVER_HIP_JOINT[1], -DRIVER_HIP_JOINT[2]), parent=kart_root)
+    driver_thigh_r = make_empty("Driver_Thigh_R", (DRIVER_HIP_JOINT[0], DRIVER_HIP_JOINT[1], DRIVER_HIP_JOINT[2]), parent=kart_root)
+    driver_shin_l = make_empty("Driver_Shin_L", parent=kart_root)
+    driver_shin_r = make_empty("Driver_Shin_R", parent=kart_root)
+    driver_boot_l = make_empty("Driver_Boot_L", parent=kart_root)
+    driver_boot_r = make_empty("Driver_Boot_R", parent=kart_root)
 
     # =========================================================================
     # 1. CONTINUOUS WRAPAROUND MOLDED PROTEX HDPE BUMPER + CORNER SHOCK MOUNTS
@@ -2281,133 +2433,618 @@ def build_otl_superleggero():
     )
 
     # =========================================================================
-    # 10. RETAINED SEATED DRIVER SILHOUETTE (PRESERVED FOR #53 & HELMET CAM TESTS)
+    # 10. SCULPTED, UV-UNWRAPPED, ARTICULATED DRIVER (NOMEX SUIT, 4-PT HARNESS,
+    #     FULL-FACE HELMET, 2-BONE IK ARMS/GLOVES & PEDAL-TRACKING LEGS/BOOTS)
     # =========================================================================
-    torso_spine = [
-        (-0.140, 0.165, 0.0, -0.55, 0.83, 0.052, 0.104),
-        (-0.185, 0.215, 0.0, -0.56, 0.83, 0.060, 0.116),
-        (-0.232, 0.285, 0.0, -0.55, 0.83, 0.062, 0.118),
-        (-0.275, 0.355, 0.0, -0.52, 0.85, 0.066, 0.126),
-        (-0.312, 0.425, 0.0, -0.46, 0.89, 0.070, 0.138),
-        (-0.338, 0.488, 0.0, -0.35, 0.94, 0.068, 0.148),
-        (-0.348, 0.535, 0.0, -0.20, 0.98, 0.056, 0.124),
-        (-0.348, 0.575, 0.0, -0.05, 1.00, 0.048, 0.064),
-        (-0.335, 0.615, 0.0, 0.15, 0.99, 0.042, 0.052),
-    ]
-    torso_rings = [oriented_ellipse_ring((x, y, z), (tx, ty, 0.0), rn, rs, n=20) for (x, y, z, tx, ty, rn, rs) in torso_spine]
-    create_loft_mesh("Driver_Reclined_Torso", torso_rings, mats["suit"], subsurf_levels=1, parent=driver_fixed)
+    # Seat shoulder harness grommet anchors (on static seat/roll-hoop shoulder zone)
+    for side in (-1, 1):
+        anchor_rings = [
+            superellipse_ring(-0.464, 0.506, 0.526, side * 0.068, 0.022, power_y=0.3, power_z=0.3),
+            superellipse_ring(-0.450, 0.506, 0.526, side * 0.068, 0.022, power_y=0.3, power_z=0.3),
+        ]
+        create_loft_mesh(f"OTL_Harness_Anchor_{side}", anchor_rings, mats["steel"], subsurf_levels=0, parent=chassis_static)
 
-    rib_rings = [oriented_ellipse_ring((x, y, z), (tx, ty, 0.0), rn + 0.006, rs + 0.006, n=20) for (x, y, z, tx, ty, rn, rs) in torso_spine[2:5]]
-    create_loft_mesh("Driver_Rib_Protector", rib_rings, mats["black"], subsurf_levels=1, parent=driver_fixed)
+    # Torso (parented under Driver_Torso at DRIVER_HIP_PIVOT for subtle lateral-G lean)
+    torso_spine = [
+        (-0.145, 0.168, 0.0, -0.55, 0.83, 0.048, 0.098, 0.0),
+        (-0.185, 0.218, 0.0, -0.56, 0.83, 0.056, 0.112, 0.022),
+        (-0.232, 0.285, 0.0, -0.55, 0.83, 0.060, 0.114, 0.030),
+        (-0.275, 0.355, 0.0, -0.52, 0.85, 0.064, 0.120, 0.024),
+        (-0.312, 0.425, 0.0, -0.46, 0.89, 0.068, 0.128, 0.015),
+        (-0.336, 0.486, 0.0, -0.35, 0.94, 0.066, 0.138, 0.008),
+        (-0.344, 0.532, 0.0, -0.20, 0.98, 0.055, 0.118, 0.0),
+        (-0.340, 0.568, 0.0, -0.05, 1.00, 0.048, 0.064, 0.0),
+        (-0.330, 0.592, 0.0, 0.15, 0.99, 0.044, 0.054, 0.0),
+    ]
+    torso_rings = []
+    for r_idx, (x, y, z, tx, ty, rn, rs, fold_amp) in enumerate(torso_spine):
+        ring = oriented_ellipse_ring((x, y, z), (tx, ty, 0.0), rn, rs, n=24)
+        if fold_amp > 0.0:
+            sculpted = []
+            for j, (px, py, pz) in enumerate(ring):
+                ang = (j / 24) * math.pi * 2.0
+                # Natural fabric fold ridges across anterior torso flexion
+                front_weight = max(0.0, math.cos(ang))
+                crease = fold_amp * front_weight * (0.5 + 0.5 * math.sin(r_idx * 2.3 + ang * 3.0)) * 0.06
+                sculpted.append((px + math.cos(ang) * crease, py, pz + math.sin(ang) * crease * 0.3))
+            torso_rings.append(sculpted)
+        else:
+            torso_rings.append(ring)
+
+    def suit_torso_uv(tx: float, ty: float, tz: float) -> tuple[float, float]:
+        return (tz * 3.2 + 0.5, ty * 3.2)
+
+    create_loft_mesh(
+        "Driver_Torso_Suit",
+        torso_rings,
+        mats["suit"],
+        subsurf_levels=1,
+        parent=driver_torso,
+        origin_three=DRIVER_HIP_PIVOT,
+        uv_fn=suit_torso_uv,
+    )
+
+    # Suit mandarin collar + front crimson racing chest/zipper placket
+    collar_rings = [
+        oriented_ellipse_ring((-0.336, 0.558, 0.0), (0.08, 0.99, 0.0), 0.050, 0.060, n=20),
+        oriented_ellipse_ring((-0.333, 0.574, 0.0), (0.12, 0.99, 0.0), 0.051, 0.061, n=20),
+        oriented_ellipse_ring((-0.329, 0.585, 0.0), (0.14, 0.99, 0.0), 0.048, 0.056, n=20),
+    ]
+    create_loft_mesh(
+        "Driver_Suit_Collar",
+        collar_rings,
+        mats["panel"],
+        subsurf_levels=0,
+        parent=driver_torso,
+        origin_three=DRIVER_HIP_PIVOT,
+    )
+
+    # Chest seam/zipper strip + slate shoulder yoke panels + shoulder pads/epaulets
+    placket_pts = []
+    for idx in (6, 5, 4):
+        x, y, _, tx, ty, rn, _rs, _f = torso_spine[idx]
+        tlen = math.hypot(tx, ty) or 1.0
+        nx, ny = ty / tlen, -tx / tlen
+        placket_pts.append((x + nx * (rn + 0.004), y + ny * (rn + 0.004), 0.0))
+    create_tube_curve(
+        "Driver_Suit_Chest_Zipper",
+        placket_pts,
+        0.0045,
+        mats["red"],
+        parent=driver_torso,
+        origin_three=DRIVER_HIP_PIVOT,
+    )
+    for side in (-1, 1):
+        pad_rings = [
+            oriented_ellipse_ring((-0.340, 0.525, side * 0.092), (0.0, -0.35, side * 0.94), 0.036, 0.046, n=16),
+            oriented_ellipse_ring((-0.337, 0.506, side * 0.122), (0.0, -0.45, side * 0.89), 0.040, 0.046, n=16),
+            oriented_ellipse_ring((-0.335, 0.488, side * 0.140), (0.0, -0.55, side * 0.83), 0.036, 0.038, n=16),
+        ]
+        create_loft_mesh(
+            f"Driver_Shoulder_Pad_{side}",
+            pad_rings,
+            mats["panel"],
+            subsurf_levels=1,
+            parent=driver_torso,
+            origin_three=DRIVER_HIP_PIVOT,
+        )
+
+    # Snug molded carbon rib protector (strictly inside seat bolsters)
+    rib_rings = [
+        oriented_ellipse_ring((x, y, z), (tx, ty, 0.0), rn + 0.008, rs + 0.009, n=22)
+        for (x, y, z, tx, ty, rn, rs, _f) in torso_spine[2:5]
+    ]
+    create_loft_mesh(
+        "Driver_Rib_Protector",
+        rib_rings,
+        mats["carbon"],
+        subsurf_levels=1,
+        parent=driver_torso,
+        origin_three=DRIVER_HIP_PIVOT,
+    )
+
+    # Complete anchored 4-point harness (2 shoulder straps anchored behind seat -> over shoulders -> camlock buckle,
+    # plus 2 lap belts from hip anchors -> camlock buckle)
+    def ribbon_ring(pt: tuple[float, float, float], tangent: tuple[float, float, float], half_w: float, half_t: float):
+        return oriented_ellipse_ring(pt, tangent, half_t, half_w, n=12)
+
+    buckle_center = (-0.168, 0.320, 0.0)
+    buckle_rings = [
+        superellipse_ring(-0.180, 0.300, 0.340, 0.0, 0.024, power_y=0.35, power_z=0.35),
+        superellipse_ring(-0.160, 0.300, 0.340, 0.0, 0.024, power_y=0.35, power_z=0.35),
+    ]
+    create_loft_mesh(
+        "Driver_Harness_Buckle",
+        buckle_rings,
+        mats["alloy"],
+        subsurf_levels=0,
+        parent=driver_torso,
+        origin_three=DRIVER_HIP_PIVOT,
+    )
+    latch_rings = [
+        superellipse_ring(-0.161, 0.312, 0.328, 0.0, 0.011, power_y=0.35, power_z=0.35),
+        superellipse_ring(-0.156, 0.312, 0.328, 0.0, 0.011, power_y=0.35, power_z=0.35),
+    ]
+    create_loft_mesh(
+        "Driver_Harness_Latch",
+        latch_rings,
+        mats["red"],
+        subsurf_levels=0,
+        parent=driver_torso,
+        origin_three=DRIVER_HIP_PIVOT,
+    )
 
     for side in (-1, 1):
-        harness_pts = []
-        for idx, z_frac in ((4, 0.32), (3, 0.24), (2, 0.15)):
-            x, y, _, tx, ty, rn, rs = torso_spine[idx]
+        # Compute chest surface points cleanly outside torso suit AND rib protector
+        def chest_pt(idx: int, z_pos: float, extra_n: float) -> tuple[float, float, float]:
+            x, y, _, tx, ty, rn, rs, _f = torso_spine[idx]
             tlen = math.hypot(tx, ty) or 1.0
             nx, ny = ty / tlen, -tx / tlen
-            r_front = rn + 0.014
-            ang = math.asin(z_frac)
-            harness_pts.append((x + nx * (math.cos(ang) * r_front), y + ny * (math.cos(ang) * r_front), side * (math.sin(ang) * (rs + 0.006))))
-        create_tube_curve(f"Driver_Harness_Strap_{side}", harness_pts, 0.008, mats["harness"], parent=driver_fixed)
+            frac = min(0.85, abs(z_pos) / max(0.05, rs))
+            depth = math.sqrt(max(0.0, 1.0 - frac * frac)) * (rn + extra_n)
+            return (x + nx * depth, y + ny * depth, side * abs(z_pos))
 
-        leg_spine = [
-            ((-0.195, 0.205, side * 0.062), (0.94, 0.22, 0.0), 0.056, 0.058),
-            ((-0.130, 0.172, side * 0.075), (0.96, 0.16, 0.0), 0.052, 0.054),
-            ((-0.010, 0.170, side * 0.120), (0.98, 0.05, 0.0), 0.046, 0.046),
-            ((0.140, 0.168, side * 0.148), (0.98, -0.14, 0.0), 0.040, 0.040),
-            ((0.265, 0.146, side * 0.108), (0.96, -0.22, 0.0), 0.035, 0.035),
-            ((0.378, 0.132, side * 0.075), (0.98, -0.15, 0.0), 0.029, 0.029),
+        sh_pts = [
+            (-0.448, 0.516, side * 0.068),
+            (-0.398, 0.542, side * 0.072),
+            (-0.342, 0.556, side * 0.070),
+            chest_pt(5, 0.064, 0.008),
+            chest_pt(4, 0.052, 0.015),
+            chest_pt(3, 0.036, 0.015),
+            (-0.172, 0.328, side * 0.016),
         ]
-        leg_rings = [oriented_ellipse_ring(c, t, rn, rs, n=16) for (c, t, rn, rs) in leg_spine]
-        create_loft_mesh(f"Driver_Leg_{side}", leg_rings, mats["suit"], subsurf_levels=1, parent=driver_fixed)
+        sh_rings = []
+        for idx, pt in enumerate(sh_pts):
+            p_prev = sh_pts[max(0, idx - 1)]
+            p_next = sh_pts[min(len(sh_pts) - 1, idx + 1)]
+            tang = (p_next[0] - p_prev[0], p_next[1] - p_prev[1], p_next[2] - p_prev[2])
+            sh_rings.append(ribbon_ring(pt, tang, 0.016, 0.0045))
+        create_loft_mesh(
+            f"Driver_Harness_Shoulder_{side}",
+            sh_rings,
+            mats["harness"],
+            subsurf_levels=0,
+            parent=driver_torso,
+            origin_three=DRIVER_HIP_PIVOT,
+        )
 
-        boot_rings = [
-            superellipse_ring(0.342, 0.104, 0.160, side * 0.075, 0.026, power_y=0.5, power_z=0.5),
-            superellipse_ring(0.382, 0.110, 0.180, side * 0.075, 0.026, power_y=0.5, power_z=0.5),
-            superellipse_ring(0.408, 0.128, 0.188, side * 0.075, 0.022, power_y=0.5, power_z=0.5),
+        lap_pts = [
+            (-0.220, 0.212, side * 0.114),
+            (-0.184, 0.252, side * 0.094),
+            (-0.166, 0.288, side * 0.064),
+            (-0.166, 0.312, side * 0.032),
+            (-0.168, 0.318, side * 0.016),
         ]
-        create_loft_mesh(f"Driver_Boot_{side}", boot_rings, mats["black"], subsurf_levels=1, parent=driver_fixed)
+        lap_rings = []
+        for idx, pt in enumerate(lap_pts):
+            p_prev = lap_pts[max(0, idx - 1)]
+            p_next = lap_pts[min(len(lap_pts) - 1, idx + 1)]
+            tang = (p_next[0] - p_prev[0], p_next[1] - p_prev[1], p_next[2] - p_prev[2])
+            lap_rings.append(ribbon_ring(pt, tang, 0.016, 0.0045))
+        create_loft_mesh(
+            f"Driver_Harness_Lap_{side}",
+            lap_rings,
+            mats["harness"],
+            subsurf_levels=0,
+            parent=driver_torso,
+            origin_three=DRIVER_HIP_PIVOT,
+        )
 
-    buckle_rings = [
-        superellipse_ring(-0.185, 0.305, 0.338, 0.0, 0.022, power_y=0.4, power_z=0.4),
-        superellipse_ring(-0.170, 0.305, 0.338, 0.0, 0.022, power_y=0.4, power_z=0.4),
-    ]
-    create_loft_mesh("Driver_Harness_Buckle", buckle_rings, mats["alloy"], subsurf_levels=0, parent=driver_fixed)
-
-    # Helmet & Neck (under Driver_Head)
+    # Helmet & Balaclava Neck (parented under Driver_Head at DRIVER_NECK_PIVOT)
     neck_rings = [
-        oriented_ellipse_ring((-0.348, 0.535, 0.0), (0.12, 0.99, 0.0), 0.064, 0.076, n=20),
-        oriented_ellipse_ring((-0.336, 0.575, 0.0), (0.16, 0.98, 0.0), 0.060, 0.072, n=20),
-        oriented_ellipse_ring((-0.324, 0.615, 0.0), (0.18, 0.98, 0.0), 0.058, 0.068, n=20),
+        oriented_ellipse_ring((-0.336, 0.565, 0.0), (0.12, 0.99, 0.0), 0.056, 0.064, n=20),
+        oriented_ellipse_ring((-0.328, 0.592, 0.0), (0.16, 0.98, 0.0), 0.054, 0.062, n=20),
+        oriented_ellipse_ring((-0.320, 0.620, 0.0), (0.18, 0.98, 0.0), 0.054, 0.062, n=20),
     ]
-    create_loft_mesh("Driver_Neck_Collar", neck_rings, mats["black"], subsurf_levels=0, parent=driver_head)
+    create_loft_mesh(
+        "Driver_Neck_Collar",
+        neck_rings,
+        mats["black"],
+        subsurf_levels=0,
+        parent=driver_head,
+        origin_three=DRIVER_NECK_PIVOT,
+    )
+
+    # Aerodynamic full-face karting helmet (center ~(-0.316, 0.708, 0), crown 0.822 < 0.862 roll hoop,
+    # rear x >= -0.428 clearing headrest at -0.454, recessed eyeport step)
     helmet_rows = [
-        (-0.322, 0.582, 0.078, 0.068, 0.078),
-        (-0.312, 0.620, 0.128, 0.096, 0.104),
-        (-0.308, 0.655, 0.138, 0.108, 0.116),
-        (-0.312, 0.694, 0.136, 0.112, 0.120),
-        (-0.318, 0.734, 0.130, 0.112, 0.120),
-        (-0.324, 0.768, 0.114, 0.108, 0.112),
-        (-0.330, 0.795, 0.086, 0.092, 0.088),
-        (-0.334, 0.812, 0.044, 0.048, 0.048),
-        (-0.336, 0.818, 0.010, 0.010, 0.010),
+        (-0.318, 0.592, 0.076, 0.066, 0.076),
+        (-0.308, 0.624, 0.130, 0.094, 0.102),
+        (-0.305, 0.654, 0.138, 0.104, 0.114),
+        (-0.310, 0.684, 0.134, 0.110, 0.119),
+        (-0.314, 0.710, 0.132, 0.111, 0.120),
+        (-0.318, 0.736, 0.126, 0.110, 0.118),
+        (-0.324, 0.766, 0.114, 0.106, 0.111),
+        (-0.328, 0.794, 0.086, 0.092, 0.088),
+        (-0.332, 0.814, 0.044, 0.050, 0.048),
+        (-0.334, 0.822, 0.010, 0.012, 0.010),
     ]
     helmet_rings = []
     for (hx, hy, rxf, rxb, rz) in helmet_rows:
         ring = []
-        for j in range(24):
-            ang = (j / 24) * math.pi * 2.0
+        in_eyeport_y = 0.676 <= hy <= 0.742
+        for j in range(32):
+            ang = (j / 32) * math.pi * 2.0
             ca, sa = math.cos(ang), math.sin(ang)
             rx = rxf if ca >= 0 else rxb
-            ring.append((hx + ca * rx, hy, sa * rz))
+            # Indent recessed eyeport pocket smoothly across front window
+            ang_signed = ((ang + math.pi) % (2.0 * math.pi)) - math.pi
+            if in_eyeport_y and abs(ang_signed) < 0.94:
+                recess = 0.008 * math.cos((ang_signed / 0.94) * (math.pi * 0.5)) ** 0.5
+                rx -= recess
+                rz_eff = rz - recess * 0.45
+            else:
+                rz_eff = rz
+            ring.append((hx + ca * rx, hy, sa * rz_eff))
         helmet_rings.append(ring)
-    create_loft_mesh("Driver_Helmet_Shell", helmet_rings, mats["helmet"], subsurf_levels=1, parent=driver_head)
+
+    def helmet_uv(tx: float, ty: float, tz: float) -> tuple[float, float]:
+        ang_lat = math.atan2(tz, max(0.015, ty - 0.675))
+        u = max(0.02, min(0.98, 0.5 + (ang_lat / math.pi) * 0.78))
+        v = max(0.02, min(0.98, (tx + 0.435) / 0.275))
+        return (u, v)
+
+    create_loft_mesh(
+        "Driver_Helmet_Shell",
+        helmet_rings,
+        mats["helmet"],
+        subsurf_levels=1,
+        parent=driver_head,
+        origin_three=DRIVER_NECK_PIVOT,
+        uv_fn=helmet_uv,
+    )
+
+    # Rubber eyeport perimeter gasket + recessed dark iridium visor + alloy visor pivot hardware
+    gasket_pts = []
+    # Top brow arc (left -> right)
+    for j in range(13):
+        ang = -0.96 + (j / 12) * 1.92
+        gasket_pts.append((-0.317 + math.cos(ang) * 0.123, 0.742, math.sin(ang) * 0.116))
+    # Right side descent
+    gasket_pts.append((-0.313 + math.cos(0.96) * 0.129, 0.708, math.sin(0.96) * 0.118))
+    # Bottom sill arc (right -> left)
+    for j in range(13):
+        ang = 0.96 - (j / 12) * 1.92
+        gasket_pts.append((-0.309 + math.cos(ang) * 0.132, 0.674, math.sin(ang) * 0.118))
+    # Left side ascent
+    gasket_pts.append((-0.313 + math.cos(-0.96) * 0.129, 0.708, math.sin(-0.96) * 0.118))
+    create_tube_curve(
+        "Driver_Helmet_Eyeport_Gasket",
+        gasket_pts,
+        0.0038,
+        mats["rubber"],
+        closed=True,
+        parent=driver_head,
+        origin_three=DRIVER_NECK_PIVOT,
+    )
 
     visor_rows = [
-        (-0.310, 0.678, 0.136, 0.117),
-        (-0.312, 0.700, 0.135, 0.119),
-        (-0.316, 0.722, 0.131, 0.118),
-        (-0.320, 0.742, 0.123, 0.113),
+        (-0.310, 0.677, 0.129, 0.116),
+        (-0.312, 0.700, 0.128, 0.118),
+        (-0.316, 0.720, 0.125, 0.117),
+        (-0.319, 0.739, 0.119, 0.113),
     ]
     visor_rings = []
     for (vx, vy, rx, rz) in visor_rows:
         ring = []
-        n_v = 16
+        n_v = 18
         for j in range(n_v + 1):
-            ang = -1.02 + (j / n_v) * 2.04
-            ring.append((vx + math.cos(ang) * (rx + 0.007), vy, math.sin(ang) * (rz + 0.007)))
+            ang = -0.95 + (j / n_v) * 1.90
+            ring.append((vx + math.cos(ang) * (rx + 0.0035), vy, math.sin(ang) * (rz + 0.0035)))
         for j in range(n_v, -1, -1):
-            ang = -1.02 + (j / n_v) * 2.04
-            ring.append((vx + math.cos(ang) * (rx + 0.002), vy, math.sin(ang) * (rz + 0.002)))
+            ang = -0.95 + (j / n_v) * 1.90
+            ring.append((vx + math.cos(ang) * (rx - 0.001), vy, math.sin(ang) * (rz - 0.001)))
         visor_rings.append(ring)
-    create_loft_mesh("Driver_Helmet_Visor", visor_rings, mats["visor"], subsurf_levels=0, parent=driver_head)
-    chin_vent = [
-        superellipse_ring(-0.178, 0.628, 0.644, 0.0, 0.028, power_y=0.45, power_z=0.45),
-        superellipse_ring(-0.168, 0.628, 0.644, 0.0, 0.024, power_y=0.45, power_z=0.45),
-    ]
-    create_loft_mesh("Driver_Helmet_Chin_Vent", chin_vent, mats["black"], subsurf_levels=0, parent=driver_head)
+    create_loft_mesh(
+        "Driver_Helmet_Visor",
+        visor_rings,
+        mats["visor"],
+        subsurf_levels=0,
+        parent=driver_head,
+        origin_three=DRIVER_NECK_PIVOT,
+    )
 
-    # Gloves parented under steering_upper at grip offsets
-    for side, g_node in ((-1, driver_glove_l), (1, driver_glove_r)):
+    # Visor side pivot discs & Allen screws + brow intake vents + flush chin vent + rear aero spoiler
+    for side in (-1, 1):
+        create_cylinder_between(
+            f"Driver_Helmet_Visor_Pivot_{side}",
+            (-0.312, 0.708, side * 0.117),
+            (-0.312, 0.708, side * 0.124),
+            0.012,
+            mats["alloy"],
+            segments=14,
+            parent=driver_head,
+            origin_three=DRIVER_NECK_PIVOT,
+        )
+        create_cylinder_between(
+            f"Driver_Helmet_Visor_Screw_{side}",
+            (-0.312, 0.708, side * 0.123),
+            (-0.312, 0.708, side * 0.126),
+            0.005,
+            mats["black"],
+            segments=8,
+            parent=driver_head,
+            origin_three=DRIVER_NECK_PIVOT,
+        )
+        brow_vent = [
+            superellipse_ring(-0.228, 0.752, 0.764, side * 0.036, 0.011, power_y=0.35, power_z=0.35),
+            superellipse_ring(-0.215, 0.750, 0.762, side * 0.036, 0.010, power_y=0.35, power_z=0.35),
+        ]
+        create_loft_mesh(
+            f"Driver_Helmet_Brow_Vent_{side}",
+            brow_vent,
+            mats["black"],
+            subsurf_levels=0,
+            parent=driver_head,
+            origin_three=DRIVER_NECK_PIVOT,
+        )
+
+    chin_vent = [
+        superellipse_ring(-0.175, 0.638, 0.654, 0.0, 0.026, power_y=0.40, power_z=0.40),
+        superellipse_ring(-0.169, 0.640, 0.652, 0.0, 0.022, power_y=0.40, power_z=0.40),
+    ]
+    create_loft_mesh(
+        "Driver_Helmet_Chin_Vent",
+        chin_vent,
+        mats["black"],
+        subsurf_levels=0,
+        parent=driver_head,
+        origin_three=DRIVER_NECK_PIVOT,
+    )
+    spoiler_rings = [
+        superellipse_ring(-0.422, 0.782, 0.794, 0.0, 0.056, power_y=0.35, power_z=0.35),
+        superellipse_ring(-0.402, 0.776, 0.790, 0.0, 0.062, power_y=0.35, power_z=0.35),
+    ]
+    create_loft_mesh(
+        "Driver_Helmet_Spoiler",
+        spoiler_rings,
+        mats["red"],
+        subsurf_levels=0,
+        parent=driver_head,
+        origin_three=DRIVER_NECK_PIVOT,
+    )
+
+    # Helper to build sculpted bone-aligned limb segments along local +Z [0..L]
+    def build_sculpted_limb(
+        name: str,
+        stations: list[tuple[float, float, float, float]],
+        mat: bpy.types.Material,
+        parent_obj: bpy.types.Object,
+        stripe_mat: bpy.types.Material | None = None,
+    ) -> None:
+        rings = []
+        for z_pos, rx, ry, fold_amp in stations:
+            ring = []
+            for j in range(18):
+                ang = (j / 18) * math.pi * 2.0
+                ca, sa = math.cos(ang), math.sin(ang)
+                fold = 1.0 + fold_amp * math.sin(ang * 3.0)
+                ring.append((ca * rx * fold, sa * ry * fold, z_pos))
+            rings.append(ring)
+
+        def limb_uv(tx: float, ty: float, tz: float) -> tuple[float, float]:
+            ang = math.atan2(ty, tx)
+            return ((ang / (math.pi * 2.0)) + 0.5, tz * 3.2)
+
+        create_loft_mesh(
+            name,
+            rings,
+            mat,
+            subsurf_levels=1,
+            parent=parent_obj,
+            origin_three=(0.0, 0.0, 0.0),
+            uv_fn=limb_uv,
+        )
+        if stripe_mat is not None:
+            z0 = stations[1][0]
+            z1 = stations[-2][0]
+            ry0 = stations[1][2]
+            ry_mid = stations[len(stations) // 2][2]
+            ry1 = stations[-2][2]
+            create_tube_curve(
+                f"{name}_Stripe",
+                [(0.0, ry0 * 1.01, z0), (0.0, ry_mid * 1.02, 0.5 * (z0 + z1)), (0.0, ry1 * 1.01, z1)],
+                0.0038,
+                stripe_mat,
+                parent=parent_obj,
+                origin_three=(0.0, 0.0, 0.0),
+            )
+
+    # Sculpted 2-bone IK arms + detailed racing gloves (posed at rest steering=0)
+    steer_hub_v = Vector(STEER_MOUNT_POS)
+    for side, ua_node, fa_node, g_node in (
+        (-1, driver_upper_arm_l, driver_forearm_l, driver_glove_l),
+        (1, driver_upper_arm_r, driver_forearm_r, driver_glove_r),
+    ):
         g_loc_three = upper_to_world(GLOVE_OFFSET[0], GLOVE_OFFSET[1], side * GLOVE_OFFSET[2])
-        # Position relative to steering_upper (origin STEER_MOUNT_POS)
         g_node.location = t2b(
             g_loc_three[0] - STEER_MOUNT_POS[0],
             g_loc_three[1] - STEER_MOUNT_POS[1],
             g_loc_three[2] - STEER_MOUNT_POS[2],
         )
         g_origin = g_loc_three
+
+        # Detailed racing glove: palm, knuckle guard, cuff, and 4 curled fingers wrapping F1 rim
         palm_rings = [
-            oriented_ellipse_ring(upper_to_world(GLOVE_OFFSET[0] + lx, 0.0, side * GLOVE_OFFSET[2]), (cm_s, sm_s, 0.0), ry, rz, n=14)
-            for (lx, ry, rz) in ((-0.026, 0.021, 0.018), (-0.010, 0.026, 0.019), (0.010, 0.024, 0.017), (0.020, 0.017, 0.012))
+            oriented_ellipse_ring(upper_to_world(GLOVE_OFFSET[0] - 0.017, 0.000, side * GLOVE_OFFSET[2]), (cm_s, sm_s, 0.0), 0.019, 0.017, n=14),
+            oriented_ellipse_ring(upper_to_world(GLOVE_OFFSET[0] - 0.004, 0.002, side * GLOVE_OFFSET[2]), (cm_s, sm_s, 0.0), 0.023, 0.019, n=14),
+            oriented_ellipse_ring(upper_to_world(GLOVE_OFFSET[0] + 0.010, 0.002, side * GLOVE_OFFSET[2]), (cm_s, sm_s, 0.0), 0.021, 0.017, n=14),
+            oriented_ellipse_ring(upper_to_world(GLOVE_OFFSET[0] + 0.018, 0.000, side * GLOVE_OFFSET[2]), (cm_s, sm_s, 0.0), 0.015, 0.012, n=14),
         ]
         create_loft_mesh(f"Driver_Glove_Palm_{side}", palm_rings, mats["black"], subsurf_levels=1, parent=g_node, origin_three=g_origin)
+
         cuff_rings = [
-            oriented_ellipse_ring(upper_to_world(GLOVE_OFFSET[0] - 0.036, 0.0, side * GLOVE_OFFSET[2]), (cm_s, sm_s, 0.0), 0.021, 0.021, n=12),
-            oriented_ellipse_ring(upper_to_world(GLOVE_OFFSET[0] - 0.022, 0.0, side * GLOVE_OFFSET[2]), (cm_s, sm_s, 0.0), 0.021, 0.020, n=12),
+            oriented_ellipse_ring(upper_to_world(GLOVE_OFFSET[0] - 0.042, 0.0, side * GLOVE_OFFSET[2]), (cm_s, sm_s, 0.0), 0.024, 0.023, n=14),
+            oriented_ellipse_ring(upper_to_world(GLOVE_OFFSET[0] - 0.018, 0.0, side * GLOVE_OFFSET[2]), (cm_s, sm_s, 0.0), 0.022, 0.020, n=14),
         ]
         create_loft_mesh(f"Driver_Glove_Cuff_{side}", cuff_rings, mats["glovePad"], subsurf_levels=0, parent=g_node, origin_three=g_origin)
+
+        knuckle_rings = [
+            oriented_ellipse_ring(upper_to_world(GLOVE_OFFSET[0] + 0.002, 0.018, side * (GLOVE_OFFSET[2] + 0.006)), (cm_s, sm_s, 0.0), 0.007, 0.018, n=10),
+            oriented_ellipse_ring(upper_to_world(GLOVE_OFFSET[0] + 0.014, 0.017, side * (GLOVE_OFFSET[2] + 0.006)), (cm_s, sm_s, 0.0), 0.006, 0.017, n=10),
+        ]
+        create_loft_mesh(f"Driver_Glove_Knuckle_{side}", knuckle_rings, mats["carbon"], subsurf_levels=0, parent=g_node, origin_three=g_origin)
+
+        # Curled fingers wrapping cleanly around the outer wheel grip tube
+        for f_idx, fy_off in enumerate((-0.015, -0.005, 0.005, 0.015)):
+            rim_z = side * 0.109
+            f_pts = [
+                upper_to_world(GLOVE_OFFSET[0] + 0.016, fy_off, side * GLOVE_OFFSET[2] + side * 0.008),
+                upper_to_world(0.016, fy_off, rim_z + side * 0.015),
+                upper_to_world(0.022, fy_off, rim_z),
+                upper_to_world(0.014, fy_off, rim_z - side * 0.015),
+            ]
+            create_tube_curve(
+                f"Driver_Glove_Finger_{side}_{f_idx}",
+                f_pts,
+                0.0052,
+                mats["black"],
+                parent=g_node,
+                origin_three=g_origin,
+            )
+
+        # UpperArm & Forearm authored along local +Z, then posed via exact 2-bone IK at rest
+        build_sculpted_limb(
+            f"Driver_UpperArm_{side}",
+            [
+                (0.000, 0.030, 0.030, 0.0),
+                (0.014, 0.042, 0.044, 0.0),
+                (0.095, 0.041, 0.042, 0.015),
+                (0.195, 0.037, 0.038, 0.025),
+                (0.275, 0.034, 0.034, 0.035),
+                (DRIVER_UPPER_ARM_LEN - 0.008, 0.032, 0.032, 0.0),
+                (DRIVER_UPPER_ARM_LEN, 0.018, 0.018, 0.0),
+            ],
+            mats["suit"],
+            ua_node,
+            stripe_mat=mats["red"],
+        )
+        build_sculpted_limb(
+            f"Driver_Forearm_{side}",
+            [
+                (0.000, 0.020, 0.020, 0.0),
+                (0.012, 0.033, 0.033, 0.0),
+                (0.085, 0.035, 0.036, 0.018),
+                (0.185, 0.030, 0.030, 0.022),
+                (0.255, 0.025, 0.025, 0.030),
+                (DRIVER_FOREARM_LEN - 0.006, 0.022, 0.022, 0.0),
+                (DRIVER_FOREARM_LEN, 0.014, 0.014, 0.0),
+            ],
+            mats["suit"],
+            fa_node,
+            stripe_mat=mats["red"],
+        )
+
+        shoulder_v = Vector((DRIVER_SHOULDER[0], DRIVER_SHOULDER[1], side * DRIVER_SHOULDER[2]))
+        wrist_v = Vector(upper_to_world(GLOVE_OFFSET[0], GLOVE_OFFSET[1], side * GLOVE_OFFSET[2])) + Vector(GLOVE_WRIST_LOCAL)
+        arm_pole = Vector((-0.05, -0.15, side * 0.99)).normalized()
+        elbow_v, wrist_ik = solve_two_bone_ik_three(shoulder_v, wrist_v, DRIVER_UPPER_ARM_LEN, DRIVER_FOREARM_LEN, arm_pole)
+        orient_limb_object_three(ua_node, shoulder_v, elbow_v, arm_pole)
+        orient_limb_object_three(fa_node, elbow_v, wrist_ik, arm_pole)
+
+    # Sculpted 2-bone IK thighs, shins & pedal-tracking boots (posed at rest pedal=0)
+    for side, th_node, sh_node, bt_node in (
+        (-1, driver_thigh_l, driver_shin_l, driver_boot_l),
+        (1, driver_thigh_r, driver_shin_r, driver_boot_r),
+    ):
+        build_sculpted_limb(
+            f"Driver_Thigh_{side}",
+            [
+                (0.000, 0.032, 0.032, 0.0),
+                (0.018, 0.050, 0.051, 0.0),
+                (0.105, 0.048, 0.049, 0.016),
+                (0.205, 0.044, 0.045, 0.024),
+                (0.275, 0.040, 0.041, 0.020),
+                (DRIVER_THIGH_LEN - 0.008, 0.036, 0.036, 0.0),
+                (DRIVER_THIGH_LEN, 0.022, 0.022, 0.0),
+            ],
+            mats["suit"],
+            th_node,
+            stripe_mat=mats["panel"],
+        )
+        # Sculpted knee pad on anterior +Y near knee end of thigh
+        knee_pad_rings = [
+            superellipse_ring(0.0, 0.032, 0.048, DRIVER_THIGH_LEN - 0.050, 0.030, power_y=0.4, power_z=0.4),
+            superellipse_ring(0.0, 0.036, 0.050, DRIVER_THIGH_LEN - 0.012, 0.028, power_y=0.4, power_z=0.4),
+        ]
+        # Note superellipse_ring takes (x, y_b, y_t, z_c, half_w) -> rotate coordinates: z along bone, y up!
+        kp_rings_local = [
+            [(math.sin(a) * 0.030, 0.042 + math.cos(a) * 0.010, z_p) for a in [i / 12 * math.pi * 2 for i in range(12)]]
+            for z_p in (DRIVER_THIGH_LEN - 0.048, DRIVER_THIGH_LEN - 0.008)
+        ]
+        create_loft_mesh(
+            f"Driver_Knee_Pad_{side}",
+            kp_rings_local,
+            mats["carbon"],
+            subsurf_levels=0,
+            parent=th_node,
+            origin_three=(0.0, 0.0, 0.0),
+        )
+
+        build_sculpted_limb(
+            f"Driver_Shin_{side}",
+            [
+                (0.000, 0.024, 0.024, 0.0),
+                (0.014, 0.039, 0.041, 0.0),
+                (0.095, 0.038, 0.040, 0.016),
+                (0.195, 0.032, 0.033, 0.022),
+                (0.252, 0.028, 0.028, 0.030),
+                (DRIVER_SHIN_LEN - 0.006, 0.025, 0.025, 0.0),
+                (DRIVER_SHIN_LEN, 0.016, 0.016, 0.0),
+            ],
+            mats["suit"],
+            sh_node,
+            stripe_mat=mats["red"],
+        )
+
+        # Detailed karting boot authored relative to ankle origin (0, 0, 0)
+        boot_body_rings = [
+            superellipse_ring(-0.028, -0.052, 0.028, 0.0, 0.026, power_y=0.45, power_z=0.45),
+            superellipse_ring(-0.002, -0.042, 0.038, 0.0, 0.027, power_y=0.45, power_z=0.45),
+            superellipse_ring(0.024, -0.020, 0.040, 0.0, 0.026, power_y=0.45, power_z=0.45),
+            superellipse_ring(0.042, -0.002, 0.042, 0.0, 0.022, power_y=0.45, power_z=0.45),
+        ]
+        create_loft_mesh(
+            f"Driver_Boot_Upper_{side}",
+            boot_body_rings,
+            mats["black"],
+            subsurf_levels=1,
+            parent=bt_node,
+            origin_three=(0.0, 0.0, 0.0),
+        )
+        sole_rings = [
+            superellipse_ring(0.026, -0.044, 0.010, 0.0, 0.025, power_y=0.35, power_z=0.35),
+            superellipse_ring(0.046, -0.016, 0.040, 0.0, 0.023, power_y=0.35, power_z=0.35),
+        ]
+        create_loft_mesh(
+            f"Driver_Boot_Sole_{side}",
+            sole_rings,
+            mats["rubber"],
+            subsurf_levels=0,
+            parent=bt_node,
+            origin_three=(0.0, 0.0, 0.0),
+        )
+        strap_rings = [
+            superellipse_ring(-0.016, 0.012, 0.032, 0.0, 0.028, power_y=0.35, power_z=0.35),
+            superellipse_ring(0.008, 0.014, 0.034, 0.0, 0.028, power_y=0.35, power_z=0.35),
+        ]
+        create_loft_mesh(
+            f"Driver_Boot_Strap_{side}",
+            strap_rings,
+            mats["red"],
+            subsurf_levels=0,
+            parent=bt_node,
+            origin_three=(0.0, 0.0, 0.0),
+        )
+
+        hip_v = Vector((DRIVER_HIP_JOINT[0], DRIVER_HIP_JOINT[1], side * DRIVER_HIP_JOINT[2]))
+        sole_rest = Vector((PEDAL_PIVOT_POS[0] + PEDAL_SOLE_LOCAL[0], PEDAL_PIVOT_POS[1] + PEDAL_SOLE_LOCAL[1], side * PEDAL_PIVOT_POS[2]))
+        ankle_v = sole_rest + Vector(PEDAL_ANKLE_OFFSET)
+        leg_pole = Vector((0.0, 0.72, side * 0.69)).normalized()
+        knee_v, ankle_ik = solve_two_bone_ik_three(hip_v, ankle_v, DRIVER_THIGH_LEN, DRIVER_SHIN_LEN, leg_pole)
+        orient_limb_object_three(th_node, hip_v, knee_v, leg_pole)
+        orient_limb_object_three(sh_node, knee_v, ankle_ik, leg_pole)
+        bt_node.location = t2b(ankle_ik.x, ankle_ik.y, ankle_ik.z)
 
     # =========================================================================
     # SAVE .BLEND AND EXPORT .GLB (WITH MODIFIERS APPLIED & OBJECT HIERARCHY INTACT)
@@ -2463,7 +3100,7 @@ def build_otl_superleggero():
     scene.render.filepath = PREVIEW_OUT
     bpy.ops.render.render(write_still=True)
 
-    print(f"SUCCESS: Generated {BLEND_OUT}, {GLB_OUT}, {PREVIEW_OUT}, and 8 PBR textures in {TEX_DIR}")
+    print(f"SUCCESS: Generated {BLEND_OUT}, {GLB_OUT}, {PREVIEW_OUT}, and 12 PBR textures in {TEX_DIR}")
 
 
 if __name__ == "__main__":

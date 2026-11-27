@@ -18,9 +18,17 @@ export interface TextureAssetSpec {
 const KART_MODEL_URL = '/models/otl-superleggero.glb';
 const VENUE_PROPS_MODEL_URL = '/models/venue-props.glb';
 
-// Local PBR textures under /textures/... are populated in later tickets (#52/#54/#55);
+// Local PBR textures under /textures/... generated deterministically by Blender tools;
 // missing optional entries are omitted cleanly without failing startup.
-const OPTIONAL_TEXTURE_SPECS: readonly TextureAssetSpec[] = [];
+export const OPTIONAL_TEXTURE_SPECS: readonly TextureAssetSpec[] = [
+  { key: 'trackConcreteAlbedo', url: '/textures/track-concrete-albedo.png', channel: 'albedo' },
+  { key: 'trackConcreteNormal', url: '/textures/track-concrete-normal.png', channel: 'normal' },
+  { key: 'trackConcreteRoughness', url: '/textures/track-concrete-roughness.png', channel: 'roughness' },
+  { key: 'infieldConcreteAlbedo', url: '/textures/infield-concrete-albedo.png', channel: 'albedo' },
+  { key: 'infieldConcreteRoughness', url: '/textures/infield-concrete-roughness.png', channel: 'roughness' },
+  { key: 'barrierHdpeAlbedo', url: '/textures/barrier-hdpe-albedo.png', channel: 'albedo' },
+  { key: 'barrierHdpeRoughness', url: '/textures/barrier-hdpe-roughness.png', channel: 'roughness' },
+];
 
 let cachedAssetsPromise: Promise<RendererAssets> | null = null;
 

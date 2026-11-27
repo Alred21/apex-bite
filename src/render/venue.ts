@@ -1,39 +1,19 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { CircuitData } from '../simulation/types';
-import { createVenueMaterials } from './materials';
-import { buildBarrierSegments, BARRIER_HALF_THICKNESS_METERS } from '../simulation/barrier-geometry';
+import { createVenueMaterials, type VenueMaterials } from './materials';
+import type { RendererAssets } from './assets';
 
-type VenueMaterials = ReturnType<typeof createVenueMaterials>;
-
-export function buildVenueBarriers(circuit: CircuitData, materials: VenueMaterials): THREE.Group {
-  const group = new THREE.Group();
-  const placements = buildBarrierSegments(circuit);
-  const matrix = new THREE.Object3D();
-  for (const red of [true, false]) {
-    const matches = placements.filter((p) => p.red === red);
-    const wall = new THREE.InstancedMesh(new THREE.BoxGeometry(BARRIER_HALF_THICKNESS_METERS * 2, 0.48, 1), red ? materials.redBarrier : materials.whiteBarrier, matches.length);
-    matches.forEach((p, i) => {
-      matrix.position.set(p.center.x, 0.24, p.center.z); matrix.rotation.set(0, p.yaw, 0); matrix.scale.set(1, 1, p.length); matrix.updateMatrix();
-      wall.setMatrixAt(i, matrix.matrix);
-    });
-    wall.castShadow = wall.receiveShadow = true;
-    group.add(wall);
-  }
-  const rubRail = new THREE.InstancedMesh(new THREE.BoxGeometry(0.255, 0.07, 1), materials.rubber, placements.length);
-  placements.forEach((p, i) => {
-    matrix.position.set(p.center.x, 0.105, p.center.z); matrix.rotation.set(0, p.yaw, 0); matrix.scale.set(1, 1, p.length); matrix.updateMatrix();
-    rubRail.setMatrixAt(i, matrix.matrix);
-  });
-  group.add(rubRail);
-  return group;
-}
-
-export function createIndoorVenue(renderer: THREE.WebGLRenderer, scene: THREE.Scene, circuit: CircuitData): {
+export function createIndoorVenue(
+  renderer: THREE.WebGLRenderer,
+  scene: THREE.Scene,
+  circuit: CircuitData,
+  assets?: RendererAssets,
+): {
   materials: VenueMaterials;
   keyLight: THREE.DirectionalLight;
 } {
-  const materials = createVenueMaterials();
+  const materials = createVenueMaterials(assets);
   scene.background = new THREE.Color(0x20252a);
   scene.fog = new THREE.Fog(0x252b30, 65, 155);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;

@@ -22,5 +22,10 @@ At runtime, the application makes **zero** external network requests (no CDNs, r
 
 ## Bundled Local PBR Textures
 
-- **Local PBR Maps** (`public/textures/...` — added in subsequent Iteration 6 tickets)
-  - All bundled texture maps are locally authored/baked procedural maps or vetted CC0 textures, each documented here with source and license before inclusion.
+- **Venue Concrete & Protex HDPE Barrier PBR Maps** (`public/textures/`, generated via `tools/build-venue-textures.py` in Blender 5.2):
+  - `track-concrete-albedo.png`, `track-concrete-normal.png`, `track-concrete-roughness.png`
+  - `infield-concrete-albedo.png`, `infield-concrete-roughness.png`
+  - `barrier-hdpe-albedo.png`, `barrier-hdpe-roughness.png`
+  - **Author**: Apex Bite project (original deterministic procedural Blender-generated tileable 1024×1024 textures)
+  - **License**: Project original asset (all rights reserved to repository terms)
+- All bundled texture maps are locally authored/baked procedural maps or vetted CC0 textures, each documented here with source and license before inclusion.

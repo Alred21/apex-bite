@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Blender CLI asset generator for the K1 Speed Toronto OTL Superleggero electric
-rental go-kart and realistic reclined seated driver.
+Blender 5.2 CLI asset generator for the K1 Speed Toronto OTL Superleggero electric
+rental go-kart, local 1024x1024 PBR texture maps, and articulated node hierarchy.
 
 Run via official Blender CLI:
   /Applications/Blender.app/Contents/MacOS/Blender --background --python tools/build-kart-model.py
@@ -10,50 +10,70 @@ Outputs:
   - assets/otl-superleggero.blend
   - public/models/otl-superleggero.glb
   - public/models/otl-superleggero-preview.png
-  - src/render/otl-superleggero-meshes.ts (synchronous frame-0 buffers for Three.js)
+  - public/textures/kart-livery-albedo.png
+  - public/textures/kart-carbon-albedo.png
+  - public/textures/kart-carbon-normal.png
+  - public/textures/kart-carbon-roughness.png
+  - public/textures/tire-albedo.png
+  - public/textures/tire-normal.png
+  - public/textures/tire-roughness.png
+  - public/textures/metal-alloy-roughness.png
 """
 
 import math
 import os
 import bpy
 import bmesh
-from mathutils import Vector, Matrix
+import numpy as np
+from mathutils import Vector, Matrix, Euler
 
 
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 BLEND_OUT = os.path.join(ROOT_DIR, "assets", "otl-superleggero.blend")
 GLB_OUT = os.path.join(ROOT_DIR, "public", "models", "otl-superleggero.glb")
-TS_OUT = os.path.join(ROOT_DIR, "src", "render", "otl-superleggero-meshes.ts")
 PREVIEW_OUT = os.path.join(ROOT_DIR, "public", "models", "otl-superleggero-preview.png")
+TEX_DIR = os.path.join(ROOT_DIR, "public", "textures")
 
-# Shared wheel & steering geometry constants from src/simulation/kart-parameters.ts
+# Shared wheel & steering geometry constants matching src/simulation/kart-parameters.ts
+# and src/render/kinematics.ts
 WHEELBASE_M = 1.06
 FRONT_AXLE_X = 0.54
 REAR_AXLE_X = -0.52
 FRONT_TRACK_HALF_Z = 0.285
 REAR_TRACK_HALF_Z = 0.335
 KINGPIN_HALF_Z = 0.185
-SPINDLE_LENGTH = FRONT_TRACK_HALF_Z - KINGPIN_HALF_Z
+SPINDLE_LENGTH = FRONT_TRACK_HALF_Z - KINGPIN_HALF_Z  # 0.100 m
 TIRE_RADIUS = 0.145
-WHEEL_HALF_WIDTH = 0.076
-MAX_STEER_ANGLE_RAD = 0.46
+FRONT_TIRE_HALF_WIDTH = 0.056  # 112 mm front slick
+REAR_TIRE_HALF_WIDTH = 0.078   # 156 mm rear slick
+CASTER_RAD = math.radians(10.0)
+KPI_RAD = math.radians(7.0)
+REAR_GEAR_RATIO = 3.2
+
 STEER_MOUNT_POS = (0.185, 0.360, 0.0)
 STEER_MOUNT_ROT_Z = 0.35
+UPPER_SHAFT_LEN = 0.064
+U_JOINT_POS = (
+    STEER_MOUNT_POS[0] + UPPER_SHAFT_LEN * math.cos(STEER_MOUNT_ROT_Z),
+    STEER_MOUNT_POS[1] + UPPER_SHAFT_LEN * math.sin(STEER_MOUNT_ROT_Z),
+    0.0,
+)
 DASH_BINNACLE_POS = (0.262, 0.483)
 PITMAN_PIVOT = (0.458, 0.192, 0.0)
-PITMAN_BALL_LOCAL = (-0.008, 0.0, 0.038)
-KNUCKLE_ARM_BALL_LOCAL = (-0.066, 0.047, -0.022)
+PITMAN_BALL_LOCAL = (0.004, -0.056, 0.014)
+KNUCKLE_ARM_BALL_LOCAL = (-0.086, 0.044, -0.014)
 PEDAL_PIVOT_POS = (0.428, 0.095, 0.075)
+BRAKE_CLEVIS_LOCAL = (0.0, 0.038, -0.047)  # world (0.428, 0.133, -0.122)
+BRAKE_MASTER_BORE = (0.382, 0.124, -0.122)
+THROTTLE_CLEVIS_LOCAL = (0.0, 0.038, 0.047)  # world (0.428, 0.133, +0.122)
+THROTTLE_TPS_PIVOT = (0.416, 0.124, 0.122)
+
+REAR_SPROCKET_RADIUS = 0.068
+MOTOR_PINION_POS = (-0.425, 0.215, 0.210)
+MOTOR_PINION_RADIUS = REAR_SPROCKET_RADIUS / REAR_GEAR_RATIO  # 0.02125 m
+
 DRIVER_SHOULDER = (-0.335, 0.485, 0.122)
 GLOVE_OFFSET = (-0.010, 0.0, 0.105)
-GLOVE_WRIST_LOCAL = (-0.032, 0.0, 0.0)
-GLOVE_OFFSET_Z = GLOVE_OFFSET[2]
-
-
-def ackermann_steer_angle(steer_rad: float, side: int) -> float:
-    """True Ackermann steering angle for left (side=-1) or right (side=+1) kingpin."""
-    tan_s = math.tan(steer_rad)
-    return math.atan((WHEELBASE_M * tan_s) / (WHEELBASE_M - side * KINGPIN_HALF_Z * tan_s))
 
 
 def t2b(x: float, y: float, z: float) -> Vector:
@@ -61,19 +81,373 @@ def t2b(x: float, y: float, z: float) -> Vector:
     return Vector((x, -z, y))
 
 
+def vec_norm(v: tuple[float, float, float]) -> tuple[float, float, float]:
+    l = math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) or 1.0
+    return (v[0] / l, v[1] / l, v[2] / l)
+
+
+def kingpin_axis(side: int) -> tuple[float, float, float]:
+    return vec_norm((
+        -math.sin(CASTER_RAD) * math.cos(KPI_RAD),
+        math.cos(CASTER_RAD) * math.cos(KPI_RAD),
+        -side * math.sin(KPI_RAD),
+    ))
+
+
+# =============================================================================
+# DETERMINISTIC 1024x1024 PBR TEXTURE GENERATION
+# =============================================================================
+_FONT_5X7 = {
+    "A": ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
+    "B": ["11110", "10001", "10001", "11110", "10001", "10001", "11110"],
+    "C": ["01110", "10001", "10000", "10000", "10000", "10001", "01110"],
+    "D": ["11110", "10001", "10001", "10001", "10001", "10001", "11110"],
+    "E": ["11111", "10000", "10000", "11110", "10000", "10000", "11111"],
+    "I": ["11111", "00100", "00100", "00100", "00100", "00100", "11111"],
+    "K": ["10001", "10010", "10100", "11000", "10100", "10010", "10001"],
+    "L": ["10000", "10000", "10000", "10000", "10000", "10000", "11111"],
+    "N": ["10001", "11001", "10101", "10011", "10001", "10001", "10001"],
+    "O": ["01110", "10001", "10001", "10001", "10001", "10001", "01110"],
+    "P": ["11110", "10001", "10001", "11110", "10000", "10000", "10000"],
+    "R": ["11110", "10001", "10001", "11110", "10100", "10010", "10001"],
+    "S": ["01111", "10000", "10000", "01110", "00001", "00001", "11110"],
+    "T": ["11111", "00100", "00100", "00100", "00100", "00100", "00100"],
+    "X": ["10001", "10001", "01010", "00100", "01010", "10001", "10001"],
+    "0": ["01110", "10011", "10101", "10101", "11001", "10001", "01110"],
+    "7": ["11111", "00001", "00010", "00100", "01000", "01000", "01000"],
+    "/": ["00001", "00010", "00010", "00100", "01000", "01000", "10000"],
+    " ": ["00000", "00000", "00000", "00000", "00000", "00000", "00000"],
+}
+
+
+def draw_bitmap_text(
+    img: np.ndarray,
+    text: str,
+    x0: int,
+    y0: int,
+    scale: int,
+    color: tuple[float, float, float, float],
+    spacing: int = 1,
+    angle_rad: float = 0.0,
+) -> None:
+    """Draws crisp bitmap text into an RGBA float32 buffer, optionally rotated around (x0, y0)."""
+    h, w, _ = img.shape
+    if abs(angle_rad) < 1e-4:
+        cx = x0
+        for ch in text.upper():
+            glyph = _FONT_5X7.get(ch, _FONT_5X7[" "])
+            for row_idx, row in enumerate(glyph):
+                py0 = y0 + (6 - row_idx) * scale
+                for col_idx, bit in enumerate(row):
+                    if bit != "1":
+                        continue
+                    px0 = cx + col_idx * scale
+                    px1 = min(w, px0 + scale)
+                    py1 = min(h, py0 + scale)
+                    if px0 < w and py0 < h and px1 > 0 and py1 > 0:
+                        img[max(0, py0):py1, max(0, px0):px1] = color
+            cx += (5 + spacing) * scale
+        return
+
+    ca, sa = math.cos(angle_rad), math.sin(angle_rad)
+    cx = 0.0
+    for ch in text.upper():
+        glyph = _FONT_5X7.get(ch, _FONT_5X7[" "])
+        for row_idx, row in enumerate(glyph):
+            ly = (6 - row_idx) * scale
+            for col_idx, bit in enumerate(row):
+                if bit != "1":
+                    continue
+                lx = cx + col_idx * scale
+                for dy in range(scale):
+                    for dx in range(scale):
+                        rx = x0 + int(round((lx + dx) * ca - (ly + dy) * sa))
+                        ry = y0 + int(round((lx + dx) * sa + (ly + dy) * ca))
+                        if 0 <= rx < w and 0 <= ry < h:
+                            img[ry, rx] = color
+        cx += (5 + spacing) * scale
+
+
+def save_rgba_png(path: str, rgba: np.ndarray, colorspace: str = "sRGB") -> bpy.types.Image:
+    h, w, _ = rgba.shape
+    name = os.path.basename(path)
+    img = bpy.data.images.new(name=name, width=w, height=h, alpha=True, float_buffer=False)
+    img.colorspace_settings.name = colorspace
+    img.pixels.foreach_set(np.clip(rgba, 0.0, 1.0).ravel())
+    img.filepath_raw = path
+    img.file_format = "PNG"
+    img.save()
+    return img
+
+
+def generate_pbr_textures() -> dict[str, bpy.types.Image]:
+    """Generates all 8 local 1024x1024 PBR maps deterministically under public/textures/."""
+    os.makedirs(TEX_DIR, exist_ok=True)
+    N = 1024
+    yy, xx = np.mgrid[0:N, 0:N]
+    rng = np.random.default_rng(20261127)
+
+    # 1-3. Carbon 2x2 twill weave (albedo, normal, roughness)
+    cell = 8
+    tx = (xx // cell) % 4
+    ty = (yy // cell) % 4
+    phase = (tx + ty) % 4
+    warp = (phase < 2)
+    u_local = (xx % cell) / float(cell)
+    v_local = (yy % cell) / float(cell)
+    profile_warp = np.sin(u_local * math.pi)
+    profile_weft = np.sin(v_local * math.pi)
+    fiber_val = np.where(warp, 0.10 + 0.08 * profile_warp, 0.06 + 0.06 * profile_weft)
+
+    carbon_albedo = np.ones((N, N, 4), dtype=np.float32)
+    carbon_albedo[:, :, 0] = fiber_val
+    carbon_albedo[:, :, 1] = fiber_val * 1.03
+    carbon_albedo[:, :, 2] = fiber_val * 1.08
+
+    dh_dx = np.where(warp, np.cos(u_local * math.pi) * 0.45, 0.0)
+    dh_dy = np.where(~warp, np.cos(v_local * math.pi) * 0.45, 0.0)
+    nz = np.ones((N, N), dtype=np.float32)
+    nlen = np.sqrt(dh_dx * dh_dx + dh_dy * dh_dy + nz * nz)
+    carbon_normal = np.ones((N, N, 4), dtype=np.float32)
+    carbon_normal[:, :, 0] = 0.5 + 0.5 * (-dh_dx / nlen)
+    carbon_normal[:, :, 1] = 0.5 + 0.5 * (-dh_dy / nlen)
+    carbon_normal[:, :, 2] = 0.5 + 0.5 * (nz / nlen)
+
+    rough_val = np.where(warp, 0.38 + 0.14 * (1.0 - profile_warp), 0.48 + 0.14 * (1.0 - profile_weft))
+    carbon_rough = np.ones((N, N, 4), dtype=np.float32)
+    carbon_rough[:, :, 0] = rough_val
+    carbon_rough[:, :, 1] = rough_val
+    carbon_rough[:, :, 2] = rough_val
+
+    # 4. Kart Livery Albedo (1024x1024):
+    # UV Layout:
+    #   v in [0.55, 1.00], u in [0.00, 1.00]: Nose Cone & Nassau Fairing top-projected (u = z_norm, v = x_norm)
+    #   v in [0.00, 0.55], u in [0.00, 1.00]: Sidepods top/side-projected (u = x_norm, v = side_wrap)
+    livery = np.ones((N, N, 4), dtype=np.float32)
+    # Base crimson red (#b8101c -> linear-friendly sRGB ~0.72, 0.06, 0.11)
+    livery[:, :, 0] = 0.72
+    livery[:, :, 1] = 0.06
+    livery[:, :, 2] = 0.11
+
+    # Subtle metallic flake micro-variation
+    flake = rng.normal(0.0, 0.012, (N, N)).astype(np.float32)
+    livery[:, :, 0] = np.clip(livery[:, :, 0] + flake, 0.0, 1.0)
+    livery[:, :, 1] = np.clip(livery[:, :, 1] + flake * 0.4, 0.0, 1.0)
+    livery[:, :, 2] = np.clip(livery[:, :, 2] + flake * 0.4, 0.0, 1.0)
+
+    # Upper region (v >= 0.55): Nose + Nassau
+    # v in [0.55, 0.64]: clean crimson with subtle flake (Nassau fairing)
+    # v in [0.64, 0.99]: Nose Cone with carbon side trim, APEX BITE / 07 plate, and white forward tip
+    nose_mask = yy >= int(0.55 * N)
+    # Forward tip white band (v in [0.89, 0.98])
+    tip_band = nose_mask & (yy >= int(0.89 * N)) & (yy <= int(0.98 * N))
+    livery[tip_band, 0:3] = (0.94, 0.95, 0.96)
+    # Carbon outer edge trim on nose (v >= 0.65 and (u < 0.16 or u > 0.84))
+    nose_carbon = (yy >= int(0.65 * N)) & ((xx < int(0.16 * N)) | (xx > int(0.84 * N)))
+    livery[nose_carbon, 0:3] = carbon_albedo[nose_carbon, 0:3] * 1.15
+    # Crisp dark number plate backing on flat nose plateau (u in [0.22, 0.78], v in [0.71, 0.86])
+    plate_nose = nose_mask & (xx >= int(0.22 * N)) & (xx <= int(0.78 * N)) & (yy >= int(0.71 * N)) & (yy <= int(0.86 * N))
+    livery[plate_nose, 0:3] = (0.08, 0.10, 0.12)
+    # White pinstripe border around nose plate
+    plate_border = nose_mask & (
+        ((xx >= int(0.21 * N)) & (xx <= int(0.79 * N)) & ((yy == int(0.71 * N)) | (yy == int(0.71 * N) + 3) | (yy == int(0.86 * N)) | (yy == int(0.86 * N) - 3)))
+    )
+    livery[plate_border, 0:3] = (0.94, 0.95, 0.96)
+    draw_bitmap_text(livery, "APEX BITE", 268, int(0.79 * N), 8, (0.95, 0.96, 0.96, 1.0))
+    draw_bitmap_text(livery, "07", 455, int(0.73 * N), 8, (0.85, 0.91, 0.18, 1.0))
+
+    # Lower region (v < 0.55): Sidepods (u = x along pod, v = wrap across top & outer skirt)
+    pod_mask = yy < int(0.55 * N)
+    # White diagonal stripe along upper sidepod shoulder
+    diag = pod_mask & (yy >= int(0.37 * N)) & (yy <= int(0.46 * N))
+    livery[diag, 0:3] = (0.94, 0.95, 0.96)
+    # Carbon lower skirt band (v < 0.14)
+    skirt = pod_mask & (yy < int(0.14 * N))
+    livery[skirt, 0:3] = carbon_albedo[skirt, 0:3] * 1.15
+    # Dark inset badge panel on sidepod upper flank (u in [0.26, 0.86], v in [0.18, 0.35])
+    pod_plate = pod_mask & (xx >= int(0.26 * N)) & (xx <= int(0.86 * N)) & (yy >= int(0.18 * N)) & (yy <= int(0.35 * N))
+    livery[pod_plate, 0:3] = (0.07, 0.09, 0.11)
+    # Red leading accent bar on badge
+    pod_bar = pod_mask & (xx >= int(0.26 * N)) & (xx <= int(0.29 * N)) & (yy >= int(0.18 * N)) & (yy <= int(0.35 * N))
+    livery[pod_bar, 0:3] = (0.78, 0.08, 0.12)
+    draw_bitmap_text(livery, "APEX BITE", 315, int(0.275 * N), 8, (0.95, 0.96, 0.96, 1.0))
+    draw_bitmap_text(livery, "07", 510, int(0.205 * N), 8, (0.85, 0.91, 0.18, 1.0))
+
+    # 5-7. Tire Albedo, Normal, Roughness (1024x1024)
+    # UV layout:
+    #   v in [0.00, 0.50]: Circumferential tread band (u = circumference, v = across tread width)
+    #   v in [0.50, 1.00]: Polar/radial sidewall (centered at u=0.5, v=0.75, radius <= 0.24)
+    tire_grain = rng.normal(0.0, 0.015, (N, N)).astype(np.float32)
+    tire_albedo = np.ones((N, N, 4), dtype=np.float32)
+    tire_albedo[:, :, 0] = 0.085 + tire_grain
+    tire_albedo[:, :, 1] = 0.088 + tire_grain
+    tire_albedo[:, :, 2] = 0.092 + tire_grain
+
+    # Circumferential tread wear striations on tread band (v < 0.50)
+    tread_mask = yy < int(0.50 * N)
+    striation = 0.012 * np.sin((yy / float(N)) * 180.0) + 0.008 * np.sin((xx / float(N)) * 22.0)
+    tire_albedo[tread_mask, 0] += striation[tread_mask]
+    tire_albedo[tread_mask, 1] += striation[tread_mask]
+    tire_albedo[tread_mask, 2] += striation[tread_mask]
+
+    # Sidewall molded ribs + radial markings (u_c = u - 0.5, v_c = v - 0.75)
+    su = (xx / float(N)) - 0.5
+    sv = (yy / float(N)) - 0.75
+    sr = np.sqrt(su * su + sv * sv)
+    sang = np.arctan2(sv, su)
+    rib1 = np.exp(-((sr - 0.215) / 0.004) ** 2)
+    rib2 = np.exp(-((sr - 0.155) / 0.004) ** 2)
+    sidewall_mask = yy >= int(0.50 * N)
+    tire_albedo[sidewall_mask, 0] += 0.03 * (rib1 + rib2)[sidewall_mask]
+    tire_albedo[sidewall_mask, 1] += 0.03 * (rib1 + rib2)[sidewall_mask]
+    tire_albedo[sidewall_mask, 2] += 0.03 * (rib1 + rib2)[sidewall_mask]
+
+    # Molded sidewall lettering along arc at sr ≈ 0.188, advancing clockwise so text reads forward
+    for label, ang_start in (("OTL CORSE", 0.48), ("INDOOR SLICK", math.pi + 0.62)):
+        for idx, ch in enumerate(label):
+            ang = ang_start - idx * 0.115
+            cx = int((0.5 + math.cos(ang) * 0.188) * N)
+            cy = int((0.75 + math.sin(ang) * 0.188) * N)
+            draw_bitmap_text(tire_albedo, ch, cx, cy, 4, (0.50, 0.52, 0.50, 1.0), angle_rad=ang - math.pi / 2.0)
+
+    # Tire normal map: grain + sidewall ribs + center mold parting line
+    height_tire = tire_grain * 1.4 + 0.05 * (rib1 + rib2)
+    # Center mold parting ridge at v = 0.25
+    height_tire += 0.03 * np.exp(-(((yy / float(N)) - 0.25) / 0.003) ** 2)
+    gy, gx = np.gradient(height_tire)
+    tnz = np.ones((N, N), dtype=np.float32) * 0.25
+    tnlen = np.sqrt(gx * gx + gy * gy + tnz * tnz)
+    tire_normal = np.ones((N, N, 4), dtype=np.float32)
+    tire_normal[:, :, 0] = 0.5 + 0.5 * (-gx / tnlen)
+    tire_normal[:, :, 1] = 0.5 + 0.5 * (-gy / tnlen)
+    tire_normal[:, :, 2] = 0.5 + 0.5 * (tnz / tnlen)
+
+    # Tire roughness: center contact patch slightly glossier (0.68), shoulders/sidewall matte (0.88)
+    dist_center = np.abs((yy / float(N)) - 0.25) / 0.25
+    tire_r = np.where(tread_mask, 0.68 + 0.20 * (dist_center ** 1.4), 0.88) + tire_grain * 1.2
+    tire_rough = np.ones((N, N, 4), dtype=np.float32)
+    tire_rough[:, :, 0] = tire_r
+    tire_rough[:, :, 1] = tire_r
+    tire_rough[:, :, 2] = tire_r
+
+    # 8. Brushed / CNC Metal Alloy Roughness (1024x1024)
+    streak_x = rng.normal(0.0, 0.035, (1, N)).astype(np.float32)
+    streak_fine = rng.normal(0.0, 0.020, (N, N)).astype(np.float32)
+    metal_r = np.clip(0.24 + streak_x + streak_fine + 0.03 * np.sin((yy / float(N)) * 90.0), 0.14, 0.42)
+    metal_rough = np.ones((N, N, 4), dtype=np.float32)
+    metal_rough[:, :, 0] = metal_r
+    metal_rough[:, :, 1] = metal_r
+    metal_rough[:, :, 2] = metal_r
+
+    return {
+        "kart_livery_albedo": save_rgba_png(os.path.join(TEX_DIR, "kart-livery-albedo.png"), livery, "sRGB"),
+        "kart_carbon_albedo": save_rgba_png(os.path.join(TEX_DIR, "kart-carbon-albedo.png"), carbon_albedo, "sRGB"),
+        "kart_carbon_normal": save_rgba_png(os.path.join(TEX_DIR, "kart-carbon-normal.png"), carbon_normal, "Non-Color"),
+        "kart_carbon_roughness": save_rgba_png(os.path.join(TEX_DIR, "kart-carbon-roughness.png"), carbon_rough, "Non-Color"),
+        "tire_albedo": save_rgba_png(os.path.join(TEX_DIR, "tire-albedo.png"), tire_albedo, "sRGB"),
+        "tire_normal": save_rgba_png(os.path.join(TEX_DIR, "tire-normal.png"), tire_normal, "Non-Color"),
+        "tire_roughness": save_rgba_png(os.path.join(TEX_DIR, "tire-roughness.png"), tire_rough, "Non-Color"),
+        "metal_alloy_roughness": save_rgba_png(os.path.join(TEX_DIR, "metal-alloy-roughness.png"), metal_rough, "Non-Color"),
+    }
+
+
+# =============================================================================
+# MATERIAL HELPERS (LOOK UP BY node.type == 'BSDF_PRINCIPLED')
+# =============================================================================
+def get_principled(mat: bpy.types.Material):
+    for node in mat.node_tree.nodes:
+        if node.type == "BSDF_PRINCIPLED":
+            return node
+    return None
+
+
+def make_pbr_material(
+    name: str,
+    rgb: tuple[float, float, float] | None = None,
+    roughness: float = 0.45,
+    metalness: float = 0.0,
+    albedo_img: bpy.types.Image | None = None,
+    normal_img: bpy.types.Image | None = None,
+    roughness_img: bpy.types.Image | None = None,
+    coat_weight: float = 0.0,
+    coat_roughness: float = 0.08,
+    emissive_rgb: tuple[float, float, float] | None = None,
+    emissive_strength: float = 0.0,
+    alpha: float = 1.0,
+) -> bpy.types.Material:
+    mat = bpy.data.materials.new(name=name)
+    mat.use_nodes = True
+    nt = mat.node_tree
+    bsdf = get_principled(mat)
+    if not bsdf:
+        return mat
+
+    if rgb is not None:
+        bsdf.inputs["Base Color"].default_value = (rgb[0], rgb[1], rgb[2], 1.0)
+    bsdf.inputs["Roughness"].default_value = roughness
+    bsdf.inputs["Metallic"].default_value = metalness
+    if "Coat Weight" in bsdf.inputs:
+        bsdf.inputs["Coat Weight"].default_value = coat_weight
+        bsdf.inputs["Coat Roughness"].default_value = coat_roughness
+    if "Alpha" in bsdf.inputs:
+        bsdf.inputs["Alpha"].default_value = alpha
+    if alpha < 1.0:
+        mat.blend_method = "BLEND" if hasattr(mat, "blend_method") else "HASHED"
+
+    if emissive_rgb is not None and "Emission Color" in bsdf.inputs:
+        bsdf.inputs["Emission Color"].default_value = (emissive_rgb[0], emissive_rgb[1], emissive_rgb[2], 1.0)
+        bsdf.inputs["Emission Strength"].default_value = emissive_strength
+
+    if albedo_img is not None:
+        tex = nt.nodes.new("ShaderNodeTexImage")
+        tex.image = albedo_img
+        nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
+
+    if roughness_img is not None:
+        tex = nt.nodes.new("ShaderNodeTexImage")
+        tex.image = roughness_img
+        nt.links.new(tex.outputs["Color"], bsdf.inputs["Roughness"])
+
+    if normal_img is not None:
+        tex = nt.nodes.new("ShaderNodeTexImage")
+        tex.image = normal_img
+        nmap = nt.nodes.new("ShaderNodeNormalMap")
+        nmap.inputs["Strength"].default_value = 0.65
+        nt.links.new(tex.outputs["Color"], nmap.inputs["Color"])
+        nt.links.new(nmap.outputs["Normal"], bsdf.inputs["Normal"])
+
+    return mat
+
+
+# =============================================================================
+# GEOMETRY & UV HELPERS
+# =============================================================================
 def clear_scene() -> None:
     bpy.ops.wm.read_factory_settings(use_empty=True)
 
 
-def make_material(name: str, rgb: tuple[float, float, float], roughness: float = 0.45, metalness: float = 0.0) -> bpy.types.Material:
-    mat = bpy.data.materials.new(name=name)
-    mat.use_nodes = True
-    bsdf = mat.node_tree.nodes.get("Principled BSDF")
-    if bsdf:
-        bsdf.inputs["Base Color"].default_value = (rgb[0], rgb[1], rgb[2], 1.0)
-        bsdf.inputs["Roughness"].default_value = roughness
-        bsdf.inputs["Metallic"].default_value = metalness
-    return mat
+def make_empty(name: str, loc_three: tuple[float, float, float] = (0.0, 0.0, 0.0), parent=None) -> bpy.types.Object:
+    obj = bpy.data.objects.new(name, None)
+    bpy.context.scene.collection.objects.link(obj)
+    obj.location = t2b(*loc_three)
+    if parent is not None:
+        obj.parent = parent
+    return obj
+
+
+def ensure_uv_box_projection(bm: bmesh.types.BMesh, scale: float = 2.0) -> None:
+    uv_layer = bm.loops.layers.uv.verify()
+    for f in bm.faces:
+        n = f.normal
+        ax, ay, az = abs(n.x), abs(n.y), abs(n.z)
+        for loop in f.loops:
+            co = loop.vert.co
+            if az >= ax and az >= ay:
+                loop[uv_layer].uv = (co.x * scale, co.y * scale)
+            elif ax >= ay and ax >= az:
+                loop[uv_layer].uv = (co.y * scale, co.z * scale)
+            else:
+                loop[uv_layer].uv = (co.x * scale, co.z * scale)
 
 
 def create_loft_mesh(
@@ -83,17 +457,22 @@ def create_loft_mesh(
     closed_loop: bool = True,
     cap_ends: bool = True,
     subsurf_levels: int = 1,
-    collection: bpy.types.Collection = None,
+    parent: bpy.types.Object = None,
+    origin_three: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    uv_fn=None,
 ) -> bpy.types.Object:
-    """Create a smooth lofted mesh in Blender from cross-section rings in Three.js coordinates."""
+    """Create a smooth lofted mesh in local coordinates relative to `origin_three`."""
     mesh = bpy.data.meshes.new(name)
     obj = bpy.data.objects.new(name, mesh)
-    (collection or bpy.context.scene.collection).objects.link(obj)
+    bpy.context.scene.collection.objects.link(obj)
+    if parent is not None:
+        obj.parent = parent
 
+    ox, oy, oz = origin_three
     bm = bmesh.new()
     bm_rings = []
     for ring in rings:
-        bm_ring = [bm.verts.new(t2b(x, y, z)) for (x, y, z) in ring]
+        bm_ring = [bm.verts.new(t2b(x - ox, y - oy, z - oz)) for (x, y, z) in ring]
         bm_rings.append(bm_ring)
 
     n_pts = len(rings[0])
@@ -118,6 +497,20 @@ def create_loft_mesh(
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     for f in bm.faces:
         f.smooth = True
+
+    if uv_fn is not None:
+        uv_layer = bm.loops.layers.uv.verify()
+        for f in bm.faces:
+            for loop in f.loops:
+                bco = loop.vert.co
+                # convert local blender back to world three
+                tx = bco.x + ox
+                ty = bco.z + oy
+                tz = -bco.y + oz
+                loop[uv_layer].uv = uv_fn(tx, ty, tz)
+    else:
+        ensure_uv_box_projection(bm, scale=4.0)
+
     bm.to_mesh(mesh)
     bm.free()
 
@@ -137,9 +530,10 @@ def create_tube_curve(
     closed: bool = False,
     resolution_u: int = 8,
     bevel_resolution: int = 3,
-    collection: bpy.types.Collection = None,
+    parent: bpy.types.Object = None,
+    origin_three: tuple[float, float, float] = (0.0, 0.0, 0.0),
 ) -> bpy.types.Object:
-    """Create a 3D tube using Blender's native Curve + Bevel object pipeline and convert to mesh."""
+    ox, oy, oz = origin_three
     curve_data = bpy.data.curves.new(name=name + "_curve", type="CURVE")
     curve_data.dimensions = "3D"
     curve_data.resolution_u = resolution_u
@@ -150,7 +544,7 @@ def create_tube_curve(
     spline = curve_data.splines.new(type="NURBS" if len(points) >= 4 else "POLY")
     spline.points.add(len(points) - 1)
     for i, (x, y, z) in enumerate(points):
-        bx, by, bz = t2b(x, y, z)
+        bx, by, bz = t2b(x - ox, y - oy, z - oz)
         spline.points[i].co = (bx, by, bz, 1.0)
     spline.use_cyclic_u = closed
     if spline.type == "NURBS":
@@ -163,16 +557,47 @@ def create_tube_curve(
     eval_obj = curve_obj.evaluated_get(depsgraph)
     mesh = bpy.data.meshes.new_from_object(eval_obj)
     mesh.name = name
-    for poly in mesh.polygons:
-        poly.use_smooth = True
-    mesh.materials.append(material)
 
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    for f in bm.faces:
+        f.smooth = True
+    ensure_uv_box_projection(bm, scale=4.0)
+    bm.to_mesh(mesh)
+    bm.free()
+
+    mesh.materials.append(material)
     bpy.data.objects.remove(curve_obj, do_unlink=True)
     bpy.data.curves.remove(curve_data, do_unlink=True)
 
     obj = bpy.data.objects.new(name, mesh)
-    (collection or bpy.context.scene.collection).objects.link(obj)
+    bpy.context.scene.collection.objects.link(obj)
+    if parent is not None:
+        obj.parent = parent
     return obj
+
+
+def create_cylinder_between(
+    name: str,
+    p0: tuple[float, float, float],
+    p1: tuple[float, float, float],
+    radius: float,
+    material: bpy.types.Material,
+    segments: int = 16,
+    parent: bpy.types.Object = None,
+    origin_three: tuple[float, float, float] = (0.0, 0.0, 0.0),
+) -> bpy.types.Object:
+    v0 = Vector(p0)
+    v1 = Vector(p1)
+    axis = v1 - v0
+    length = axis.length
+    if length < 1e-6:
+        axis = Vector((1.0, 0.0, 0.0))
+        length = 1e-3
+    tangent = tuple((axis / length))
+    r0 = oriented_ellipse_ring(p0, tangent, radius, radius, n=segments)
+    r1 = oriented_ellipse_ring(p1, tangent, radius, radius, n=segments)
+    return create_loft_mesh(name, [r0, r1], material, subsurf_levels=0, parent=parent, origin_three=origin_three)
 
 
 def superellipse_ring(
@@ -210,153 +635,614 @@ def oriented_ellipse_ring(
     n: int = 16,
 ) -> list[tuple[float, float, float]]:
     """Build a ring perpendicular to `tangent` in Three.js coordinates (+X forward, +Y up, +Z right)."""
-    tx, ty, tz = tangent
-    tlen = math.hypot(tx, ty, tz) or 1.0
-    tx, ty, tz = tx / tlen, ty / tlen, tz / tlen
-    nx, ny = -ty, tx
-    nlen = math.hypot(nx, ny) or 1.0
-    nx, ny = nx / nlen, ny / nlen
-    cx, cy, cz = center
+    t = Vector(tangent).normalized()
+    up_ref = Vector((0.0, 1.0, 0.0)) if abs(t.y) < 0.92 else Vector((1.0, 0.0, 0.0))
+    side_vec = t.cross(up_ref).normalized()
+    norm_vec = side_vec.cross(t).normalized()
+    c = Vector(center)
     pts = []
     for i in range(n):
         ang = (i / n) * math.pi * 2.0
         ca = math.cos(ang)
         sa = math.sin(ang)
-        px = cx + nx * (ca * radius_normal)
-        py = cy + ny * (ca * radius_normal)
-        pz = cz + sa * radius_side
-        pts.append((px, py, pz))
+        p = c + norm_vec * (ca * radius_normal) + side_vec * (sa * radius_side)
+        pts.append((p.x, p.y, p.z))
     return pts
 
 
+# =============================================================================
+# SCULPTED WHEEL BUILDER (STAGGERED 112mm FRONT / 156mm REAR SLICKS)
+# =============================================================================
+def build_sculpted_wheel(
+    name: str,
+    origin_three: tuple[float, float, float],
+    local_pos_three: tuple[float, float, float],
+    side: int,
+    half_width: float,
+    mats: dict[str, bpy.types.Material],
+    parent: bpy.types.Object,
+) -> bpy.types.Object:
+    wheel_root = make_empty(name, local_pos_three, parent=parent)
+    ox, oy, oz = origin_three
+
+    # 1. Sculpted slick tire with rounded shoulders + sidewall bead + dedicated tread/sidewall UVs
+    # Profile points (radius, z_local_offset)
+    hw = half_width
+    profile = [
+        (0.088, -hw * 0.92),
+        (0.106, -hw * 0.98),
+        (0.128, -hw * 0.99),
+        (0.141, -hw * 0.78),
+        (0.145, -hw * 0.48),
+        (0.145, 0.0),
+        (0.145, hw * 0.48),
+        (0.141, hw * 0.78),
+        (0.128, hw * 0.99),
+        (0.106, hw * 0.98),
+        (0.088, hw * 0.92),
+    ]
+    n_seg = 40
+    tire_mesh = bpy.data.meshes.new(name + "_Tire")
+    tire_obj = bpy.data.objects.new(name + "_Tire", tire_mesh)
+    bpy.context.scene.collection.objects.link(tire_obj)
+    tire_obj.parent = wheel_root
+
+    bm = bmesh.new()
+    rings_bm = []
+    for r_val, z_off in profile:
+        ring = []
+        for i in range(n_seg):
+            ang = (i / n_seg) * math.pi * 2.0
+            lx = math.cos(ang) * r_val
+            ly = math.sin(ang) * r_val
+            ring.append(bm.verts.new(t2b(lx, ly, z_off)))
+        rings_bm.append(ring)
+
+    uv_layer = bm.loops.layers.uv.verify()
+    for p_idx in range(len(profile) - 1):
+        r0 = rings_bm[p_idx]
+        r1 = rings_bm[p_idx + 1]
+        is_tread = 3 <= p_idx <= 6
+        for i in range(n_seg):
+            j = (i + 1) % n_seg
+            f = bm.faces.new((r0[i], r0[j], r1[j], r1[i]))
+            f.smooth = True
+            for loop in f.loops:
+                bco = loop.vert.co
+                lx = bco.x
+                ly = bco.z
+                lz = -bco.y
+                ang = math.atan2(ly, lx)
+                rad = math.hypot(lx, ly)
+                if is_tread:
+                    u = (ang / (2.0 * math.pi)) % 1.0
+                    v = 0.25 + 0.24 * (lz / hw)
+                    loop[uv_layer].uv = (u, v)
+                else:
+                    # Map sidewall radius [0.088..0.141] onto radial ring [0.13..0.235] around (0.5, 0.75)
+                    # Mirror U on right side (+Z) so sidewall text reads forward on both sides of the kart
+                    rn = 0.13 + ((rad - 0.088) / (0.145 - 0.088)) * 0.105
+                    u_side = (0.5 - math.cos(ang) * rn) if (side > 0) else (0.5 + math.cos(ang) * rn)
+                    loop[uv_layer].uv = (u_side, 0.75 + math.sin(ang) * rn)
+
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(tire_mesh)
+    bm.free()
+    tire_mesh.materials.append(mats["tire"])
+
+    # 2. Dished split-rim aluminum barrel & beadlock lip
+    rim_profile = [
+        (0.089, -hw * 0.90),
+        (0.094, -hw * 0.96),
+        (0.088, -hw * 0.88),
+        (0.072, -hw * 0.55),
+        (0.072, hw * 0.55),
+        (0.088, hw * 0.88),
+        (0.094, hw * 0.96),
+        (0.089, hw * 0.90),
+    ]
+    rim_rings = []
+    for r_val, z_off in rim_profile:
+        rim_rings.append([(ox + math.cos(a) * r_val, oy + math.sin(a) * r_val, oz + z_off)
+                          for a in ((k / 28) * math.pi * 2.0 for k in range(28))])
+    create_loft_mesh(
+        name + "_Rim",
+        rim_rings,
+        mats["alloy"],
+        closed_loop=True,
+        cap_ends=False,
+        subsurf_levels=0,
+        parent=wheel_root,
+        origin_three=origin_three,
+    )
+
+    # 3. Sculpted dished inner hub barrel + 3 spokes + lug bolts + center locknut + valve stem
+    create_cylinder_between(
+        name + "_HubCore",
+        (ox, oy, oz - hw * 0.84),
+        (ox, oy, oz + hw * 0.84),
+        0.032,
+        mats["alloy"],
+        segments=16,
+        parent=wheel_root,
+        origin_three=origin_three,
+    )
+    # Center spindle locknut + red anodized dust cap on outboard face
+    nut_z0 = oz + side * (hw * 0.82)
+    nut_z1 = oz + side * (hw * 0.98)
+    create_cylinder_between(
+        name + "_CenterLocknut",
+        (ox, oy, nut_z0),
+        (ox, oy, nut_z1),
+        0.015,
+        mats["steel"],
+        segments=6,
+        parent=wheel_root,
+        origin_three=origin_three,
+    )
+    create_cylinder_between(
+        name + "_HubCap",
+        (ox, oy, nut_z1),
+        (ox, oy, oz + side * (hw * 1.01)),
+        0.010,
+        mats["red"],
+        segments=12,
+        parent=wheel_root,
+        origin_three=origin_three,
+    )
+
+    # 3 sculpted spokes + 3 perimeter lug bolts
+    spoke_z = oz + side * (hw * 0.72)
+    for k in range(3):
+        ang = (k / 3.0) * math.pi * 2.0
+        ca, sa = math.cos(ang), math.sin(ang)
+        create_cylinder_between(
+            f"{name}_Spoke_{k}",
+            (ox + ca * 0.024, oy + sa * 0.024, spoke_z),
+            (ox + ca * 0.080, oy + sa * 0.080, oz + side * (hw * 0.84)),
+            0.0085,
+            mats["alloy"],
+            segments=10,
+            parent=wheel_root,
+            origin_three=origin_three,
+        )
+        create_cylinder_between(
+            f"{name}_LugBolt_{k}",
+            (ox + ca * 0.024, oy + sa * 0.024, oz + side * (hw * 0.80)),
+            (ox + ca * 0.024, oy + sa * 0.024, oz + side * (hw * 0.93)),
+            0.0045,
+            mats["steel"],
+            segments=6,
+            parent=wheel_root,
+            origin_three=origin_three,
+        )
+
+    # Angled brass/steel valve stem on outboard rim dish
+    create_cylinder_between(
+        name + "_ValveStem",
+        (ox, oy - 0.076, oz + side * (hw * 0.74)),
+        (ox, oy - 0.062, oz + side * (hw * 0.90)),
+        0.0026,
+        mats["steel"],
+        segments=8,
+        parent=wheel_root,
+        origin_three=origin_three,
+    )
+    return wheel_root
+
+
+# =============================================================================
+# TANGENTIAL TOOTHED DRIVE BELT WITH LONGITUDINAL UVS
+# =============================================================================
+def build_toothed_drive_belt(
+    name: str,
+    c1: tuple[float, float],
+    r1: float,
+    c2: tuple[float, float],
+    r2: float,
+    z_center: float,
+    width_z: float,
+    thickness: float,
+    material: bpy.types.Material,
+    parent: bpy.types.Object,
+    origin_three: tuple[float, float, float],
+) -> bpy.types.Object:
+    """Builds a closed tangential drive belt loop in XY plane at `z_center` with longitudinal UVs."""
+    x1, y1 = c1
+    x2, y2 = c2
+    dx, dy = x2 - x1, y2 - y1
+    dist = math.hypot(dx, dy)
+    base_ang = math.atan2(dy, dx)
+    # External common tangent angle offset
+    cos_alpha = max(-0.99, min(0.99, (r1 - r2) / dist))
+    alpha = math.acos(cos_alpha)
+
+    # Sample centerline points around c1 (from base_ang + alpha to base_ang + 2*pi - alpha)
+    # then around c2 (from base_ang - alpha to base_ang + alpha)
+    pts_2d: list[tuple[float, float]] = []
+    n_arc1 = 22
+    a1_start = base_ang + alpha
+    a1_end = base_ang + 2.0 * math.pi - alpha
+    for i in range(n_arc1 + 1):
+        t = i / n_arc1
+        a = a1_start + t * (a1_end - a1_start)
+        pts_2d.append((x1 + math.cos(a) * r1, y1 + math.sin(a) * r1))
+
+    n_arc2 = 14
+    a2_start = base_ang - alpha
+    a2_end = base_ang + alpha
+    for i in range(n_arc2 + 1):
+        t = i / n_arc2
+        a = a2_start + t * (a2_end - a2_start)
+        pts_2d.append((x2 + math.cos(a) * r2, y2 + math.sin(a) * r2))
+
+    # Cumulative arc lengths for longitudinal UV u
+    n_pts = len(pts_2d)
+    cum_s = [0.0]
+    for i in range(1, n_pts + 1):
+        px0, py0 = pts_2d[i - 1]
+        px1, py1 = pts_2d[i % n_pts]
+        cum_s.append(cum_s[-1] + math.hypot(px1 - px0, py1 - py0))
+    total_len = cum_s[-1] or 1.0
+
+    ox, oy, oz = origin_three
+    mesh = bpy.data.meshes.new(name)
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.scene.collection.objects.link(obj)
+    obj.parent = parent
+
+    bm = bmesh.new()
+    rings = []
+    hw = width_z * 0.5
+    ht = thickness * 0.5
+    for i in range(n_pts):
+        px, py = pts_2d[i]
+        px_prev, py_prev = pts_2d[(i - 1) % n_pts]
+        px_next, py_next = pts_2d[(i + 1) % n_pts]
+        tx, ty = px_next - px_prev, py_next - py_prev
+        tl = math.hypot(tx, ty) or 1.0
+        # Outward normal in XY (belt runs CCW around c1->c2)
+        nx, ny = ty / tl, -tx / tl
+        # Check outward direction relative to loop centroid
+        cx_mid = 0.5 * (x1 + x2)
+        cy_mid = 0.5 * (y1 + y2)
+        if (px - cx_mid) * nx + (py - cy_mid) * ny < 0:
+            nx, ny = -nx, -ny
+        tooth_mod = 0.0018 * (1.0 if i % 2 == 0 else -0.4)
+        r_out = ht + 0.002
+        r_in = -(ht + tooth_mod)
+        corners = [
+            (px + nx * r_in, py + ny * r_in, z_center - hw),
+            (px + nx * r_out, py + ny * r_out, z_center - hw),
+            (px + nx * r_out, py + ny * r_out, z_center + hw),
+            (px + nx * r_in, py + ny * r_in, z_center + hw),
+        ]
+        rings.append([bm.verts.new(t2b(cx - ox, cy - oy, cz - oz)) for (cx, cy, cz) in corners])
+
+    uv_layer = bm.loops.layers.uv.verify()
+    for i in range(n_pts):
+        j = (i + 1) % n_pts
+        u0 = (cum_s[i] / total_len) * 8.0
+        u1 = (cum_s[i + 1] / total_len) * 8.0
+        r0 = rings[i]
+        r1 = rings[j]
+        for k in range(4):
+            kn = (k + 1) % 4
+            f = bm.faces.new((r0[k], r0[kn], r1[kn], r1[k]))
+            f.smooth = False
+            v0 = k / 4.0
+            v1 = (k + 1) / 4.0
+            f.loops[0][uv_layer].uv = (u0, v0)
+            f.loops[1][uv_layer].uv = (u0, v1)
+            f.loops[2][uv_layer].uv = (u1, v1)
+            f.loops[3][uv_layer].uv = (u1, v0)
+
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(mesh)
+    bm.free()
+    mesh.materials.append(material)
+    return obj
+
+
+# =============================================================================
+# MAIN MODEL BUILDER
+# =============================================================================
 def build_otl_superleggero():
     clear_scene()
     scene = bpy.context.scene
+    textures = generate_pbr_textures()
 
-    # Collections for organized .blend and .glb hierarchy
-    col_stationary = bpy.data.collections.new("Kart_Stationary")
-    col_wheel = bpy.data.collections.new("Kart_Wheel")
-    col_steer = bpy.data.collections.new("Kart_SteeringWheel")
-    col_driver_body = bpy.data.collections.new("Driver_Fixed")
-    col_driver_head = bpy.data.collections.new("Driver_Head")
-    col_glove_l = bpy.data.collections.new("Driver_Glove_L")
-    col_glove_r = bpy.data.collections.new("Driver_Glove_R")
-    for c in (col_stationary, col_wheel, col_steer, col_driver_body, col_driver_head, col_glove_l, col_glove_r):
-        scene.collection.children.link(c)
-
-    # Materials matching K1 Speed OTL Superleggero livery & race gear
     mats = {
-        "red": make_material("K1_Crimson_Red", (0.72, 0.055, 0.09), roughness=0.28, metalness=0.06),
-        "black": make_material("OTL_Satin_Black", (0.08, 0.095, 0.11), roughness=0.48, metalness=0.04),
-        "white": make_material("K1_Livery_White", (0.93, 0.94, 0.95), roughness=0.32, metalness=0.02),
-        "rubber": make_material("Protex_HDPE_Rubber", (0.09, 0.095, 0.10), roughness=0.84, metalness=0.0),
-        "steel": make_material("Chromoly_Steel", (0.34, 0.37, 0.40), roughness=0.28, metalness=0.88),
-        "alloy": make_material("Machined_Alloy", (0.66, 0.70, 0.74), roughness=0.22, metalness=0.90),
-        "carbon": make_material("Molded_Carbon", (0.13, 0.15, 0.17), roughness=0.58, metalness=0.08),
-        "accent": make_material("Telemetry_Yellow", (0.835, 0.898, 0.165), roughness=0.38, metalness=0.0),
-        "orange": make_material("HV_Cable_Orange", (0.91, 0.41, 0.09), roughness=0.46, metalness=0.0),
-        "harness": make_material("Racing_Harness_Red", (0.80, 0.08, 0.11), roughness=0.68, metalness=0.0),
-        "suit": make_material("Driver_Suit_Navy", (0.14, 0.20, 0.26), roughness=0.88, metalness=0.0),
-        "panel": make_material("Driver_Suit_Slate", (0.34, 0.39, 0.43), roughness=0.84, metalness=0.0),
-        "trim": make_material("Driver_Suit_Accent", (0.82, 0.14, 0.16), roughness=0.62, metalness=0.0),
-        "glovePad": make_material("Driver_Glove_Grip", (0.21, 0.25, 0.28), roughness=0.78, metalness=0.0),
-        "helmet": make_material("Helmet_Pearl_White", (0.90, 0.92, 0.91), roughness=0.22, metalness=0.06),
-        "visor": make_material("Helmet_Iridium_Visor", (0.10, 0.16, 0.22), roughness=0.12, metalness=0.65),
+        "livery": make_pbr_material(
+            "ApexBite_Livery",
+            roughness=0.22,
+            metalness=0.04,
+            albedo_img=textures["kart_livery_albedo"],
+            coat_weight=0.85,
+            coat_roughness=0.06,
+        ),
+        "red": make_pbr_material(
+            "K1_Crimson_Red",
+            rgb=(0.72, 0.055, 0.09),
+            roughness=0.24,
+            metalness=0.05,
+            coat_weight=0.85,
+            coat_roughness=0.06,
+        ),
+        "black": make_pbr_material(
+            "OTL_Satin_Black",
+            rgb=(0.08, 0.095, 0.11),
+            roughness=0.46,
+            metalness=0.05,
+        ),
+        "white": make_pbr_material(
+            "K1_Livery_White",
+            rgb=(0.93, 0.94, 0.95),
+            roughness=0.26,
+            metalness=0.02,
+            coat_weight=0.75,
+            coat_roughness=0.08,
+        ),
+        "rubber": make_pbr_material(
+            "Protex_HDPE_Rubber",
+            rgb=(0.085, 0.090, 0.095),
+            roughness=0.82,
+            metalness=0.0,
+        ),
+        "tire": make_pbr_material(
+            "Tire_Indoor_Slick",
+            roughness=0.82,
+            metalness=0.0,
+            albedo_img=textures["tire_albedo"],
+            normal_img=textures["tire_normal"],
+            roughness_img=textures["tire_roughness"],
+        ),
+        "steel": make_pbr_material(
+            "Chromoly_Steel",
+            rgb=(0.38, 0.41, 0.45),
+            roughness=0.26,
+            metalness=0.88,
+            roughness_img=textures["metal_alloy_roughness"],
+        ),
+        "alloy": make_pbr_material(
+            "Machined_Alloy",
+            rgb=(0.70, 0.74, 0.78),
+            roughness=0.22,
+            metalness=0.92,
+            roughness_img=textures["metal_alloy_roughness"],
+        ),
+        "carbon": make_pbr_material(
+            "Molded_Carbon",
+            roughness=0.48,
+            metalness=0.06,
+            albedo_img=textures["kart_carbon_albedo"],
+            normal_img=textures["kart_carbon_normal"],
+            roughness_img=textures["kart_carbon_roughness"],
+            coat_weight=0.45,
+            coat_roughness=0.14,
+        ),
+        "accent": make_pbr_material(
+            "Telemetry_Yellow",
+            rgb=(0.68, 0.78, 0.02),
+            roughness=0.35,
+            metalness=0.0,
+        ),
+        "blueBtn": make_pbr_material(
+            "Dash_Blue_Button",
+            rgb=(0.15, 0.48, 0.85),
+            roughness=0.42,
+            metalness=0.0,
+        ),
+        "orange": make_pbr_material(
+            "HV_Cable_Orange",
+            rgb=(0.91, 0.41, 0.09),
+            roughness=0.44,
+            metalness=0.0,
+        ),
+        "reservoir": make_pbr_material(
+            "Brake_Fluid_Reservoir",
+            rgb=(0.88, 0.84, 0.62),
+            roughness=0.18,
+            metalness=0.0,
+            alpha=0.58,
+        ),
+        "brakeLed": make_pbr_material(
+            "Kart_Brake_LED_Lens",
+            rgb=(0.68, 0.04, 0.04),
+            roughness=0.18,
+            metalness=0.0,
+            emissive_rgb=(0.95, 0.08, 0.04),
+            emissive_strength=1.2,
+        ),
+        "dashScreen": make_pbr_material(
+            "Kart_Dash_Display",
+            rgb=(0.06, 0.12, 0.13),
+            roughness=0.15,
+            metalness=0.0,
+        ),
+        "harness": make_pbr_material("Racing_Harness_Red", rgb=(0.80, 0.08, 0.11), roughness=0.68),
+        "suit": make_pbr_material("Driver_Suit_Navy", rgb=(0.14, 0.20, 0.26), roughness=0.86),
+        "panel": make_pbr_material("Driver_Suit_Slate", rgb=(0.34, 0.39, 0.43), roughness=0.82),
+        "glovePad": make_pbr_material("Driver_Glove_Grip", rgb=(0.21, 0.25, 0.28), roughness=0.76),
+        "helmet": make_pbr_material(
+            "Helmet_Pearl_White",
+            rgb=(0.90, 0.92, 0.91),
+            roughness=0.18,
+            metalness=0.06,
+            coat_weight=0.9,
+            coat_roughness=0.05,
+        ),
+        "visor": make_pbr_material(
+            "Helmet_Iridium_Visor",
+            rgb=(0.10, 0.16, 0.22),
+            roughness=0.10,
+            metalness=0.68,
+            coat_weight=0.95,
+            coat_roughness=0.04,
+        ),
     }
 
+    # Root hierarchy nodes matching ADR-0006 & Ticket #52
+    kart_root = make_empty("Kart_Root")
+    chassis_static = make_empty("Kart_Chassis_Static", parent=kart_root)
+    brake_led_node = make_empty("Kart_Brake_LED", (-0.498, 0.710, 0.0), parent=kart_root)
+    steering_col_asm = make_empty("Kart_Steering_Column_Assembly", parent=kart_root)
+    steering_upper = make_empty("Kart_Steering_Upper", STEER_MOUNT_POS, parent=steering_col_asm)
+    steering_lower = make_empty("Kart_Steering_Lower", PITMAN_PIVOT, parent=steering_col_asm)
+
+    knuckle_l = make_empty("Kart_Knuckle_L", (FRONT_AXLE_X, TIRE_RADIUS, -KINGPIN_HALF_Z), parent=kart_root)
+    knuckle_r = make_empty("Kart_Knuckle_R", (FRONT_AXLE_X, TIRE_RADIUS, KINGPIN_HALF_Z), parent=kart_root)
+    tie_rod_l = make_empty("Kart_TieRod_L", parent=kart_root)
+    tie_rod_r = make_empty("Kart_TieRod_R", parent=kart_root)
+
+    rear_axle_spin = make_empty("Kart_Rear_Axle_Spin", (REAR_AXLE_X, TIRE_RADIUS, 0.0), parent=kart_root)
+    motor_pinion_spin = make_empty("Kart_Motor_Pinion_Spin", MOTOR_PINION_POS, parent=kart_root)
+    wheel_rl = build_sculpted_wheel(
+        "Kart_Wheel_RL",
+        (REAR_AXLE_X, TIRE_RADIUS, -REAR_TRACK_HALF_Z),
+        (REAR_AXLE_X, TIRE_RADIUS, -REAR_TRACK_HALF_Z),
+        -1,
+        REAR_TIRE_HALF_WIDTH,
+        mats,
+        kart_root,
+    )
+    wheel_rr = build_sculpted_wheel(
+        "Kart_Wheel_RR",
+        (REAR_AXLE_X, TIRE_RADIUS, REAR_TRACK_HALF_Z),
+        (REAR_AXLE_X, TIRE_RADIUS, REAR_TRACK_HALF_Z),
+        1,
+        REAR_TIRE_HALF_WIDTH,
+        mats,
+        kart_root,
+    )
+    wheel_fl = build_sculpted_wheel(
+        "Kart_Wheel_FL",
+        (FRONT_AXLE_X, TIRE_RADIUS, -FRONT_TRACK_HALF_Z),
+        (0.0, 0.0, -SPINDLE_LENGTH),
+        -1,
+        FRONT_TIRE_HALF_WIDTH,
+        mats,
+        knuckle_l,
+    )
+    wheel_fr = build_sculpted_wheel(
+        "Kart_Wheel_FR",
+        (FRONT_AXLE_X, TIRE_RADIUS, FRONT_TRACK_HALF_Z),
+        (0.0, 0.0, SPINDLE_LENGTH),
+        1,
+        FRONT_TIRE_HALF_WIDTH,
+        mats,
+        knuckle_r,
+    )
+
+    pedal_brake = make_empty(
+        "Kart_Pedal_Brake",
+        (PEDAL_PIVOT_POS[0], PEDAL_PIVOT_POS[1], -PEDAL_PIVOT_POS[2]),
+        parent=kart_root,
+    )
+    pedal_throttle = make_empty(
+        "Kart_Pedal_Throttle",
+        (PEDAL_PIVOT_POS[0], PEDAL_PIVOT_POS[1], PEDAL_PIVOT_POS[2]),
+        parent=kart_root,
+    )
+    brake_pushrod = make_empty("Kart_Brake_Pushrod", (0.405, 0.128, -0.122), parent=kart_root)
+    throttle_link = make_empty("Kart_Throttle_Link", (0.422, 0.128, 0.122), parent=kart_root)
+
+    driver_fixed = make_empty("Driver_Fixed", parent=kart_root)
+    driver_head = make_empty("Driver_Head", parent=kart_root)
+    driver_glove_l = make_empty("Driver_Glove_L", parent=steering_upper)
+    driver_glove_r = make_empty("Driver_Glove_R", parent=steering_upper)
+
     # =========================================================================
-    # 1. OTL SUPERLEGGERO PROTEX BUMPER SYSTEM (ZERO OVERLAPS, SOLID CONNECTIONS)
-    # Front wheels sweep x in [0.376, 0.704], |z| in [0.1525, 0.4175] at ±0.46 rad.
-    # Rear wheels occupy x in [-0.665, -0.375], |z| in [0.259, 0.411].
-    # Every bumper tube is non-overlapping and connects solidly into the chassis rails.
+    # 1. CONTINUOUS WRAPAROUND MOLDED PROTEX HDPE BUMPER + CORNER SHOCK MOUNTS
+    # Strictly inside |z| <= 0.446, x in [-0.795, 0.875] with >15 mm tire gap
     # =========================================================================
     front_bumper_pts = [
         (0.700, 0.110, -0.092),
-        (0.768, 0.118, -0.118),
-        (0.805, 0.122, -0.238),
-        (0.840, 0.124, -0.180),
+        (0.768, 0.118, -0.120),
+        (0.808, 0.122, -0.242),
+        (0.842, 0.124, -0.180),
         (0.858, 0.125, 0.0),
-        (0.840, 0.124, 0.180),
-        (0.805, 0.122, 0.238),
-        (0.768, 0.118, 0.118),
+        (0.842, 0.124, 0.180),
+        (0.808, 0.122, 0.242),
+        (0.768, 0.118, 0.120),
         (0.700, 0.110, 0.092),
     ]
-    create_tube_curve("OTL_Front_Bumper_Main", front_bumper_pts, 0.018, mats["rubber"], closed=False, collection=col_stationary)
-    front_bumper_strip = [
-        (0.818, 0.122, -0.236),
-        (0.854, 0.124, -0.180),
-        (0.873, 0.125, 0.0),
-        (0.854, 0.124, 0.180),
-        (0.818, 0.122, 0.236),
-    ]
-    create_tube_curve("OTL_Front_Bumper_Red_Strip", front_bumper_strip, 0.0055, mats["red"], closed=False, collection=col_stationary)
+    create_tube_curve("OTL_Front_Bumper_Main", front_bumper_pts, 0.017, mats["rubber"], parent=chassis_static)
+    create_tube_curve(
+        "OTL_Front_Bumper_Red_Strip",
+        [(0.822, 0.122, -0.236), (0.854, 0.124, -0.180), (0.871, 0.125, 0.0), (0.854, 0.124, 0.180), (0.822, 0.122, 0.236)],
+        0.0045,
+        mats["red"],
+        parent=chassis_static,
+    )
 
-    # Rear wraparound Protex bumper behind rear tires (x <= -0.708 where tires end at -0.665),
-    # solidly joining the rear ends of Chassis_Main_Rail at (-0.680, 0.105, ±0.155)
     rear_bumper_pts = [
         (-0.660, 0.105, -0.155),
-        (-0.715, 0.115, -0.215),
-        (-0.740, 0.120, -0.342),
+        (-0.718, 0.115, -0.215),
+        (-0.742, 0.120, -0.348),
         (-0.770, 0.122, -0.235),
         (-0.778, 0.122, 0.0),
         (-0.770, 0.122, 0.235),
-        (-0.740, 0.120, 0.342),
-        (-0.715, 0.115, 0.215),
+        (-0.742, 0.120, 0.348),
+        (-0.718, 0.115, 0.215),
         (-0.660, 0.105, 0.155),
     ]
-    create_tube_curve("OTL_Rear_Bumper_Main", rear_bumper_pts, 0.018, mats["rubber"], closed=False, collection=col_stationary)
-    rear_bumper_strip = [
-        (-0.785, 0.122, -0.220),
-        (-0.793, 0.122, 0.0),
-        (-0.785, 0.122, 0.220),
-    ]
-    create_tube_curve("OTL_Rear_Bumper_Red_Strip", rear_bumper_strip, 0.0055, mats["red"], closed=False, collection=col_stationary)
-
-    # Upper rear protection bar spaced 4.6 cm above OTL_Rear_Bumper_Main and anchored into the rear shroud
+    create_tube_curve("OTL_Rear_Bumper_Main", rear_bumper_pts, 0.017, mats["rubber"], parent=chassis_static)
+    create_tube_curve(
+        "OTL_Rear_Bumper_Red_Strip",
+        [(-0.785, 0.122, -0.220), (-0.791, 0.122, 0.0), (-0.785, 0.122, 0.220)],
+        0.0045,
+        mats["red"],
+        parent=chassis_static,
+    )
     rear_bumper_upper = [
         (-0.640, 0.165, -0.125),
         (-0.715, 0.166, -0.210),
-        (-0.738, 0.168, -0.330),
+        (-0.740, 0.168, -0.335),
         (-0.768, 0.168, -0.230),
         (-0.776, 0.168, 0.0),
         (-0.768, 0.168, 0.230),
-        (-0.738, 0.168, 0.330),
+        (-0.740, 0.168, 0.335),
         (-0.715, 0.166, 0.210),
         (-0.640, 0.165, 0.125),
     ]
-    create_tube_curve("OTL_Rear_Bumper_Upper", rear_bumper_upper, 0.013, mats["rubber"], closed=False, collection=col_stationary)
+    create_tube_curve("OTL_Rear_Bumper_Upper", rear_bumper_upper, 0.0125, mats["rubber"], parent=chassis_static)
     for side in (-1, 1):
-        create_tube_curve(
+        create_cylinder_between(
             f"OTL_Rear_Bumper_Post_{side}",
-            [(-0.768, 0.120, side * 0.225), (-0.768, 0.168, side * 0.225)],
-            0.012,
+            (-0.768, 0.120, side * 0.225),
+            (-0.768, 0.168, side * 0.225),
+            0.011,
             mats["rubber"],
-            closed=False,
-            collection=col_stationary,
+            parent=chassis_static,
         )
-
-    # Side Protex protection bars strictly between rear (x = -0.375) and front (x = +0.376) tires,
-    # curving inward at y = 0.105 m (below the sidepod bottom y = 0.138 m) to join Chassis_Main_Rail
-    for side in (-1, 1):
+        # Side Protex wraparound rail + corner elastomer shock-mount blocks
         side_bumper_main = [
-            (-0.328, 0.105, side * 0.185),
-            (-0.315, 0.115, side * 0.385),
-            (-0.100, 0.118, side * 0.398),
-            (0.140, 0.118, side * 0.395),
-            (0.285, 0.115, side * 0.355),
-            (0.300, 0.105, side * 0.160),
+            (-0.335, 0.105, side * 0.185),
+            (-0.320, 0.115, side * 0.392),
+            (-0.100, 0.118, side * 0.415),
+            (0.140, 0.118, side * 0.412),
+            (0.285, 0.115, side * 0.362),
+            (0.305, 0.105, side * 0.160),
         ]
-        create_tube_curve(f"OTL_Side_Bumper_Main_{side}", side_bumper_main, 0.017, mats["rubber"], closed=False, collection=col_stationary)
-        side_rub_strip = [
-            (-0.260, 0.118, side * 0.402),
-            (-0.100, 0.118, side * 0.413),
-            (0.140, 0.118, side * 0.410),
-            (0.220, 0.117, side * 0.392),
-        ]
-        create_tube_curve(f"OTL_Side_Rub_Strip_{side}", side_rub_strip, 0.0055, mats["red"], closed=False, collection=col_stationary)
+        create_tube_curve(f"OTL_Side_Bumper_Main_{side}", side_bumper_main, 0.016, mats["rubber"], parent=chassis_static)
+        create_tube_curve(
+            f"OTL_Side_Rub_Strip_{side}",
+            [(-0.260, 0.118, side * 0.422), (-0.100, 0.118, side * 0.432), (0.140, 0.118, side * 0.428), (0.220, 0.117, side * 0.402)],
+            0.005,
+            mats["red"],
+            parent=chassis_static,
+        )
+        # Corner elastomer shock mount blocks (front & rear bumper corners)
+        for bx, by, bz in ((0.798, 0.121, side * 0.222), (-0.736, 0.120, side * 0.322)):
+            block = [
+                superellipse_ring(bx - 0.018, by - 0.022, by + 0.022, bz, 0.020, power_y=0.3, power_z=0.3),
+                superellipse_ring(bx + 0.018, by - 0.022, by + 0.022, bz, 0.020, power_y=0.3, power_z=0.3),
+            ]
+            create_loft_mesh(f"OTL_Elastomer_Mount_{bx:.2f}_{side}", block, mats["black"], subsurf_levels=0, parent=chassis_static)
 
     # =========================================================================
-    # 2. FLOOR PAN, CHASSIS RAILS, STRUCTURAL BRACING, KINGPIN AXLE & FOOTWELL
+    # 2. FLOOR PAN, CHROMOLY SPACEFRAME & TILTED KINGPIN C-YOKES (CASTER 10°, KPI 7°)
     # =========================================================================
     floor_sections = [
         superellipse_ring(-0.62, 0.064, 0.080, 0.0, 0.148, power_y=0.35, power_z=0.35),
@@ -366,11 +1252,9 @@ def build_otl_superleggero():
         superellipse_ring(0.42, 0.066, 0.082, 0.0, 0.102, power_y=0.35, power_z=0.35),
         superellipse_ring(0.70, 0.070, 0.086, 0.0, 0.092, power_y=0.35, power_z=0.35),
     ]
-    create_loft_mesh("OTL_Floor_Pan", floor_sections, mats["carbon"], subsurf_levels=1, collection=col_stationary)
+    create_loft_mesh("OTL_Floor_Pan", floor_sections, mats["carbon"], subsurf_levels=1, parent=chassis_static)
 
     for side in (-1, 1):
-        # Continuous chromoly main rail from rear bumper (-0.680) to front bumper (+0.700),
-        # staying at y = 0.105 m (top at 0.118 m, strictly below seat y >= 0.122 m and rear shroud y >= 0.142 m)
         chassis_rail = [
             (-0.680, 0.105, side * 0.155),
             (-0.328, 0.105, side * 0.185),
@@ -378,221 +1262,333 @@ def build_otl_superleggero():
             (0.420, 0.106, side * 0.102),
             (0.700, 0.110, side * 0.095),
         ]
-        create_tube_curve(f"Chassis_Main_Rail_{side}", chassis_rail, 0.013, mats["red"], collection=col_stationary)
+        create_tube_curve(f"Chassis_Main_Rail_{side}", chassis_rail, 0.013, mats["red"], parent=chassis_static)
 
-        # Triangulated front chassis A-frame outriggers flaring from the narrow front waist
-        # out to the stationary Kingpin C-Yoke at (0.540, 0.145, side * 0.185) — NO rigid shaft
-        # between the two front wheels!
+        # Tilted Kingpin axis C-yoke & bolt (caster = 10°, KPI = 7°)
+        ka = Vector(kingpin_axis(side))
+        kp_center = Vector((FRONT_AXLE_X, TIRE_RADIUS, side * KINGPIN_HALF_Z))
+        kp_top = kp_center + ka * 0.036
+        kp_bot = kp_center - ka * 0.036
+        inward_dir = Vector((0.0, 0.0, -side))
+        c_yoke_pts = [
+            tuple(kp_top + ka * 0.002),
+            tuple(kp_top + inward_dir * 0.020),
+            tuple(kp_center + inward_dir * 0.024),
+            tuple(kp_bot + inward_dir * 0.020),
+            tuple(kp_bot - ka * 0.002),
+        ]
+        create_tube_curve(f"OTL_Kingpin_C_Yoke_{side}", c_yoke_pts, 0.006, mats["black"], parent=chassis_static)
+        create_cylinder_between(
+            f"OTL_Kingpin_Bolt_{side}",
+            tuple(kp_bot - ka * 0.004),
+            tuple(kp_top + ka * 0.004),
+            0.005,
+            mats["alloy"],
+            segments=12,
+            parent=chassis_static,
+        )
+        # Front A-frame outriggers meeting the C-yoke spine cleanly
+        yoke_spine = kp_center + inward_dir * 0.022
         create_tube_curve(
             f"OTL_Front_Chassis_Outrigger_{side}",
-            [(0.455, 0.106, side * 0.100), (0.515, 0.130, side * 0.138), (0.540, 0.145, side * 0.175)],
-            0.011,
+            [(0.455, 0.106, side * 0.100), (0.505, 0.128, side * 0.136), tuple(yoke_spine)],
+            0.0105,
             mats["red"],
-            collection=col_stationary,
+            parent=chassis_static,
         )
         create_tube_curve(
             f"OTL_Front_Chassis_Forward_Leg_{side}",
-            [(0.635, 0.109, side * 0.095), (0.565, 0.130, side * 0.138), (0.540, 0.145, side * 0.175)],
-            0.010,
+            [(0.635, 0.109, side * 0.095), (0.575, 0.128, side * 0.136), tuple(yoke_spine)],
+            0.0095,
             mats["red"],
-            collection=col_stationary,
+            parent=chassis_static,
         )
 
-        # Stationary C-shaped kingpin yoke welded to the chassis outrigger apex at (0.540, 0.145, side * 0.185)
-        c_yoke_pts = [
-            (0.540, 0.172, side * 0.187),
-            (0.540, 0.172, side * 0.170),
-            (0.540, 0.145, side * 0.165),
-            (0.540, 0.118, side * 0.170),
-            (0.540, 0.118, side * 0.187),
-        ]
-        create_tube_curve(f"OTL_Kingpin_C_Yoke_{side}", c_yoke_pts, 0.007, mats["black"], collection=col_stationary)
-
-        # Vertical steel kingpin bolt + anodized eccentric caster/camber pill at (0.540, 0.112..0.182, side * 0.185)
-        create_tube_curve(
-            f"OTL_Kingpin_Bolt_{side}",
-            [(0.540, 0.112, side * 0.185), (0.540, 0.182, side * 0.185)],
-            0.006,
-            mats["alloy"],
-            collection=col_stationary,
-        )
-
-        # Central steering column support hoop rising between the driver's shins (|z| = 0.038 m,
-        # leaving > 2.5 cm clearance to the legs at |z| >= 0.065 m) into the Nassau tower
+        # Steering support uprights inside Nassau tower
         create_tube_curve(
             f"OTL_Steering_Support_Upright_{side}",
             [(0.320, 0.082, side * 0.038), (0.312, 0.210, side * 0.038), (0.302, 0.330, side * 0.034)],
-            0.0085,
+            0.008,
             mats["steel"],
-            collection=col_stationary,
+            parent=chassis_static,
         )
-
-        # Lateral sidepod nerf bars supporting the sculpted sidepods from the main chassis rails
         for x_nerf in (-0.180, 0.150):
             create_tube_curve(
                 f"OTL_Sidepod_Nerf_Bar_{side}_{x_nerf:.2f}",
                 [(x_nerf, 0.105, side * 0.175), (x_nerf, 0.155, side * 0.215), (x_nerf, 0.168, side * 0.255)],
-                0.009,
+                0.0085,
                 mats["steel"],
-                collection=col_stationary,
+                parent=chassis_static,
             )
-
-        # Tubular steel seat support struts bracing the lower bucket seat bolster below the sidepod deck
         create_tube_curve(
             f"OTL_Seat_Support_Strut_{side}",
             [(-0.285, 0.105, side * 0.180), (-0.335, 0.175, side * 0.156), (-0.355, 0.235, side * 0.142)],
             0.0085,
             mats["steel"],
-            collection=col_stationary,
+            parent=chassis_static,
         )
-
-        # Diagonal rear bumper energy-absorber stays connecting chassis frame to upper rear bumper
         create_tube_curve(
             f"OTL_Rear_Bumper_Stay_{side}",
             [(-0.600, 0.105, side * 0.152), (-0.755, 0.165, side * 0.215)],
-            0.009,
+            0.0085,
             mats["red"],
-            collection=col_stationary,
+            parent=chassis_static,
         )
-
-    # Hydraulic brake master cylinder + fluid reservoir on left floor pan (z = -0.114 m)
-    master_cyl = [
-        superellipse_ring(0.352, 0.084, 0.114, -0.114, 0.015, power_y=0.45, power_z=0.45),
-        superellipse_ring(0.416, 0.084, 0.114, -0.114, 0.015, power_y=0.45, power_z=0.45),
-    ]
-    create_loft_mesh("OTL_Brake_Master_Cylinder", master_cyl, mats["alloy"], subsurf_levels=0, collection=col_stationary)
-    reservoir = [
-        oriented_ellipse_ring((0.375, 0.114, -0.114), (0.0, 1.0, 0.0), 0.011, 0.011, n=12),
-        oriented_ellipse_ring((0.375, 0.140, -0.114), (0.0, 1.0, 0.0), 0.011, 0.011, n=12),
-    ]
-    create_loft_mesh("OTL_Brake_Fluid_Reservoir", reservoir, mats["white"], subsurf_levels=0, collection=col_stationary)
-
-    # Braided hydraulic brake line routed along left chassis rail from master cylinder to rear brake caliper
-    brake_line_pts = [
-        (0.352, 0.096, -0.118),
-        (0.240, 0.098, -0.148),
-        (-0.180, 0.098, -0.172),
-        (-0.460, 0.118, -0.162),
-        (-0.545, 0.182, -0.208),
-    ]
-    create_tube_curve("OTL_Hydraulic_Brake_Line", brake_line_pts, 0.0038, mats["black"], collection=col_stationary)
-
-    # Electronic drive-by-wire throttle position sensor (TPS) box on right floor pan (z = +0.114 m)
-    tps_box = [
-        superellipse_ring(0.362, 0.084, 0.112, 0.114, 0.015, power_y=0.35, power_z=0.35),
-        superellipse_ring(0.416, 0.084, 0.112, 0.114, 0.015, power_y=0.35, power_z=0.35),
-    ]
-    create_loft_mesh("OTL_Throttle_Sensor_Box", tps_box, mats["black"], subsurf_levels=0, collection=col_stationary)
-
-    # Footwell pedal pivot crossbar across front frame at x = 0.428 m, y = 0.095 m
-    create_tube_curve(
-        "OTL_Pedal_Pivot_Crossbar",
-        [(0.428, 0.095, -0.102), (0.428, 0.095, 0.102)],
-        0.0075,
-        mats["steel"],
-        collection=col_stationary,
-    )
 
     for x_cross, z_span in ((-0.60, 0.155), (-0.18, 0.180), (0.24, 0.160), (0.50, 0.098)):
-        create_tube_curve(
+        create_cylinder_between(
             f"Chassis_Crossmember_{x_cross:.2f}",
-            [(x_cross, 0.105, -z_span), (x_cross, 0.105, z_span)],
-            0.011,
+            (x_cross, 0.105, -z_span),
+            (x_cross, 0.105, z_span),
+            0.010,
             mats["steel"],
-            collection=col_stationary,
+            parent=chassis_static,
         )
 
-    # Lower steering column heim bearing block mounted on the front steering support at x = 0.458 m
-    lower_bearing = [
-        superellipse_ring(0.446, 0.104, 0.198, 0.0, 0.020, power_y=0.35, power_z=0.35),
-        superellipse_ring(0.470, 0.104, 0.198, 0.0, 0.020, power_y=0.35, power_z=0.35),
+    # Hydraulic brake master cylinder + translucent fluid reservoir + braided line + TPS housing
+    # Mounted outside the chassis rail at |z| = 0.122, y in [0.108, 0.142] so pedal clevis clears the rail
+    master_cyl = [
+        superellipse_ring(0.352, 0.108, 0.140, -0.122, 0.015, power_y=0.45, power_z=0.45),
+        superellipse_ring(0.402, 0.108, 0.140, -0.122, 0.015, power_y=0.45, power_z=0.45),
     ]
-    create_loft_mesh("OTL_Steering_Lower_Bearing", lower_bearing, mats["alloy"], subsurf_levels=0, collection=col_stationary)
-
-    # Lower steering column shaft running from the lower bearing (0.458, 0.192, 0) up into the Nassau fairing
+    create_loft_mesh("OTL_Brake_Master_Cylinder", master_cyl, mats["alloy"], subsurf_levels=0, parent=chassis_static)
+    reservoir = [
+        oriented_ellipse_ring((0.374, 0.140, -0.122), (0.0, 1.0, 0.0), 0.011, 0.011, n=14),
+        oriented_ellipse_ring((0.374, 0.166, -0.122), (0.0, 1.0, 0.0), 0.011, 0.011, n=14),
+    ]
+    create_loft_mesh("OTL_Brake_Fluid_Reservoir", reservoir, mats["reservoir"], subsurf_levels=0, parent=chassis_static)
     create_tube_curve(
-        "OTL_Lower_Steering_Shaft",
-        [(0.472, 0.145, 0.0), (0.458, 0.192, 0.0), (0.378, 0.295, 0.0), (0.300, 0.395, 0.0)],
-        0.011,
-        mats["steel"],
-        collection=col_stationary,
+        "OTL_Hydraulic_Brake_Line",
+        [
+            (0.352, 0.118, -0.124),
+            (0.240, 0.108, -0.148),
+            (-0.180, 0.105, -0.172),
+            (-0.440, 0.130, -0.172),
+            (-0.475, 0.228, -0.195),
+            (-0.555, 0.260, -0.215),
+        ],
+        0.0038,
+        mats["black"],
+        parent=chassis_static,
     )
+    tps_box = [
+        superellipse_ring(0.362, 0.108, 0.138, 0.122, 0.014, power_y=0.35, power_z=0.35),
+        superellipse_ring(0.416, 0.108, 0.138, 0.122, 0.014, power_y=0.35, power_z=0.35),
+    ]
+    create_loft_mesh("OTL_Throttle_Sensor_Box", tps_box, mats["black"], subsurf_levels=0, parent=chassis_static)
+    create_cylinder_between(
+        "OTL_Pedal_Pivot_Crossbar",
+        (0.428, 0.095, -0.098),
+        (0.428, 0.095, 0.098),
+        0.0075,
+        mats["steel"],
+        parent=chassis_static,
+    )
+    # Lower steering column bearing housing seated slightly up the shaft from PITMAN_PIVOT,
+    # braced horizontally along y = 0.212 m to the steering support uprights (above pedals & tie rods)
+    u_vec_s = Vector(U_JOINT_POS)
+    p_vec_s = Vector(PITMAN_PIVOT)
+    l_dir_s = (p_vec_s - u_vec_s).normalized()
+    bearing_center = p_vec_s - l_dir_s * 0.028
+    lower_bearing = [
+        oriented_ellipse_ring(tuple(bearing_center - l_dir_s * 0.012), tuple(l_dir_s), 0.020, 0.022, n=14),
+        oriented_ellipse_ring(tuple(bearing_center + l_dir_s * 0.012), tuple(l_dir_s), 0.020, 0.022, n=14),
+    ]
+    create_loft_mesh("OTL_Steering_Lower_Bearing", lower_bearing, mats["alloy"], subsurf_levels=0, parent=chassis_static)
+    for side in (-1, 1):
+        create_tube_curve(
+            f"OTL_Steering_Bearing_Stay_{side}",
+            [
+                tuple(bearing_center + Vector((0.0, 0.0, side * 0.020))),
+                (0.390, 0.212, side * 0.038),
+                (0.312, 0.210, side * 0.038),
+            ],
+            0.007,
+            mats["steel"],
+            parent=chassis_static,
+        )
 
     # =========================================================================
-    # 3. OTL SUPERLEGGERO SCULPTED NOSE CONE & NASSAU FAIRING
-    # Arched over x in [0.35, 0.50] (y_bottom = 0.212 m above lower splitter y_top = 0.118 m)
-    # to form a prominent open mechanical steering bay for the Pitman arm and tie rods at y = 0.192 m!
+    # 3. SCULPTED BEVELED NOSE CONE, NASSAU FAIRING & FLUSH UV LIVERY (NO STICKER PLANES!)
     # =========================================================================
+    def nose_uv(tx: float, _ty: float, tz: float) -> tuple[float, float]:
+        # Front-facing readable livery on the sloped nose cone (tx in [0.485, 0.755])
+        u = max(0.02, min(0.98, 0.5 - tz / 0.23))
+        v = max(0.65, min(0.99, 0.65 + ((tx - 0.485) / 0.270) * 0.34))
+        return (u, v)
+
+    def nassau_uv(_tx: float, _ty: float, _tz: float) -> tuple[float, float]:
+        return (0.50, 0.60)
+
     nose_lower_black = [
-        superellipse_ring(0.350, 0.096, 0.118, 0.0, 0.088, power_y=0.4, power_z=0.55),
-        superellipse_ring(0.520, 0.098, 0.120, 0.0, 0.092, power_y=0.4, power_z=0.55),
-        superellipse_ring(0.580, 0.116, 0.150, 0.0, 0.104, power_y=0.4, power_z=0.55),
+        superellipse_ring(0.470, 0.098, 0.118, 0.0, 0.084, power_y=0.4, power_z=0.55),
+        superellipse_ring(0.530, 0.100, 0.120, 0.0, 0.092, power_y=0.4, power_z=0.55),
+        superellipse_ring(0.585, 0.116, 0.150, 0.0, 0.104, power_y=0.4, power_z=0.55),
         superellipse_ring(0.755, 0.122, 0.150, 0.0, 0.104, power_y=0.4, power_z=0.55),
     ]
-    create_loft_mesh("OTL_Nose_Splitter_Base", nose_lower_black, mats["black"], subsurf_levels=1, collection=col_stationary)
+    create_loft_mesh("OTL_Nose_Splitter_Base", nose_lower_black, mats["carbon"], subsurf_levels=1, parent=chassis_static)
 
-    # Flat-crowned upper slope (power_y=0.25) over x in [0.48, 0.68] so the noseDecal sits
-    # 3 mm above the surface with zero clipping, while y_bottom = 0.212 m over x in [0.35, 0.49]
-    # leaves full clearance above the tie rods and Pitman arm (y = 0.192 m)!
-    nose_red_shell = [
-        superellipse_ring(0.350, 0.214, 0.272, 0.0, 0.076, power_y=0.25, power_z=0.55),
-        superellipse_ring(0.485, 0.212, 0.254, 0.0, 0.086, power_y=0.25, power_z=0.55),
+    # Raised underside tunnel (y_bottom >= 0.228 over steering shaft & Pitman pivot)
+    nose_shell = [
+        superellipse_ring(0.390, 0.285, 0.335, 0.0, 0.076, power_y=0.25, power_z=0.55),
+        superellipse_ring(0.485, 0.218, 0.258, 0.0, 0.086, power_y=0.25, power_z=0.55),
         superellipse_ring(0.545, 0.152, 0.245, 0.0, 0.098, power_y=0.25, power_z=0.55),
         superellipse_ring(0.585, 0.148, 0.239, 0.0, 0.104, power_y=0.25, power_z=0.55),
         superellipse_ring(0.685, 0.148, 0.224, 0.0, 0.102, power_y=0.25, power_z=0.55),
         superellipse_ring(0.755, 0.145, 0.210, 0.0, 0.084, power_y=0.35, power_z=0.55),
     ]
-    create_loft_mesh("OTL_Nose_Red_Cowling", nose_red_shell, mats["red"], subsurf_levels=1, collection=col_stationary)
+    create_loft_mesh(
+        "OTL_Nose_Livery_Shell",
+        nose_shell,
+        mats["livery"],
+        subsurf_levels=1,
+        parent=chassis_static,
+        uv_fn=nose_uv,
+    )
 
-    # White racing livery panel across forward nose tip ahead of noseDecal (x in [0.678, 0.740], |z| <= 0.064)
-    nose_white_livery = [
-        superellipse_ring(0.678, 0.224, 0.229, 0.0, 0.064, power_y=0.25, power_z=0.35),
-        superellipse_ring(0.738, 0.212, 0.217, 0.0, 0.056, power_y=0.25, power_z=0.35),
-    ]
-    create_loft_mesh("OTL_Nose_White_Livery", nose_white_livery, mats["white"], subsurf_levels=0, collection=col_stationary)
-
-    # Sculpted Nassau tower starts at x = 0.270 m (strictly forward of the rotating steering
-    # wheel & gloves), rising to cradle the digital dash binnacle at y = 0.450 m and joining
-    # the nose cone cleanly through x = 0.485 m above the tie-rod tunnel (y_bottom >= 0.214 m).
+    # Arched Nassau fairing sitting cleanly ABOVE the steering shaft & U-joint tunnel
     nassau_fairing = [
-        superellipse_ring(0.268, 0.235, 0.450, 0.0, 0.066, power_y=0.35, power_z=0.50),
-        superellipse_ring(0.308, 0.225, 0.453, 0.0, 0.074, power_y=0.35, power_z=0.50),
-        superellipse_ring(0.390, 0.218, 0.335, 0.0, 0.080, power_y=0.40, power_z=0.52),
-        superellipse_ring(0.485, 0.214, 0.252, 0.0, 0.082, power_y=0.35, power_z=0.52),
+        superellipse_ring(0.268, 0.396, 0.452, 0.0, 0.066, power_y=0.35, power_z=0.50),
+        superellipse_ring(0.308, 0.355, 0.453, 0.0, 0.074, power_y=0.35, power_z=0.50),
+        superellipse_ring(0.390, 0.285, 0.335, 0.0, 0.080, power_y=0.40, power_z=0.52),
+        superellipse_ring(0.485, 0.220, 0.254, 0.0, 0.082, power_y=0.35, power_z=0.52),
     ]
-    create_loft_mesh("OTL_Nassau_Fairing", nassau_fairing, mats["red"], subsurf_levels=1, collection=col_stationary)
+    create_loft_mesh(
+        "OTL_Nassau_Fairing",
+        nassau_fairing,
+        mats["livery"],
+        subsurf_levels=1,
+        parent=chassis_static,
+        uv_fn=nassau_uv,
+    )
+
+    # Recessed fasteners on nose & Nassau cowl
+    for fx, fy, fz in (
+        (0.515, 0.246, -0.070), (0.515, 0.246, 0.070),
+        (0.690, 0.221, -0.065), (0.690, 0.221, 0.065),
+        (0.312, 0.398, -0.048), (0.312, 0.398, 0.048),
+    ):
+        create_cylinder_between(
+            f"OTL_Fastener_{fx:.2f}_{fz:.2f}",
+            (fx, fy - 0.004, fz),
+            (fx, fy + 0.0025, fz),
+            0.0045,
+            mats["steel"],
+            segments=6,
+            parent=chassis_static,
+        )
+
+    # Sleek low-profile integrated dash binnacle bezel seated forward of Kart_Dash_Screen at (0.262, 0.483)
+    dash_bezel = [
+        superellipse_ring(0.265, 0.448, 0.518, 0.0, 0.080, power_y=0.22, power_z=0.22),
+        superellipse_ring(0.302, 0.442, 0.512, 0.0, 0.076, power_y=0.22, power_z=0.22),
+    ]
+    create_loft_mesh("OTL_Dash_Housing", dash_bezel, mats["carbon"], subsurf_levels=0, parent=chassis_static)
+
+    # Dedicated Dash Screen quad + physical blue/yellow buttons at (0.262, 0.483, 0)
+    # Level horizontally along Z, tilted upward 0.22 rad toward the driver's eyes
+    dash_center = Vector((DASH_BINNACLE_POS[0], DASH_BINNACLE_POS[1], 0.0))
+    dash_right = Vector((0.0, 0.0, 1.0))
+    dash_up = Vector((math.sin(0.22), math.cos(0.22), 0.0))
+    dash_norm = Vector((-math.cos(0.22), math.sin(0.22), 0.0))
+
+    def dash_pt(dx: float, dy: float, dz: float) -> tuple[float, float, float]:
+        v = dash_center + dash_right * dx + dash_up * dy + dash_norm * dz
+        return (v.x, v.y, v.z)
+
+    screen_mesh = bpy.data.meshes.new("Kart_Dash_Screen")
+    screen_obj = bpy.data.objects.new("Kart_Dash_Screen", screen_mesh)
+    bpy.context.scene.collection.objects.link(screen_obj)
+    screen_obj.parent = chassis_static
+    bm_s = bmesh.new()
+    hw_s, hh_s = 0.056, 0.025
+    svs = [
+        bm_s.verts.new(t2b(*dash_pt(-hw_s, -hh_s, 0.005))),
+        bm_s.verts.new(t2b(*dash_pt(hw_s, -hh_s, 0.005))),
+        bm_s.verts.new(t2b(*dash_pt(hw_s, hh_s, 0.005))),
+        bm_s.verts.new(t2b(*dash_pt(-hw_s, hh_s, 0.005))),
+    ]
+    sf = bm_s.faces.new(svs)
+    suv = bm_s.loops.layers.uv.verify()
+    sf.loops[0][suv].uv = (0.0, 0.0)
+    sf.loops[1][suv].uv = (1.0, 0.0)
+    sf.loops[2][suv].uv = (1.0, 1.0)
+    sf.loops[3][suv].uv = (0.0, 1.0)
+    bm_s.to_mesh(screen_mesh)
+    bm_s.free()
+    screen_mesh.materials.append(mats["dashScreen"])
+
+    # Physical blue mode button (left) & yellow lap button (right)
+    for bx, bmat, bname in ((-0.068, mats["blueBtn"], "Dash_Button_Blue"), (0.068, mats["accent"], "Dash_Button_Yellow")):
+        create_cylinder_between(
+            bname,
+            dash_pt(bx, 0.0, 0.001),
+            dash_pt(bx, 0.0, 0.007),
+            0.0044,
+            bmat,
+            segments=12,
+            parent=chassis_static,
+        )
 
     # =========================================================================
-    # 4. OTL SUPERLEGGERO SCULPTED SIDEPODS (x in [-0.320, +0.302])
-    # Single clean non-overlapping shell per side with a flat upper plateau (y_top = 0.288 m,
-    # power_y = 0.25) so the K1 / 07 decal plate at y = 0.292 m sits parallel with zero clipping.
+    # 4. WIDE SCULPTED SIDEPODS WITH BATTERY BAY COVERS, LOUVERS & FLUSH UV LIVERY
     # =========================================================================
     for side in (-1, 1):
-        pod_red = [
-            superellipse_ring(-0.320, 0.138, 0.235, side * 0.280, 0.028, power_y=0.35, power_z=0.50),
-            superellipse_ring(-0.230, 0.138, 0.288, side * 0.290, 0.062, power_y=0.25, power_z=0.50),
-            superellipse_ring(-0.020, 0.138, 0.288, side * 0.290, 0.066, power_y=0.25, power_z=0.50),
-            superellipse_ring(0.175, 0.138, 0.288, side * 0.290, 0.062, power_y=0.25, power_z=0.50),
-            superellipse_ring(0.255, 0.138, 0.250, side * 0.278, 0.042, power_y=0.35, power_z=0.50),
-            superellipse_ring(0.302, 0.140, 0.205, side * 0.258, 0.022, power_y=0.35, power_z=0.50),
+        def make_pod_uv(s_sign: int):
+            def pod_uv(tx: float, ty: float, tz: float) -> tuple[float, float]:
+                u_raw = max(0.02, min(0.98, (tx + 0.32) / 0.62))
+                u = (1.0 - u_raw) if s_sign < 0 else u_raw
+                # Map top plateau |tz| ~0.29 to v in [0.22..0.46], outer lower skirt to [0.02..0.18]
+                lat = max(0.0, min(1.0, (abs(tz) - 0.23) / 0.14))
+                vert = max(0.0, min(1.0, (ty - 0.14) / 0.15))
+                v = max(0.02, min(0.53, 0.04 + vert * 0.36 + (1.0 - lat) * 0.12))
+                return (u, v)
+            return pod_uv
+
+        pod_rings = [
+            superellipse_ring(-0.320, 0.138, 0.238, side * 0.285, 0.032, power_y=0.35, power_z=0.50),
+            superellipse_ring(-0.230, 0.138, 0.288, side * 0.298, 0.066, power_y=0.25, power_z=0.50),
+            superellipse_ring(-0.020, 0.138, 0.288, side * 0.300, 0.070, power_y=0.25, power_z=0.50),
+            superellipse_ring(0.175, 0.138, 0.288, side * 0.298, 0.066, power_y=0.25, power_z=0.50),
+            superellipse_ring(0.255, 0.138, 0.252, side * 0.282, 0.046, power_y=0.35, power_z=0.50),
+            superellipse_ring(0.302, 0.140, 0.205, side * 0.260, 0.024, power_y=0.35, power_z=0.50),
         ]
-        create_loft_mesh(f"OTL_Sidepod_Red_{side}", pod_red, mats["red"], subsurf_levels=1, collection=col_stationary)
-        # Upper outer white livery panel along the sidepod shoulder outside the K1/07 decal plate (|z| in [0.324, 0.344])
-        pod_white = [
-            superellipse_ring(-0.215, 0.287, 0.291, side * 0.334, 0.010, power_y=0.25, power_z=0.35),
-            superellipse_ring(-0.020, 0.287, 0.291, side * 0.338, 0.010, power_y=0.25, power_z=0.35),
-            superellipse_ring(0.165, 0.287, 0.291, side * 0.334, 0.010, power_y=0.25, power_z=0.35),
+        create_loft_mesh(
+            f"OTL_Sidepod_Livery_{side}",
+            pod_rings,
+            mats["livery"],
+            subsurf_levels=1,
+            parent=chassis_static,
+            uv_fn=make_pod_uv(side),
+        )
+        # Molded carbon battery bay cover inset on upper deck
+        battery_cover = [
+            superellipse_ring(-0.245, 0.278, 0.292, side * 0.236, 0.026, power_y=0.3, power_z=0.3),
+            superellipse_ring(-0.085, 0.278, 0.292, side * 0.236, 0.026, power_y=0.3, power_z=0.3),
         ]
-        create_loft_mesh(f"OTL_Sidepod_White_Livery_{side}", pod_white, mats["white"], subsurf_levels=0, collection=col_stationary)
+        create_loft_mesh(f"OTL_Battery_Cover_{side}", battery_cover, mats["carbon"], subsurf_levels=0, parent=chassis_static)
+        # Cooling louver slats along rear sidepod flank (behind the APEX BITE 07 badge)
+        for lv_idx in range(4):
+            lx = -0.265 + lv_idx * 0.022
+            louver = [
+                superellipse_ring(lx - 0.006, 0.178, 0.222, side * 0.358, 0.005, power_y=0.3, power_z=0.3),
+                superellipse_ring(lx + 0.006, 0.184, 0.228, side * 0.358, 0.005, power_y=0.3, power_z=0.3),
+            ]
+            create_loft_mesh(f"OTL_Sidepod_Louver_{side}_{lv_idx}", louver, mats["black"], subsurf_levels=0, parent=chassis_static)
+
+        # Routed orange HV battery-to-inverter cable
+        create_tube_curve(
+            f"OTL_HV_Cable_{side}",
+            [(-0.310, 0.162, side * 0.235), (-0.385, 0.160, side * 0.175), (-0.455, 0.172, side * 0.132)],
+            0.0065,
+            mats["orange"],
+            parent=chassis_static,
+        )
 
     # =========================================================================
-    # 5. DEEP RECLINED BUCKET SEAT (~35°), ROLL HOOP / HEADREST & 4-POINT HARNESS
-    # Hip bolsters cradle the pelvis (y = 0.125..0.280), while the upper backrest
-    # tapers to half_width = 0.115 m so the driver's shoulders and moving arms
-    # have 100% unobstructed clearance in front of and outside the seat!
+    # 5. RECLINED BUCKET SEAT, REAR ROLL HOOP (0.862 m), HEADREST & BRAKE LED
     # =========================================================================
     seat_rows = [
-        # (x_center, y_center, half_width, side_bolster_height, thickness)
         (0.02, 0.122, 0.150, 0.042, 0.014),
         (-0.11, 0.115, 0.152, 0.058, 0.014),
         (-0.24, 0.142, 0.152, 0.062, 0.014),
@@ -608,22 +1604,14 @@ def build_otl_superleggero():
         for j in range(n_u + 1):
             u = (j / n_u) * 2.0 - 1.0
             edge = abs(u) ** 2.6
-            px = sx + edge * sbh * 0.40
-            py = sy + edge * sbh
-            pz = u * sw
-            ring.append((px, py, pz))
+            ring.append((sx + edge * sbh * 0.40, sy + edge * sbh, u * sw))
         for j in range(n_u, -1, -1):
             u = (j / n_u) * 2.0 - 1.0
             edge = abs(u) ** 2.6
-            px = sx + edge * sbh * 0.40 - sth * 0.75
-            py = sy + edge * sbh - sth
-            pz = u * (sw + sth * 0.35)
-            ring.append((px, py, pz))
+            ring.append((sx + edge * sbh * 0.40 - sth * 0.75, sy + edge * sbh - sth, u * (sw + sth * 0.35)))
         seat_rings.append(ring)
-    create_loft_mesh("OTL_Reclined_Bucket_Seat", seat_rings, mats["carbon"], closed_loop=True, cap_ends=True, subsurf_levels=1, collection=col_stationary)
+    create_loft_mesh("OTL_Reclined_Bucket_Seat", seat_rings, mats["carbon"], subsurf_levels=1, parent=chassis_static)
 
-    # Signature OTL Superleggero rear roll hoop / headrest cage behind seat (x = -0.478 m, top y = 0.862 m),
-    # anchoring solidly into the top deck of the rear powertrain shroud (y = 0.240 m, z = ±0.125 m)!
     roll_hoop_pts = [
         (-0.478, 0.240, -0.125),
         (-0.482, 0.540, -0.128),
@@ -635,295 +1623,725 @@ def build_otl_superleggero():
         (-0.482, 0.540, 0.128),
         (-0.478, 0.240, 0.125),
     ]
-    create_tube_curve("OTL_Roll_Hoop_Main", roll_hoop_pts, 0.015, mats["black"], closed=False, collection=col_stationary)
-
-    # Horizontal crossbar on the roll hoop supporting the headrest pad
-    create_tube_curve(
+    create_tube_curve("OTL_Roll_Hoop_Main", roll_hoop_pts, 0.014, mats["black"], parent=chassis_static)
+    create_cylinder_between(
         "OTL_Roll_Hoop_Crossbar",
-        [(-0.484, 0.710, -0.122), (-0.484, 0.710, 0.122)],
-        0.013,
+        (-0.484, 0.710, -0.122),
+        (-0.484, 0.710, 0.122),
+        0.012,
         mats["black"],
-        closed=False,
-        collection=col_stationary,
+        parent=chassis_static,
+    )
+    for side in (-1, 1):
+        create_tube_curve(
+            f"OTL_Roll_Hoop_Rear_Brace_{side}",
+            [(-0.485, 0.740, side * 0.115), (-0.560, 0.500, side * 0.112), (-0.625, 0.240, side * 0.108)],
+            0.0115,
+            mats["black"],
+            parent=chassis_static,
+        )
+    headrest_rings = [
+        superellipse_ring(-0.482, 0.635, 0.785, 0.0, 0.074, power_y=0.35, power_z=0.45),
+        superellipse_ring(-0.454, 0.635, 0.785, 0.0, 0.074, power_y=0.35, power_z=0.45),
+    ]
+    create_loft_mesh("OTL_Headrest_Pad", headrest_rings, mats["rubber"], subsurf_levels=0, parent=chassis_static)
+
+    # Rear LED housing on roll hoop crossbar + separate emissive Kart_Brake_LED lens
+    led_housing = [
+        superellipse_ring(-0.506, 0.692, 0.728, 0.0, 0.044, power_y=0.3, power_z=0.3),
+        superellipse_ring(-0.486, 0.692, 0.728, 0.0, 0.044, power_y=0.3, power_z=0.3),
+    ]
+    create_loft_mesh("OTL_Brake_LED_Housing", led_housing, mats["black"], subsurf_levels=0, parent=chassis_static)
+    led_lens = [
+        superellipse_ring(-0.512, 0.698, 0.722, 0.0, 0.036, power_y=0.3, power_z=0.3),
+        superellipse_ring(-0.506, 0.698, 0.722, 0.0, 0.036, power_y=0.3, power_z=0.3),
+    ]
+    create_loft_mesh(
+        "Kart_Brake_LED_Lens",
+        led_lens,
+        mats["brakeLed"],
+        subsurf_levels=0,
+        parent=brake_led_node,
+        origin_three=(-0.498, 0.710, 0.0),
     )
 
-    for side in (-1, 1):
-        rear_brace = [
-            (-0.485, 0.740, side * 0.115),
-            (-0.560, 0.500, side * 0.112),
-            (-0.625, 0.240, side * 0.108),
-        ]
-        create_tube_curve(f"OTL_Roll_Hoop_Rear_Brace_{side}", rear_brace, 0.012, mats["black"], closed=False, collection=col_stationary)
-
-    # Headrest pad mounted directly on OTL_Roll_Hoop_Crossbar (x in [-0.484, -0.454]),
-    # leaving >= 1.2 cm air gap behind the driver's helmet shell (x >= -0.442 m)!
-    headrest_rings = [
-        superellipse_ring(-0.486, 0.635, 0.785, 0.0, 0.076, power_y=0.35, power_z=0.45),
-        superellipse_ring(-0.454, 0.635, 0.785, 0.0, 0.076, power_y=0.35, power_z=0.45),
-    ]
-    create_loft_mesh("OTL_Headrest_Pad", headrest_rings, mats["rubber"], subsurf_levels=0, collection=col_stationary)
-
     # =========================================================================
-    # 6. ENCLOSED REAR ELECTRIC POWERTRAIN SHROUD, LIVE AXLE & STEERING COLUMN
+    # 6. REAR POWERTRAIN STATIC HOUSING, CALIPER, BEARING CASSETTES & SPINNING ASSEMBLIES
     # =========================================================================
     shroud_rings = [
-        superellipse_ring(-0.675, 0.142, 0.295, 0.0, 0.142, power_y=0.45, power_z=0.50),
-        superellipse_ring(-0.600, 0.142, 0.305, 0.0, 0.158, power_y=0.45, power_z=0.50),
-        superellipse_ring(-0.500, 0.142, 0.302, 0.0, 0.154, power_y=0.45, power_z=0.50),
-        superellipse_ring(-0.435, 0.142, 0.285, 0.0, 0.136, power_y=0.45, power_z=0.50),
+        superellipse_ring(-0.675, 0.178, 0.295, 0.0, 0.132, power_y=0.45, power_z=0.50),
+        superellipse_ring(-0.600, 0.178, 0.305, 0.0, 0.146, power_y=0.45, power_z=0.50),
+        superellipse_ring(-0.500, 0.178, 0.302, 0.0, 0.134, power_y=0.45, power_z=0.50),
+        superellipse_ring(-0.420, 0.178, 0.285, 0.0, 0.126, power_y=0.45, power_z=0.50),
     ]
-    create_loft_mesh("OTL_Rear_Powertrain_Shroud", shroud_rings, mats["black"], subsurf_levels=1, collection=col_stationary)
-
-    # Red crest sitting strictly on top of the black shroud (y_bottom = 0.304 m)
+    create_loft_mesh("OTL_Rear_Powertrain_Shroud", shroud_rings, mats["black"], subsurf_levels=1, parent=chassis_static)
     shroud_crest = [
         superellipse_ring(-0.650, 0.304, 0.342, 0.0, 0.088, power_y=0.45, power_z=0.50),
         superellipse_ring(-0.575, 0.305, 0.352, 0.0, 0.098, power_y=0.45, power_z=0.50),
         superellipse_ring(-0.485, 0.304, 0.340, 0.0, 0.088, power_y=0.45, power_z=0.50),
     ]
-    create_loft_mesh("OTL_Rear_Shroud_Red_Crest", shroud_crest, mats["red"], subsurf_levels=1, collection=col_stationary)
+    create_loft_mesh("OTL_Rear_Shroud_Red_Crest", shroud_crest, mats["red"], subsurf_levels=1, parent=chassis_static)
 
-    # Rear live axle spans all the way to both rear wheel centers (|z| = 0.335 m) so rear wheels
-    # and the rear brake rotor (z = -0.215 m) are solidly mounted on the shaft with zero gap!
-    create_tube_curve(
-        "OTL_Rear_Live_Axle",
-        [(REAR_AXLE_X, TIRE_RADIUS, -REAR_TRACK_HALF_Z), (REAR_AXLE_X, TIRE_RADIUS, REAR_TRACK_HALF_Z)],
-        0.016,
-        mats["steel"],
-        collection=col_stationary,
-    )
-
-    # Rear axle CNC bearing hangers & spherical bearing cassettes clamping the live axle to the chassis rails
     for side in (-1, 1):
         hanger_rings = [
             superellipse_ring(-0.552, 0.102, 0.178, side * 0.162, 0.010, power_y=0.35, power_z=0.35),
             superellipse_ring(-0.488, 0.102, 0.178, side * 0.162, 0.010, power_y=0.35, power_z=0.35),
         ]
-        create_loft_mesh(f"OTL_Rear_Bearing_Hanger_{side}", hanger_rings, mats["black"], subsurf_levels=0, collection=col_stationary)
+        create_loft_mesh(f"OTL_Rear_Bearing_Hanger_{side}", hanger_rings, mats["black"], subsurf_levels=0, parent=chassis_static)
         cassette_rings = [
             oriented_ellipse_ring((REAR_AXLE_X, TIRE_RADIUS, side * 0.152), (0.0, 0.0, 1.0), 0.030, 0.030, n=16),
             oriented_ellipse_ring((REAR_AXLE_X, TIRE_RADIUS, side * 0.172), (0.0, 0.0, 1.0), 0.030, 0.030, n=16),
         ]
-        create_loft_mesh(f"OTL_Rear_Bearing_Cassette_{side}", cassette_rings, mats["alloy"], subsurf_levels=0, collection=col_stationary)
+        create_loft_mesh(f"OTL_Rear_Bearing_Cassette_{side}", cassette_rings, mats["alloy"], subsurf_levels=0, parent=chassis_static)
 
-        # High-voltage orange insulated battery-to-inverter cables routed low along the chassis into the rear shroud
-        hv_cable_pts = [
-            (-0.310, 0.158, side * 0.235),
-            (-0.385, 0.158, side * 0.175),
-            (-0.455, 0.168, side * 0.132),
+    # Twin-piston red rear brake caliper straddling rotor (gap at z = -0.215 +- 0.008 m)
+    for cz0, cz1 in ((-0.238, -0.223), (-0.207, -0.192)):
+        pad_body = [
+            superellipse_ring(-0.588, 0.182, 0.242, 0.5 * (cz0 + cz1), 0.5 * (cz1 - cz0), power_y=0.35, power_z=0.35),
+            superellipse_ring(-0.532, 0.182, 0.242, 0.5 * (cz0 + cz1), 0.5 * (cz1 - cz0), power_y=0.35, power_z=0.35),
         ]
-        create_tube_curve(f"OTL_HV_Cable_{side}", hv_cable_pts, 0.0065, mats["orange"], collection=col_stationary)
-
-    # Twin-piston hydraulic rear brake caliper + torque bracket straddling the rear brake rotor at z = -0.215 m
-    caliper_body = [
-        superellipse_ring(-0.588, 0.175, 0.236, -0.215, 0.018, power_y=0.35, power_z=0.35),
-        superellipse_ring(-0.532, 0.175, 0.236, -0.215, 0.018, power_y=0.35, power_z=0.35),
+        create_loft_mesh(f"OTL_Rear_Brake_Caliper_Half_{cz0:.3f}", pad_body, mats["red"], subsurf_levels=0, parent=chassis_static)
+    bridge = [
+        superellipse_ring(-0.582, 0.242, 0.258, -0.215, 0.023, power_y=0.35, power_z=0.35),
+        superellipse_ring(-0.538, 0.242, 0.258, -0.215, 0.023, power_y=0.35, power_z=0.35),
     ]
-    create_loft_mesh("OTL_Rear_Brake_Caliper", caliper_body, mats["red"], subsurf_levels=0, collection=col_stationary)
-    create_tube_curve(
+    create_loft_mesh("OTL_Rear_Brake_Caliper_Bridge", bridge, mats["red"], subsurf_levels=0, parent=chassis_static)
+    create_cylinder_between(
         "OTL_Brake_Caliper_Bracket",
-        [(-0.535, 0.155, -0.172), (-0.555, 0.195, -0.202)],
-        0.007,
+        (-0.490, 0.178, -0.165),
+        (-0.535, 0.242, -0.198),
+        0.0065,
         mats["alloy"],
-        collection=col_stationary,
+        parent=chassis_static,
     )
 
-    # Kevlar synchronous drive belt loop connecting the electric motor output shaft to the rear axle pulley at z = +0.210 m
-    belt_pts = [
-        (-0.520, 0.212, 0.210),
-        (-0.445, 0.218, 0.210),
-        (-0.435, 0.175, 0.210),
-        (-0.445, 0.132, 0.210),
-        (-0.520, 0.078, 0.210),
-        (-0.585, 0.145, 0.210),
-    ]
-    create_tube_curve("OTL_Drive_Belt_Loop", belt_pts, 0.007, mats["rubber"], closed=True, collection=col_stationary)
-
-    # Finned aluminum motor heatsink on rear face of powertrain housing
+    # Finned aluminum motor housing + E-stop mushroom switch
     for fin_idx in range(5):
         fz = -0.064 + fin_idx * 0.032
         fin_rings = [
             superellipse_ring(-0.684, 0.168, 0.268, fz, 0.0035, power_y=0.25, power_z=0.25),
             superellipse_ring(-0.662, 0.168, 0.268, fz, 0.0035, power_y=0.25, power_z=0.25),
         ]
-        create_loft_mesh(f"OTL_Motor_Cooling_Fin_{fin_idx}", fin_rings, mats["alloy"], subsurf_levels=0, collection=col_stationary)
+        create_loft_mesh(f"OTL_Motor_Cooling_Fin_{fin_idx}", fin_rings, mats["alloy"], subsurf_levels=0, parent=chassis_static)
 
-    # Emergency E-Stop mushroom switch on top of the rear shroud
-    estop_base = [
-        oriented_ellipse_ring((-0.635, 0.296, 0.0), (0.0, 1.0, 0.0), 0.018, 0.018, n=12),
-        oriented_ellipse_ring((-0.635, 0.312, 0.0), (0.0, 1.0, 0.0), 0.018, 0.018, n=12),
-    ]
-    create_loft_mesh("OTL_EStop_Collar", estop_base, mats["accent"], subsurf_levels=0, collection=col_stationary)
-    estop_btn = [
-        oriented_ellipse_ring((-0.635, 0.312, 0.0), (0.0, 1.0, 0.0), 0.014, 0.014, n=12),
-        oriented_ellipse_ring((-0.635, 0.328, 0.0), (0.0, 1.0, 0.0), 0.016, 0.016, n=12),
-    ]
-    create_loft_mesh("OTL_EStop_Button", estop_btn, mats["red"], subsurf_levels=0, collection=col_stationary)
-
-    # Straight steering column shaft along the exact wheel rotation axis (y_l = 0, z_l = 0,
-    # x_l in [0.000, 0.125]), starting right inside the center of OTL_F1_Wheel_Hub (xl = 0)
-    # and extending deep into OTL_Nassau_Fairing (x >= 0.268 m) with zero disconnection!
-    cm_s, sm_s = math.cos(STEER_MOUNT_ROT_Z), math.sin(STEER_MOUNT_ROT_Z)
-    shaft_pts = [
-        (STEER_MOUNT_POS[0] + xl * cm_s, STEER_MOUNT_POS[1] + xl * sm_s, 0.0)
-        for xl in (0.000, 0.062, 0.125)
-    ]
-    create_tube_curve(
-        "OTL_Steering_Column_Shaft",
-        shaft_pts,
+    create_cylinder_between(
+        "OTL_EStop_Collar",
+        (-0.635, 0.296, 0.0),
+        (-0.635, 0.312, 0.0),
+        0.018,
+        mats["accent"],
+        segments=14,
+        parent=chassis_static,
+    )
+    create_cylinder_between(
+        "OTL_EStop_Button",
+        (-0.635, 0.312, 0.0),
+        (-0.635, 0.328, 0.0),
         0.015,
-        mats["steel"],
-        collection=col_stationary,
+        mats["red"],
+        segments=14,
+        parent=chassis_static,
     )
 
-    # Integrated rectangular dash binnacle housing seated solidly into the Nassau tower brow
-    # flush behind dashScreen at (0.262, 0.483, 0)
-    dash_housing_rings = [
-        superellipse_ring(0.265, 0.427, 0.515, 0.0, 0.074, power_y=0.25, power_z=0.25),
-        superellipse_ring(0.305, 0.423, 0.511, 0.0, 0.070, power_y=0.25, power_z=0.25),
-    ]
-    create_loft_mesh("OTL_Dash_Housing", dash_housing_rings, mats["black"], subsurf_levels=0, collection=col_stationary)
+    # Kart_Rear_Axle_Spin: live axle + keyway collars + ventilated rotor + toothed sprocket
+    axle_origin = (REAR_AXLE_X, TIRE_RADIUS, 0.0)
+    create_cylinder_between(
+        "OTL_Rear_Live_Axle",
+        (REAR_AXLE_X, TIRE_RADIUS, -REAR_TRACK_HALF_Z),
+        (REAR_AXLE_X, TIRE_RADIUS, REAR_TRACK_HALF_Z),
+        0.0155,
+        mats["steel"],
+        segments=20,
+        parent=rear_axle_spin,
+        origin_three=axle_origin,
+    )
+    for collar_z in (-0.186, -0.138, 0.138, 0.186):
+        create_cylinder_between(
+            f"OTL_Axle_Collar_{collar_z:.3f}",
+            (REAR_AXLE_X, TIRE_RADIUS, collar_z - 0.006),
+            (REAR_AXLE_X, TIRE_RADIUS, collar_z + 0.006),
+            0.022,
+            mats["red"],
+            segments=16,
+            parent=rear_axle_spin,
+            origin_three=axle_origin,
+        )
+    # Cross-drilled ventilated brake rotor at z = -0.215
+    create_cylinder_between(
+        "OTL_Brake_Rotor_Disc",
+        (REAR_AXLE_X, TIRE_RADIUS, -0.219),
+        (REAR_AXLE_X, TIRE_RADIUS, -0.211),
+        0.095,
+        mats["alloy"],
+        segments=28,
+        parent=rear_axle_spin,
+        origin_three=axle_origin,
+    )
+    create_cylinder_between(
+        "OTL_Brake_Rotor_Bell",
+        (REAR_AXLE_X, TIRE_RADIUS, -0.223),
+        (REAR_AXLE_X, TIRE_RADIUS, -0.207),
+        0.048,
+        mats["black"],
+        segments=20,
+        parent=rear_axle_spin,
+        origin_three=axle_origin,
+    )
+    for b_idx in range(6):
+        ang = (b_idx / 6.0) * math.pi * 2.0
+        bx = REAR_AXLE_X + math.cos(ang) * 0.072
+        by = TIRE_RADIUS + math.sin(ang) * 0.072
+        create_cylinder_between(
+            f"OTL_Rotor_Slot_{b_idx}",
+            (bx, by, -0.220),
+            (bx, by, -0.210),
+            0.005,
+            mats["black"],
+            segments=8,
+            parent=rear_axle_spin,
+            origin_three=axle_origin,
+        )
+
+    # Rear toothed sprocket at z = +0.210
+    create_cylinder_between(
+        "OTL_Rear_Sprocket_Disc",
+        (REAR_AXLE_X, TIRE_RADIUS, 0.202),
+        (REAR_AXLE_X, TIRE_RADIUS, 0.218),
+        REAR_SPROCKET_RADIUS - 0.003,
+        mats["alloy"],
+        segments=28,
+        parent=rear_axle_spin,
+        origin_three=axle_origin,
+    )
+    for tz in (0.200, 0.220):
+        create_cylinder_between(
+            f"OTL_Rear_Sprocket_Flange_{tz:.3f}",
+            (REAR_AXLE_X, TIRE_RADIUS, tz - 0.0015),
+            (REAR_AXLE_X, TIRE_RADIUS, tz + 0.0015),
+            REAR_SPROCKET_RADIUS + 0.002,
+            mats["black"],
+            segments=28,
+            parent=rear_axle_spin,
+            origin_three=axle_origin,
+        )
+    for t_idx in range(18):
+        ang = (t_idx / 18.0) * math.pi * 2.0
+        tx = REAR_AXLE_X + math.cos(ang) * (REAR_SPROCKET_RADIUS - 0.001)
+        ty = TIRE_RADIUS + math.sin(ang) * (REAR_SPROCKET_RADIUS - 0.001)
+        create_cylinder_between(
+            f"OTL_Rear_Sprocket_Tooth_{t_idx}",
+            (tx, ty, 0.202),
+            (tx, ty, 0.218),
+            0.0035,
+            mats["steel"],
+            segments=6,
+            parent=rear_axle_spin,
+            origin_three=axle_origin,
+        )
+
+    # Kart_Motor_Pinion_Spin + Motor output shaft
+    create_cylinder_between(
+        "OTL_Motor_Output_Shaft",
+        (MOTOR_PINION_POS[0], MOTOR_PINION_POS[1], 0.145),
+        (MOTOR_PINION_POS[0], MOTOR_PINION_POS[1], 0.220),
+        0.011,
+        mats["steel"],
+        segments=14,
+        parent=motor_pinion_spin,
+        origin_three=MOTOR_PINION_POS,
+    )
+    create_cylinder_between(
+        "OTL_Motor_Pinion_Gear",
+        (MOTOR_PINION_POS[0], MOTOR_PINION_POS[1], 0.201),
+        (MOTOR_PINION_POS[0], MOTOR_PINION_POS[1], 0.219),
+        MOTOR_PINION_RADIUS - 0.001,
+        mats["alloy"],
+        segments=16,
+        parent=motor_pinion_spin,
+        origin_three=MOTOR_PINION_POS,
+    )
+    for t_idx in range(10):
+        ang = (t_idx / 10.0) * math.pi * 2.0
+        px = MOTOR_PINION_POS[0] + math.cos(ang) * (MOTOR_PINION_RADIUS - 0.001)
+        py = MOTOR_PINION_POS[1] + math.sin(ang) * (MOTOR_PINION_RADIUS - 0.001)
+        create_cylinder_between(
+            f"OTL_Pinion_Tooth_{t_idx}",
+            (px, py, 0.201),
+            (px, py, 0.219),
+            0.003,
+            mats["steel"],
+            segments=6,
+            parent=motor_pinion_spin,
+            origin_three=MOTOR_PINION_POS,
+        )
+
+    # Kart_Drive_Belt: tangential toothed belt with longitudinal UVs
+    build_toothed_drive_belt(
+        "Kart_Drive_Belt",
+        (REAR_AXLE_X, TIRE_RADIUS),
+        REAR_SPROCKET_RADIUS + 0.003,
+        (MOTOR_PINION_POS[0], MOTOR_PINION_POS[1]),
+        MOTOR_PINION_RADIUS + 0.003,
+        0.210,
+        0.015,
+        0.006,
+        mats["rubber"],
+        kart_root,
+        (0.0, 0.0, 0.0),
+    )
 
     # =========================================================================
-    # 7. F1-STYLE COMPACT STEERING YOKE (Local to steeringWheel at (0.185, 0.355, 0))
-    # Includes a coaxial cylindrical hub boss (x_local in [0.004, 0.042], r = 0.018 m)
-    # that telescopes directly over OTL_Steering_Column_Shaft so the wheel and shaft
-    # never disconnect at any camera angle or steering lock!
+    # 7. STEERING COLUMN ASSEMBLY (F1 YOKE + MARKER + SHAFTS + U-JOINT + PITMAN ARM)
     # =========================================================================
+    cm_s, sm_s = math.cos(STEER_MOUNT_ROT_Z), math.sin(STEER_MOUNT_ROT_Z)
+
+    def upper_to_world(lx: float, ly: float, lz: float) -> tuple[float, float, float]:
+        return (
+            STEER_MOUNT_POS[0] + lx * cm_s - ly * sm_s,
+            STEER_MOUNT_POS[1] + lx * sm_s + ly * cm_s,
+            STEER_MOUNT_POS[2] + lz,
+        )
+
     f1_rim_pts = []
     for i in range(36):
         ang = (i / 36) * math.pi * 2.0
-        ca = math.cos(ang)
-        sa = math.sin(ang)
+        ca, sa = math.cos(ang), math.sin(ang)
         y_local = ca * 0.088
         if y_local < -0.070:
             y_local = -0.070 + (y_local + 0.070) * 0.22
         z_local = sa * (0.105 + 0.004 * (abs(sa) ** 3))
-        f1_rim_pts.append((0.0, y_local, z_local))
-    create_tube_curve("OTL_F1_Wheel_Rim", f1_rim_pts, 0.0135, mats["rubber"], closed=True, collection=col_steer)
-
-    # Yellow top-center marker band on the top arch of the F1 wheel (y_local = 0.088)
-    marker_pts = []
-    for i in range(9):
-        ang = -0.15 + (i / 8) * 0.30
-        marker_pts.append((0.0, math.cos(ang) * 0.088, math.sin(ang) * 0.105))
-    create_tube_curve("OTL_F1_Wheel_Yellow_Marker", marker_pts, 0.016, mats["accent"], closed=False, collection=col_steer)
-
-    hub_plate = [
-        superellipse_ring(-0.008, -0.028, 0.028, 0.0, 0.036, power_y=0.45, power_z=0.45),
-        superellipse_ring(0.008, -0.028, 0.028, 0.0, 0.036, power_y=0.45, power_z=0.45),
-    ]
-    create_loft_mesh("OTL_F1_Wheel_Hub", hub_plate, mats["black"], subsurf_levels=0, collection=col_steer)
-
-    # Coaxial rear hub boss connecting the wheel center (x_local = 0.004) to the column shaft (x_local = 0.042)
-    hub_boss = [
-        oriented_ellipse_ring((0.004, 0.0, 0.0), (1.0, 0.0, 0.0), 0.018, 0.018, n=16),
-        oriented_ellipse_ring((0.042, 0.0, 0.0), (1.0, 0.0, 0.0), 0.016, 0.016, n=16),
-    ]
-    create_loft_mesh("OTL_F1_Wheel_Hub_Boss", hub_boss, mats["black"], subsurf_levels=0, collection=col_steer)
-
+        f1_rim_pts.append(upper_to_world(0.0, y_local, z_local))
     create_tube_curve(
-        "OTL_F1_Wheel_Cross_Spoke",
-        [(0.0, -0.005, -0.098), (0.0, 0.0, 0.0), (0.0, -0.005, 0.098)],
-        0.009,
-        mats["alloy"],
+        "Kart_F1_Wheel_Rim",
+        f1_rim_pts,
+        0.0135,
+        mats["rubber"],
+        closed=True,
+        parent=steering_upper,
+        origin_three=STEER_MOUNT_POS,
+    )
+
+    # Bright yellow 12-o'clock top center marker band (visible in Helmet Cam y in [640, 775])
+    marker_pts = [
+        upper_to_world(0.0, math.cos(-0.18 + (i / 10) * 0.36) * 0.088, math.sin(-0.18 + (i / 10) * 0.36) * 0.105)
+        for i in range(11)
+    ]
+    create_tube_curve(
+        "Kart_F1_Wheel_Yellow_Marker",
+        marker_pts,
+        0.0165,
+        mats["accent"],
         closed=False,
-        collection=col_steer,
+        parent=steering_upper,
+        origin_three=STEER_MOUNT_POS,
+    )
+
+    # Carbon center face plate + rotary dials + hub boss + upper shaft + U-joint fork
+    hub_plate = [
+        oriented_ellipse_ring(upper_to_world(-0.007, 0.0, 0.0), (cm_s, sm_s, 0.0), 0.028, 0.036, n=16),
+        oriented_ellipse_ring(upper_to_world(0.007, 0.0, 0.0), (cm_s, sm_s, 0.0), 0.028, 0.036, n=16),
+    ]
+    create_loft_mesh("Kart_F1_Wheel_Hub", hub_plate, mats["carbon"], subsurf_levels=0, parent=steering_upper, origin_three=STEER_MOUNT_POS)
+    for dz_dial, dmat in ((-0.018, mats["red"]), (0.018, mats["blueBtn"])):
+        create_cylinder_between(
+            f"Kart_Wheel_Dial_{dz_dial:.3f}",
+            upper_to_world(-0.008, -0.010, dz_dial),
+            upper_to_world(-0.012, -0.010, dz_dial),
+            0.0055,
+            dmat,
+            segments=12,
+            parent=steering_upper,
+            origin_three=STEER_MOUNT_POS,
+        )
+    create_tube_curve(
+        "Kart_F1_Wheel_Cross_Spoke",
+        [upper_to_world(0.0, -0.005, -0.098), upper_to_world(0.0, 0.0, 0.0), upper_to_world(0.0, -0.005, 0.098)],
+        0.0085,
+        mats["alloy"],
+        parent=steering_upper,
+        origin_three=STEER_MOUNT_POS,
     )
     create_tube_curve(
-        "OTL_F1_Wheel_Bottom_Spoke",
-        [(0.0, 0.0, 0.0), (0.0, -0.068, 0.0)],
+        "Kart_F1_Wheel_Bottom_Spoke",
+        [upper_to_world(0.0, 0.0, 0.0), upper_to_world(0.0, -0.068, 0.0)],
         0.008,
         mats["alloy"],
-        closed=False,
-        collection=col_steer,
+        parent=steering_upper,
+        origin_three=STEER_MOUNT_POS,
+    )
+    create_cylinder_between(
+        "Kart_Steering_Hub_Boss",
+        upper_to_world(0.004, 0.0, 0.0),
+        upper_to_world(0.032, 0.0, 0.0),
+        0.018,
+        mats["black"],
+        segments=16,
+        parent=steering_upper,
+        origin_three=STEER_MOUNT_POS,
+    )
+    create_cylinder_between(
+        "Kart_Steering_Upper_Shaft",
+        upper_to_world(0.028, 0.0, 0.0),
+        upper_to_world(UPPER_SHAFT_LEN - 0.010, 0.0, 0.0),
+        0.011,
+        mats["steel"],
+        segments=14,
+        parent=steering_upper,
+        origin_three=STEER_MOUNT_POS,
+    )
+    # U-joint input coupler + central Cardan spider sphere at U_JOINT_POS
+    create_cylinder_between(
+        "Kart_UJoint_Upper_Coupler",
+        upper_to_world(UPPER_SHAFT_LEN - 0.012, 0.0, 0.0),
+        U_JOINT_POS,
+        0.015,
+        mats["alloy"],
+        segments=14,
+        parent=steering_upper,
+        origin_three=STEER_MOUNT_POS,
+    )
+
+    # Lower steering shaft + U-joint lower coupler + welded Pitman arm on steering_lower
+    u_vec = Vector(U_JOINT_POS)
+    p_vec = Vector(PITMAN_PIVOT)
+    lower_dir = (p_vec - u_vec).normalized()
+    lower_start = u_vec + lower_dir * 0.016  # 16 mm from U-joint center to avoid overlap with upper coupler
+    create_cylinder_between(
+        "Kart_UJoint_Lower_Coupler",
+        tuple(lower_start),
+        tuple(lower_start + lower_dir * 0.018),
+        0.0145,
+        mats["alloy"],
+        segments=14,
+        parent=steering_lower,
+        origin_three=PITMAN_PIVOT,
+    )
+    create_cylinder_between(
+        "Kart_Steering_Lower_Shaft",
+        tuple(lower_start + lower_dir * 0.016),
+        tuple(p_vec + lower_dir * 0.018),
+        0.011,
+        mats["steel"],
+        segments=14,
+        parent=steering_lower,
+        origin_three=PITMAN_PIVOT,
+    )
+    # Welded Pitman arm collar + dual ears descending to PITMAN_BALL_LOCAL
+    create_cylinder_between(
+        "Kart_Pitman_Collar",
+        tuple(p_vec - lower_dir * 0.012),
+        tuple(p_vec + lower_dir * 0.012),
+        0.015,
+        mats["alloy"],
+        segments=14,
+        parent=steering_lower,
+        origin_three=PITMAN_PIVOT,
+    )
+    for side in (-1, 1):
+        pb = (
+            PITMAN_PIVOT[0] + PITMAN_BALL_LOCAL[0],
+            PITMAN_PIVOT[1] + PITMAN_BALL_LOCAL[1],
+            PITMAN_PIVOT[2] + side * PITMAN_BALL_LOCAL[2],
+        )
+        # Pitman arm terminates at a clevis eye 19 mm rearward (-X) of the Heim ball so it never swings into the tie rod
+        pb_arm_eye = (pb[0] - 0.019, pb[1], pb[2])
+        create_cylinder_between(
+            f"Kart_Pitman_Arm_{side}",
+            PITMAN_PIVOT,
+            pb_arm_eye,
+            0.0055,
+            mats["alloy"],
+            segments=12,
+            parent=steering_lower,
+            origin_three=PITMAN_PIVOT,
+        )
+        create_cylinder_between(
+            f"Kart_Pitman_Ball_Stud_{side}",
+            (pb[0] - 0.019, pb[1], pb[2]),
+            (pb[0] + 0.004, pb[1], pb[2]),
+            0.0042,
+            mats["steel"],
+            segments=10,
+            parent=steering_lower,
+            origin_three=PITMAN_PIVOT,
+        )
+
+    # =========================================================================
+    # 8. TILTED KINGPIN KNUCKLES & FIXED-LENGTH TIE RODS
+    # =========================================================================
+    for side, k_node, tr_node in ((-1, knuckle_l, tie_rod_l), (1, knuckle_r, tie_rod_r)):
+        k_origin = (FRONT_AXLE_X, TIRE_RADIUS, side * KINGPIN_HALF_Z)
+        ka = Vector(kingpin_axis(side))
+        kp_v = Vector(k_origin)
+        create_cylinder_between(
+            f"Kart_Knuckle_Barrel_{side}",
+            tuple(kp_v - ka * 0.027),
+            tuple(kp_v + ka * 0.027),
+            0.012,
+            mats["alloy"],
+            segments=14,
+            parent=k_node,
+            origin_three=k_origin,
+        )
+        create_cylinder_between(
+            f"Kart_Knuckle_Stub_Axle_{side}",
+            (k_origin[0], k_origin[1], k_origin[2] + side * 0.013),
+            (k_origin[0], k_origin[1], k_origin[2] + side * (SPINDLE_LENGTH + 0.010)),
+            0.0135,
+            mats["steel"],
+            segments=16,
+            parent=k_node,
+            origin_three=k_origin,
+        )
+        kb = (
+            k_origin[0] + KNUCKLE_ARM_BALL_LOCAL[0],
+            k_origin[1] + KNUCKLE_ARM_BALL_LOCAL[1],
+            k_origin[2] + side * KNUCKLE_ARM_BALL_LOCAL[2],
+        )
+        arm_root = tuple(kp_v + ka * 0.020 + Vector((-0.014, 0.0, 0.0)))
+        kb_arm_eye = (kb[0], kb[1] - 0.018, kb[2])
+        create_cylinder_between(
+            f"Kart_Knuckle_Steering_Arm_{side}",
+            arm_root,
+            kb_arm_eye,
+            0.0055,
+            mats["alloy"],
+            segments=12,
+            parent=k_node,
+            origin_three=k_origin,
+        )
+        create_cylinder_between(
+            f"Kart_Knuckle_Ball_Stud_{side}",
+            (kb[0], kb[1] - 0.019, kb[2]),
+            (kb[0], kb[1] + 0.004, kb[2]),
+            0.0042,
+            mats["steel"],
+            segments=10,
+            parent=k_node,
+            origin_three=k_origin,
+        )
+
+        # Tie Rod: centered at (0,0,0), oriented strictly along local +Z from -rod_len/2 to +rod_len/2
+        pb_world = Vector((
+            PITMAN_PIVOT[0] + PITMAN_BALL_LOCAL[0],
+            PITMAN_PIVOT[1] + PITMAN_BALL_LOCAL[1],
+            PITMAN_PIVOT[2] + side * PITMAN_BALL_LOCAL[2],
+        ))
+        kb_world = Vector(kb)
+        rod_len = (kb_world - pb_world).length
+        half_len = 0.5 * rod_len
+        tr_origin = tuple(0.5 * (pb_world + kb_world))
+        tr_node.location = t2b(*tr_origin)
+        # Orient tr_node at rest so local +Z points along (kb_world - pb_world)
+        dir_three = (kb_world - pb_world).normalized()
+        dir_blender = Vector((dir_three.x, -dir_three.z, dir_three.y))
+        z_blender = Vector((0.0, -1.0, 0.0))  # Three.js +Z = Blender -Y
+        rot_q = z_blender.rotation_difference(dir_blender)
+        tr_node.rotation_mode = "QUATERNION"
+        tr_node.rotation_quaternion = rot_q
+
+        create_cylinder_between(
+            f"Kart_TieRod_Shaft_{side}",
+            (0.0, 0.0, -(half_len - 0.012)),
+            (0.0, 0.0, half_len - 0.012),
+            0.0048,
+            mats["alloy"],
+            segments=10,
+            parent=tr_node,
+            origin_three=(0.0, 0.0, 0.0),
+        )
+        for end_s in (-1, 1):
+            create_cylinder_between(
+                f"Kart_TieRod_JamNut_{side}_{end_s}",
+                (0.0, 0.0, end_s * (half_len - 0.025)),
+                (0.0, 0.0, end_s * (half_len - 0.015)),
+                0.0072,
+                mats["red"],
+                segments=6,
+                parent=tr_node,
+                origin_three=(0.0, 0.0, 0.0),
+            )
+            # Spherical Heim joint collar centered around ball stud (X-axis at Pitman, Y-axis at Knuckle)
+            if end_s < 0:
+                create_cylinder_between(
+                    f"Kart_TieRod_Heim_{side}_{end_s}",
+                    (-0.004, 0.0, end_s * half_len),
+                    (0.004, 0.0, end_s * half_len),
+                    0.0085,
+                    mats["steel"],
+                    segments=14,
+                    parent=tr_node,
+                    origin_three=(0.0, 0.0, 0.0),
+                )
+            else:
+                create_cylinder_between(
+                    f"Kart_TieRod_Heim_{side}_{end_s}",
+                    (0.0, -0.004, end_s * half_len),
+                    (0.0, 0.004, end_s * half_len),
+                    0.0085,
+                    mats["steel"],
+                    segments=14,
+                    parent=tr_node,
+                    origin_three=(0.0, 0.0, 0.0),
+                )
+
+    # =========================================================================
+    # 9. FOOTWELL PEDALS, BRAKE PUSHROD & THROTTLE LINKAGE
+    # =========================================================================
+    for side, p_node in ((-1, pedal_brake), (1, pedal_throttle)):
+        p_origin = (PEDAL_PIVOT_POS[0], PEDAL_PIVOT_POS[1], side * PEDAL_PIVOT_POS[2])
+        create_cylinder_between(
+            f"Kart_Pedal_Hinge_{side}",
+            (p_origin[0], p_origin[1], p_origin[2] - 0.014),
+            (p_origin[0], p_origin[1], p_origin[2] + 0.014),
+            0.0095,
+            mats["steel"],
+            segments=12,
+            parent=p_node,
+            origin_three=p_origin,
+        )
+        create_cylinder_between(
+            f"Kart_Pedal_Arm_{side}",
+            (p_origin[0], p_origin[1] + 0.011, p_origin[2]),
+            (p_origin[0] - 0.008, p_origin[1] + 0.088, p_origin[2]),
+            0.006,
+            mats["alloy"],
+            segments=10,
+            parent=p_node,
+            origin_three=p_origin,
+        )
+        pad_rings = [
+            superellipse_ring(p_origin[0] - 0.012, p_origin[1] + 0.032, p_origin[1] + 0.096, p_origin[2], 0.020, power_y=0.35, power_z=0.35),
+            superellipse_ring(p_origin[0] - 0.006, p_origin[1] + 0.032, p_origin[1] + 0.096, p_origin[2], 0.020, power_y=0.35, power_z=0.35),
+        ]
+        create_loft_mesh(f"Kart_Pedal_Plate_{side}", pad_rings, mats["alloy"], subsurf_levels=0, parent=p_node, origin_three=p_origin)
+        grip_rings = [
+            superellipse_ring(p_origin[0] - 0.015, p_origin[1] + 0.062, p_origin[1] + 0.090, p_origin[2], 0.018, power_y=0.35, power_z=0.35),
+            superellipse_ring(p_origin[0] - 0.012, p_origin[1] + 0.062, p_origin[1] + 0.090, p_origin[2], 0.018, power_y=0.35, power_z=0.35),
+        ]
+        create_loft_mesh(
+            f"Kart_Pedal_Grip_{side}",
+            grip_rings,
+            mats["red" if side < 0 else "accent"],
+            subsurf_levels=0,
+            parent=p_node,
+            origin_three=p_origin,
+        )
+        # Clevis ear extending outward to z = side * 0.122 above chassis rail for pushrod / throttle link
+        clevis_pt = (p_origin[0] + BRAKE_CLEVIS_LOCAL[0], p_origin[1] + BRAKE_CLEVIS_LOCAL[1], side * 0.122)
+        create_cylinder_between(
+            f"Kart_Pedal_Clevis_{side}",
+            (p_origin[0], p_origin[1] + BRAKE_CLEVIS_LOCAL[1], p_origin[2]),
+            clevis_pt,
+            0.0045,
+            mats["steel"],
+            segments=8,
+            parent=p_node,
+            origin_three=p_origin,
+        )
+
+    # Brake pushrod (origin at midpoint between clevis and master bore, oriented along +Z)
+    b_clevis = Vector((PEDAL_PIVOT_POS[0], PEDAL_PIVOT_POS[1] + BRAKE_CLEVIS_LOCAL[1], -0.122))
+    b_bore = Vector(BRAKE_MASTER_BORE)
+    b_len = (b_clevis - b_bore).length
+    brake_pushrod.location = t2b(*tuple(0.5 * (b_clevis + b_bore)))
+    b_dir_three = (b_clevis - b_bore).normalized()
+    b_dir_bl = Vector((b_dir_three.x, -b_dir_three.z, b_dir_three.y))
+    brake_pushrod.rotation_mode = "QUATERNION"
+    brake_pushrod.rotation_quaternion = Vector((0.0, -1.0, 0.0)).rotation_difference(b_dir_bl)
+    create_cylinder_between(
+        "Kart_Brake_Pushrod_Shaft",
+        (0.0, 0.0, -0.5 * b_len),
+        (0.0, 0.0, 0.5 * b_len),
+        0.004,
+        mats["steel"],
+        segments=10,
+        parent=brake_pushrod,
+        origin_three=(0.0, 0.0, 0.0),
+    )
+
+    # Throttle linkage rod (connecting throttle pedal clevis to TPS sensor pivot)
+    t_clevis = Vector((PEDAL_PIVOT_POS[0], PEDAL_PIVOT_POS[1] + THROTTLE_CLEVIS_LOCAL[1], 0.122))
+    t_tps = Vector(THROTTLE_TPS_PIVOT)
+    t_len = (t_clevis - t_tps).length
+    throttle_link.location = t2b(*tuple(0.5 * (t_clevis + t_tps)))
+    t_dir_three = (t_clevis - t_tps).normalized()
+    t_dir_bl = Vector((t_dir_three.x, -t_dir_three.z, t_dir_three.y))
+    throttle_link.rotation_mode = "QUATERNION"
+    throttle_link.rotation_quaternion = Vector((0.0, -1.0, 0.0)).rotation_difference(t_dir_bl)
+    create_cylinder_between(
+        "Kart_Throttle_Link_Shaft",
+        (0.0, 0.0, -0.5 * t_len),
+        (0.0, 0.0, 0.5 * t_len),
+        0.0038,
+        mats["alloy"],
+        segments=10,
+        parent=throttle_link,
+        origin_three=(0.0, 0.0, 0.0),
     )
 
     # =========================================================================
-    # 8. REALISTIC RECLINED SEATED DRIVER (~35° RECLINE, HELMET CROWN y = 0.818 m)
-    # Concentrically layered torso, rib vest, and harness straps nestled cleanly
-    # in front of the bucket seat with zero self-intersection or seat clipping.
+    # 10. RETAINED SEATED DRIVER SILHOUETTE (PRESERVED FOR #53 & HELMET CAM TESTS)
     # =========================================================================
     torso_spine = [
-        (-0.140, 0.165, 0.0, -0.55, 0.83, 0.052, 0.104),  # Pelvis base above seat floor
-        (-0.185, 0.215, 0.0, -0.56, 0.83, 0.060, 0.116),  # Hips
-        (-0.232, 0.285, 0.0, -0.55, 0.83, 0.062, 0.118),  # Waist
-        (-0.275, 0.355, 0.0, -0.52, 0.85, 0.066, 0.126),  # Lower ribs
-        (-0.312, 0.425, 0.0, -0.46, 0.89, 0.070, 0.138),  # Chest
-        (-0.338, 0.488, 0.0, -0.35, 0.94, 0.068, 0.148),  # Upper chest / shoulders
-        (-0.348, 0.535, 0.0, -0.20, 0.98, 0.056, 0.124),  # Collarbone yoke
-        (-0.348, 0.575, 0.0, -0.05, 1.00, 0.048, 0.064),  # Neck base
-        (-0.335, 0.615, 0.0, 0.15, 0.99, 0.042, 0.052),   # Upper neck inside helmet
+        (-0.140, 0.165, 0.0, -0.55, 0.83, 0.052, 0.104),
+        (-0.185, 0.215, 0.0, -0.56, 0.83, 0.060, 0.116),
+        (-0.232, 0.285, 0.0, -0.55, 0.83, 0.062, 0.118),
+        (-0.275, 0.355, 0.0, -0.52, 0.85, 0.066, 0.126),
+        (-0.312, 0.425, 0.0, -0.46, 0.89, 0.070, 0.138),
+        (-0.338, 0.488, 0.0, -0.35, 0.94, 0.068, 0.148),
+        (-0.348, 0.535, 0.0, -0.20, 0.98, 0.056, 0.124),
+        (-0.348, 0.575, 0.0, -0.05, 1.00, 0.048, 0.064),
+        (-0.335, 0.615, 0.0, 0.15, 0.99, 0.042, 0.052),
     ]
-    torso_rings = [
-        oriented_ellipse_ring((x, y, z), (tx, ty, 0.0), rn, rs, n=20)
-        for (x, y, z, tx, ty, rn, rs) in torso_spine
-    ]
-    create_loft_mesh("Driver_Reclined_Torso", torso_rings, mats["suit"], subsurf_levels=1, collection=col_driver_body)
+    torso_rings = [oriented_ellipse_ring((x, y, z), (tx, ty, 0.0), rn, rs, n=20) for (x, y, z, tx, ty, rn, rs) in torso_spine]
+    create_loft_mesh("Driver_Reclined_Torso", torso_rings, mats["suit"], subsurf_levels=1, parent=driver_fixed)
 
-    # Rib protector wraps concentrically +6 mm outside the waist/rib stations (indices 2..4)
-    rib_rings = [
-        oriented_ellipse_ring((x, y, z), (tx, ty, 0.0), rn + 0.006, rs + 0.006, n=20)
-        for (x, y, z, tx, ty, rn, rs) in torso_spine[2:5]
-    ]
-    create_loft_mesh("Driver_Rib_Protector", rib_rings, mats["black"], subsurf_levels=1, collection=col_driver_body)
+    rib_rings = [oriented_ellipse_ring((x, y, z), (tx, ty, 0.0), rn + 0.006, rs + 0.006, n=20) for (x, y, z, tx, ty, rn, rs) in torso_spine[2:5]]
+    create_loft_mesh("Driver_Rib_Protector", rib_rings, mats["black"], subsurf_levels=1, parent=driver_fixed)
 
     for side in (-1, 1):
-        # 4-point racing harness straps riding strictly on the front chest surface (+14 mm forward-upward normal offset)
         harness_pts = []
         for idx, z_frac in ((4, 0.32), (3, 0.24), (2, 0.15)):
             x, y, _, tx, ty, rn, rs = torso_spine[idx]
             tlen = math.hypot(tx, ty) or 1.0
-            nx, ny = ty / tlen, -tx / tlen  # Forward-upward chest normal (+X, +Y)
+            nx, ny = ty / tlen, -tx / tlen
             r_front = rn + 0.014
             ang = math.asin(z_frac)
-            px = x + nx * (math.cos(ang) * r_front)
-            py = y + ny * (math.cos(ang) * r_front)
-            pz = side * (math.sin(ang) * (rs + 0.006))
-            harness_pts.append((px, py, pz))
-        create_tube_curve(f"Driver_Harness_Strap_{side}", harness_pts, 0.008, mats["harness"], collection=col_driver_body)
+            harness_pts.append((x + nx * (math.cos(ang) * r_front), y + ny * (math.cos(ang) * r_front), side * (math.sin(ang) * (rs + 0.006))))
+        create_tube_curve(f"Driver_Harness_Strap_{side}", harness_pts, 0.008, mats["harness"], parent=driver_fixed)
 
-        # Bent legs extending deep into the hip socket (-0.195, 0.205) and down into the boots (0.382, 0.128)
-        # so there is zero gap at the hips or ankles even after Subsurf!
         leg_spine = [
             ((-0.195, 0.205, side * 0.062), (0.94, 0.22, 0.0), 0.056, 0.058),
             ((-0.130, 0.172, side * 0.075), (0.96, 0.16, 0.0), 0.052, 0.054),
             ((-0.010, 0.170, side * 0.120), (0.98, 0.05, 0.0), 0.046, 0.046),
             ((0.140, 0.168, side * 0.148), (0.98, -0.14, 0.0), 0.040, 0.040),
             ((0.265, 0.146, side * 0.108), (0.96, -0.22, 0.0), 0.035, 0.035),
-            ((0.382, 0.128, side * 0.075), (0.98, -0.15, 0.0), 0.029, 0.029),
+            ((0.378, 0.132, side * 0.075), (0.98, -0.15, 0.0), 0.029, 0.029),
         ]
-        leg_rings = [
-            oriented_ellipse_ring(center, tangent, rn, rs, n=16)
-            for (center, tangent, rn, rs) in leg_spine
-        ]
-        create_loft_mesh(f"Driver_Leg_{side}", leg_rings, mats["suit"], subsurf_levels=1, collection=col_driver_body)
+        leg_rings = [oriented_ellipse_ring(c, t, rn, rs, n=16) for (c, t, rn, rs) in leg_spine]
+        create_loft_mesh(f"Driver_Leg_{side}", leg_rings, mats["suit"], subsurf_levels=1, parent=driver_fixed)
 
-        # Racing boot on pedal inside the narrow front footwell (z = ±0.075 m, x <= 0.415 m just behind articulated pedal plate at 0.422 m)
         boot_rings = [
-            superellipse_ring(0.345, 0.096, 0.156, side * 0.075, 0.028, power_y=0.5, power_z=0.5),
-            superellipse_ring(0.388, 0.102, 0.180, side * 0.075, 0.028, power_y=0.5, power_z=0.5),
-            superellipse_ring(0.415, 0.122, 0.190, side * 0.075, 0.024, power_y=0.5, power_z=0.5),
+            superellipse_ring(0.342, 0.104, 0.160, side * 0.075, 0.026, power_y=0.5, power_z=0.5),
+            superellipse_ring(0.382, 0.110, 0.180, side * 0.075, 0.026, power_y=0.5, power_z=0.5),
+            superellipse_ring(0.408, 0.128, 0.188, side * 0.075, 0.022, power_y=0.5, power_z=0.5),
         ]
-        create_loft_mesh(f"Driver_Boot_{side}", boot_rings, mats["black"], subsurf_levels=1, collection=col_driver_body)
+        create_loft_mesh(f"Driver_Boot_{side}", boot_rings, mats["black"], subsurf_levels=1, parent=driver_fixed)
 
     buckle_rings = [
         superellipse_ring(-0.185, 0.305, 0.338, 0.0, 0.022, power_y=0.4, power_z=0.4),
         superellipse_ring(-0.170, 0.305, 0.338, 0.0, 0.022, power_y=0.4, power_z=0.4),
     ]
-    create_loft_mesh("Driver_Harness_Buckle", buckle_rings, mats["alloy"], subsurf_levels=0, collection=col_driver_body)
+    create_loft_mesh("Driver_Harness_Buckle", buckle_rings, mats["alloy"], subsurf_levels=0, parent=driver_fixed)
 
-    # =========================================================================
-    # 9. AERODYNAMIC FULL-FACE KARTING HELMET (Crown at y = 0.818 m < 0.862 m Roll Hoop)
-    # Positioned at hx = -0.318..-0.330 m with rear radius rxb <= 0.112 m so the back
-    # of the helmet (x >= -0.442 m) stays >= 1.2 cm clear of OTL_Headrest_Pad (x <= -0.454 m)!
-    # =========================================================================
+    # Helmet & Neck (under Driver_Head)
     neck_rings = [
         oriented_ellipse_ring((-0.348, 0.535, 0.0), (0.12, 0.99, 0.0), 0.064, 0.076, n=20),
         oriented_ellipse_ring((-0.336, 0.575, 0.0), (0.16, 0.98, 0.0), 0.060, 0.072, n=20),
         oriented_ellipse_ring((-0.324, 0.615, 0.0), (0.18, 0.98, 0.0), 0.058, 0.068, n=20),
     ]
-    create_loft_mesh("Driver_Neck_Collar", neck_rings, mats["black"], subsurf_levels=0, collection=col_driver_head)
-
+    create_loft_mesh("Driver_Neck_Collar", neck_rings, mats["black"], subsurf_levels=0, parent=driver_head)
     helmet_rows = [
         (-0.322, 0.582, 0.078, 0.068, 0.078),
         (-0.312, 0.620, 0.128, 0.096, 0.104),
@@ -940,12 +2358,11 @@ def build_otl_superleggero():
         ring = []
         for j in range(24):
             ang = (j / 24) * math.pi * 2.0
-            ca = math.cos(ang)
-            sa = math.sin(ang)
+            ca, sa = math.cos(ang), math.sin(ang)
             rx = rxf if ca >= 0 else rxb
             ring.append((hx + ca * rx, hy, sa * rz))
         helmet_rings.append(ring)
-    create_loft_mesh("Driver_Helmet_Shell", helmet_rings, mats["helmet"], subsurf_levels=1, collection=col_driver_head)
+    create_loft_mesh("Driver_Helmet_Shell", helmet_rings, mats["helmet"], subsurf_levels=1, parent=driver_head)
 
     visor_rows = [
         (-0.310, 0.678, 0.136, 0.117),
@@ -964,346 +2381,39 @@ def build_otl_superleggero():
             ang = -1.02 + (j / n_v) * 2.04
             ring.append((vx + math.cos(ang) * (rx + 0.002), vy, math.sin(ang) * (rz + 0.002)))
         visor_rings.append(ring)
-    create_loft_mesh("Driver_Helmet_Visor", visor_rings, mats["visor"], subsurf_levels=0, collection=col_driver_head)
-
+    create_loft_mesh("Driver_Helmet_Visor", visor_rings, mats["visor"], subsurf_levels=0, parent=driver_head)
     chin_vent = [
         superellipse_ring(-0.178, 0.628, 0.644, 0.0, 0.028, power_y=0.45, power_z=0.45),
         superellipse_ring(-0.168, 0.628, 0.644, 0.0, 0.024, power_y=0.45, power_z=0.45),
     ]
-    create_loft_mesh("Driver_Helmet_Chin_Vent", chin_vent, mats["black"], subsurf_levels=0, collection=col_driver_head)
+    create_loft_mesh("Driver_Helmet_Chin_Vent", chin_vent, mats["black"], subsurf_levels=0, parent=driver_head)
 
-    # =========================================================================
-    # 10. RACING GLOVES (Local to Left/Right hand grip on F1 wheel)
-    # Compact profile wrapping the rim so x_local stays within [-0.038, +0.016].
-    # =========================================================================
-    for side, col_glove in ((-1, col_glove_l), (1, col_glove_r)):
+    # Gloves parented under steering_upper at grip offsets
+    for side, g_node in ((-1, driver_glove_l), (1, driver_glove_r)):
+        g_loc_three = upper_to_world(GLOVE_OFFSET[0], GLOVE_OFFSET[1], side * GLOVE_OFFSET[2])
+        # Position relative to steering_upper (origin STEER_MOUNT_POS)
+        g_node.location = t2b(
+            g_loc_three[0] - STEER_MOUNT_POS[0],
+            g_loc_three[1] - STEER_MOUNT_POS[1],
+            g_loc_three[2] - STEER_MOUNT_POS[2],
+        )
+        g_origin = g_loc_three
         palm_rings = [
-            superellipse_ring(-0.028, -0.022, 0.022, 0.0, 0.018, power_y=0.5, power_z=0.5),
-            superellipse_ring(-0.010, -0.028, 0.028, 0.0, 0.020, power_y=0.5, power_z=0.5),
-            superellipse_ring(0.010, -0.026, 0.026, 0.0, 0.018, power_y=0.5, power_z=0.5),
-            superellipse_ring(0.020, -0.018, 0.018, 0.0, 0.012, power_y=0.5, power_z=0.5),
+            oriented_ellipse_ring(upper_to_world(GLOVE_OFFSET[0] + lx, 0.0, side * GLOVE_OFFSET[2]), (cm_s, sm_s, 0.0), ry, rz, n=14)
+            for (lx, ry, rz) in ((-0.026, 0.021, 0.018), (-0.010, 0.026, 0.019), (0.010, 0.024, 0.017), (0.020, 0.017, 0.012))
         ]
-        create_loft_mesh(f"Driver_Glove_Palm_{side}", palm_rings, mats["black"], subsurf_levels=1, collection=col_glove)
-
+        create_loft_mesh(f"Driver_Glove_Palm_{side}", palm_rings, mats["black"], subsurf_levels=1, parent=g_node, origin_three=g_origin)
         cuff_rings = [
-            superellipse_ring(-0.042, -0.022, 0.022, 0.0, 0.022, power_y=0.5, power_z=0.5),
-            superellipse_ring(-0.024, -0.022, 0.022, 0.0, 0.020, power_y=0.5, power_z=0.5),
+            oriented_ellipse_ring(upper_to_world(GLOVE_OFFSET[0] - 0.036, 0.0, side * GLOVE_OFFSET[2]), (cm_s, sm_s, 0.0), 0.021, 0.021, n=12),
+            oriented_ellipse_ring(upper_to_world(GLOVE_OFFSET[0] - 0.022, 0.0, side * GLOVE_OFFSET[2]), (cm_s, sm_s, 0.0), 0.021, 0.020, n=12),
         ]
-        create_loft_mesh(f"Driver_Glove_Cuff_{side}", cuff_rings, mats["glovePad"], subsurf_levels=0, collection=col_glove)
-
-        for f_idx in range(4):
-            fy = -0.018 + f_idx * 0.012
-            finger_pts = [
-                (-0.006, fy, side * 0.006),
-                (0.004, fy, side * 0.016),
-                (0.016, fy, side * 0.014),
-                (0.022, fy, side * 0.002),
-                (0.014, fy, -side * 0.010),
-            ]
-            create_tube_curve(f"Driver_Glove_Finger_{side}_{f_idx}", finger_pts, 0.0048, mats["black"], collection=col_glove)
+        create_loft_mesh(f"Driver_Glove_Cuff_{side}", cuff_rings, mats["glovePad"], subsurf_levels=0, parent=g_node, origin_three=g_origin)
 
     # =========================================================================
-    # EXPORT .BLEND, .GLB, AND SYNCHRONOUS TYPESCRIPT MESH BUFFERS
+    # SAVE .BLEND AND EXPORT .GLB (WITH MODIFIERS APPLIED & OBJECT HIERARCHY INTACT)
     # =========================================================================
     os.makedirs(os.path.dirname(BLEND_OUT), exist_ok=True)
     os.makedirs(os.path.dirname(GLB_OUT), exist_ok=True)
-    os.makedirs(os.path.dirname(TS_OUT), exist_ok=True)
-
-    depsgraph = bpy.context.evaluated_depsgraph_get()
-
-    def extract_collection_batches(col: bpy.types.Collection) -> dict[str, tuple[list[float], list[float], list[int]]]:
-        mat_to_key = {m.name: k for k, m in mats.items()}
-        batches: dict[str, tuple[list[float], list[float], list[int]]] = {}
-
-        for obj in col.objects:
-            if obj.type != "MESH":
-                continue
-            eval_obj = obj.evaluated_get(depsgraph)
-            eval_mesh = eval_obj.to_mesh()
-            bm = bmesh.new()
-            bm.from_mesh(eval_mesh)
-            bmesh.ops.triangulate(bm, faces=bm.faces)
-            bm.normal_update()
-
-            mat_name = eval_mesh.materials[0].name if eval_mesh.materials else "K1_Crimson_Red"
-            key = mat_to_key.get(mat_name, "red")
-            if key not in batches:
-                batches[key] = ([], [], [])
-            pos_list, norm_list, idx_list = batches[key]
-            base_vertex = len(pos_list) // 3
-
-            for v in bm.verts:
-                co = obj.matrix_world @ v.co
-                no = (obj.matrix_world.to_3x3() @ v.normal).normalized()
-                pos_list.extend((round(co.x, 4), round(co.z, 4), round(-co.y, 4)))
-                norm_list.extend((round(no.x, 3), round(no.z, 3), round(-no.y, 3)))
-
-            for f in bm.faces:
-                v0, v1, v2 = f.verts[0].index, f.verts[1].index, f.verts[2].index
-                idx_list.extend((base_vertex + v0, base_vertex + v1, base_vertex + v2))
-
-            bm.free()
-            eval_obj.to_mesh_clear()
-        return batches
-
-    groups_data = {
-        "stationary": extract_collection_batches(col_stationary),
-        "steeringWheel": extract_collection_batches(col_steer),
-        "driverFixed": extract_collection_batches(col_driver_body),
-        "driverHead": extract_collection_batches(col_driver_head),
-        "gloveLeft": extract_collection_batches(col_glove_l),
-        "gloveRight": extract_collection_batches(col_glove_r),
-    }
-
-    # =========================================================================
-    # MATHEMATICAL 3D CLEARANCE & CONNECTIVITY VERIFICATION (STATIC & FULL LOCK)
-    # =========================================================================
-    def collect_verts(batches: dict[str, tuple[list[float], list[float], list[int]]]) -> list[tuple[float, float, float]]:
-        pts = []
-        for pos, _, _ in batches.values():
-            for i in range(0, len(pos), 3):
-                pts.append((pos[i], pos[i + 1], pos[i + 2]))
-        return pts
-
-    stat_verts = collect_verts(groups_data["stationary"])
-    driver_verts = collect_verts(groups_data["driverFixed"])
-    head_verts = collect_verts(groups_data["driverHead"])
-    steer_verts = collect_verts(groups_data["steeringWheel"])
-    glove_l_verts = collect_verts(groups_data["gloveLeft"])
-    glove_r_verts = collect_verts(groups_data["gloveRight"])
-
-    # 1. Verify front and rear wheel clearances at steer = 0 and full Ackermann steering lock
-    # Front wheels pivot around the Kingpin at z = side * KINGPIN_HALF_Z with SPINDLE_LENGTH stub axle!
-    for steer_rad in (-MAX_STEER_ANGLE_RAD, 0.0, MAX_STEER_ANGLE_RAD):
-        for side in (-1, 1):
-            ack_steer = ackermann_steer_angle(steer_rad, side)
-            yaw = -ack_steer
-            c_s, s_s = math.cos(yaw), math.sin(yaw)
-            # Wheel center swings around kingpin (FRONT_AXLE_X, TIRE_RADIUS, side * KINGPIN_HALF_Z)
-            wx = FRONT_AXLE_X + (side * SPINDLE_LENGTH) * s_s
-            wy = TIRE_RADIUS
-            wz = side * KINGPIN_HALF_Z + (side * SPINDLE_LENGTH) * c_s
-            for (px, py, pz) in stat_verts + driver_verts:
-                dx, dy, dz = px - wx, py - wy, pz - wz
-                lx = dx * c_s - dz * s_s
-                lz = dx * s_s + dz * c_s
-                radial = math.hypot(lx, dy)
-                if radial < TIRE_RADIUS + 0.012 and abs(lz) < WHEEL_HALF_WIDTH + 0.012:
-                    raise AssertionError(
-                        f"Front wheel overlap at steer={steer_rad:.2f} rad (ack={ack_steer:.3f}), side={side}: point=({px:.3f}, {py:.3f}, {pz:.3f}), lx={lx:.3f}, lz={lz:.3f}"
-                    )
-
-    for side in (-1, 1):
-        wx, wy, wz = REAR_AXLE_X, TIRE_RADIUS, side * REAR_TRACK_HALF_Z
-        for (px, py, pz) in stat_verts + driver_verts:
-            # Ignore coaxial rear live axle shaft (dx^2 + dy^2 <= 0.025^2) passing into rear wheel hubs
-            if abs(px - REAR_AXLE_X) <= 0.025 and abs(py - TIRE_RADIUS) <= 0.025 and abs(pz) <= REAR_TRACK_HALF_Z + 0.005:
-                continue
-            dx, dy, dz = px - wx, py - wy, pz - wz
-            radial = math.hypot(dx, dy)
-            if radial < TIRE_RADIUS + 0.015 and abs(dz) < WHEEL_HALF_WIDTH + 0.015:
-                raise AssertionError(f"Rear wheel overlap at side={side}: point=({px:.3f}, {py:.3f}, {pz:.3f})")
-
-    # 2. Verify rotating steeringWheel + gloves clearance against stationary bodywork & driver legs,
-    # and verify coaxial telescopic connection between OTL_F1_Wheel_Hub_Boss and OTL_Steering_Column_Shaft!
-    cm, sm = math.cos(STEER_MOUNT_ROT_Z), math.sin(STEER_MOUNT_ROT_Z)
-    max_rot_xl = -1e9
-    min_rot_xl = 1e9
-    max_rot_rl = 0.0
-    max_boss_xl = -1e9
-    for (lx, ly, lz) in steer_verts:
-        rl = math.hypot(ly, lz)
-        if rl <= 0.022:
-            max_boss_xl = max(max_boss_xl, lx)
-        else:
-            max_rot_xl = max(max_rot_xl, lx)
-            min_rot_xl = min(min_rot_xl, lx)
-            max_rot_rl = max(max_rot_rl, rl)
-    for side, g_verts in ((-1, glove_l_verts), (1, glove_r_verts)):
-        for (gx, gy, gz) in g_verts:
-            lx, ly, lz = gx - 0.010, gy, gz + side * GLOVE_OFFSET_Z
-            max_rot_xl = max(max_rot_xl, lx)
-            min_rot_xl = min(min_rot_xl, lx)
-            max_rot_rl = max(max_rot_rl, math.hypot(ly, lz))
-
-    min_shaft_xl = 1e9
-    for (px, py, pz) in stat_verts + driver_verts:
-        dx, dy = px - STEER_MOUNT_POS[0], py - STEER_MOUNT_POS[1]
-        xl = dx * cm + dy * sm
-        yl = -dx * sm + dy * cm
-        rl = math.hypot(yl, pz)
-        # Coaxial steering column shaft (rl <= 0.020, xl in [-0.005, 0.130]) mates inside OTL_F1_Wheel_Hub_Boss
-        if rl <= 0.020 and -0.005 <= xl <= 0.130:
-            min_shaft_xl = min(min_shaft_xl, xl)
-            continue
-        if (min_rot_xl - 0.010) <= xl <= (max_rot_xl + 0.010) and rl <= (max_rot_rl + 0.010):
-            raise AssertionError(
-                f"Steering wheel / glove swept envelope overlap at point=({px:.3f}, {py:.3f}, {pz:.3f}), xl={xl:.3f}, rl={rl:.3f}"
-            )
-
-    if max_boss_xl < min_shaft_xl:
-        raise AssertionError(
-            f"Steering shaft disconnected from wheel hub boss: max_boss_xl={max_boss_xl:.3f} < min_shaft_xl={min_shaft_xl:.3f}"
-        )
-
-    # 3. Verify helmet shell stays strictly clear of headrest pad & roll hoop (zero third-person overlap)
-    min_helmet_x = min(px for (px, py, pz) in head_verts if py >= 0.62)
-    if min_helmet_x < -0.450:
-        raise AssertionError(f"Driver helmet overlaps headrest/roll hoop: min_helmet_x={min_helmet_x:.3f} < -0.450")
-
-    # Write TypeScript synchronous mesh module and shared mechanical rig constants
-    lines = [
-        "// AUTO-GENERATED BY tools/build-kart-model.py via Blender 5.2 CLI — DO NOT EDIT MANUALLY",
-        "export interface BlenderMeshBatch {",
-        "  positions: number[];",
-        "  normals: number[];",
-        "  indices: number[];",
-        "}",
-        "",
-        "export type BlenderGroupBatches = Record<string, BlenderMeshBatch>;",
-        "",
-        "export const OTL_RIG_CONFIG = {",
-        f"  wheelbaseMeters: {WHEELBASE_M},",
-        f"  kingpinHalfTrackMeters: {KINGPIN_HALF_Z},",
-        f"  steeringWheelHub: {{ x: {STEER_MOUNT_POS[0]}, y: {STEER_MOUNT_POS[1]}, z: {STEER_MOUNT_POS[2]}, tiltRad: {STEER_MOUNT_ROT_Z} }},",
-        f"  dashBinnacle: {{ x: {DASH_BINNACLE_POS[0]}, y: {DASH_BINNACLE_POS[1]} }},",
-        f"  pitmanPivot: [{PITMAN_PIVOT[0]}, {PITMAN_PIVOT[1]}, {PITMAN_PIVOT[2]}] as const,",
-        f"  pitmanBallLocal: [{PITMAN_BALL_LOCAL[0]}, {PITMAN_BALL_LOCAL[1]}, {PITMAN_BALL_LOCAL[2]}] as const,",
-        f"  knuckleArmBallLocal: [{KNUCKLE_ARM_BALL_LOCAL[0]}, {KNUCKLE_ARM_BALL_LOCAL[1]}, {KNUCKLE_ARM_BALL_LOCAL[2]}] as const,",
-        f"  pedalPivot: [{PEDAL_PIVOT_POS[0]}, {PEDAL_PIVOT_POS[1]}, {PEDAL_PIVOT_POS[2]}] as const,",
-        f"  driverShoulder: [{DRIVER_SHOULDER[0]}, {DRIVER_SHOULDER[1]}, {DRIVER_SHOULDER[2]}] as const,",
-        f"  gloveGripOffset: [{GLOVE_OFFSET[0]}, {GLOVE_OFFSET[1]}, {GLOVE_OFFSET[2]}] as const,",
-        f"  gloveWristLocal: [{GLOVE_WRIST_LOCAL[0]}, {GLOVE_WRIST_LOCAL[1]}, {GLOVE_WRIST_LOCAL[2]}] as const,",
-        "} as const;",
-        "",
-    ]
-    total_tris = 0
-    for group_name, batches in groups_data.items():
-        lines.append(f"export const {group_name.upper()}_BATCHES: BlenderGroupBatches = {{")
-        for mat_key, (pos, norm, idx) in batches.items():
-            total_tris += len(idx) // 3
-            pos_str = ",".join(f"{x:g}" for x in pos)
-            norm_str = ",".join(f"{x:g}" for x in norm)
-            idx_str = ",".join(str(i) for i in idx)
-            lines.append(f"  {mat_key}: {{")
-            lines.append(f"    positions: [{pos_str}],")
-            lines.append(f"    normals: [{norm_str}],")
-            lines.append(f"    indices: [{idx_str}],")
-            lines.append("  },")
-        lines.append("};")
-        lines.append("")
-
-    with open(TS_OUT, "w", encoding="utf-8") as f:
-        f.write("\n".join(lines))
-
-    # =========================================================================
-    # ASSEMBLE WORLD POSES FOR .BLEND, .GLB, AND CYCLES PREVIEW RENDER
-    # =========================================================================
-    def transform_mesh_in_three_space(obj: bpy.types.Object, offset_local: tuple[float, float, float]) -> None:
-        ox, oy, oz = offset_local
-        for v in obj.data.vertices:
-            tx, ty, tz = v.co.x + ox, v.co.z + oy, -v.co.y + oz
-            wx = STEER_MOUNT_POS[0] + tx * cm - ty * sm
-            wy = STEER_MOUNT_POS[1] + tx * sm + ty * cm
-            wz = STEER_MOUNT_POS[2] + tz
-            v.co = t2b(wx, wy, wz)
-        obj.data.update()
-
-    for obj in col_steer.objects:
-        transform_mesh_in_three_space(obj, (0.0, 0.0, 0.0))
-    for obj in col_glove_l.objects:
-        transform_mesh_in_three_space(obj, (-0.010, 0.0, -GLOVE_OFFSET_Z))
-    for obj in col_glove_r.objects:
-        transform_mesh_in_three_space(obj, (-0.010, 0.0, GLOVE_OFFSET_Z))
-
-    for label, wx, wz in (
-        ("FL", FRONT_AXLE_X, -FRONT_TRACK_HALF_Z),
-        ("FR", FRONT_AXLE_X, FRONT_TRACK_HALF_Z),
-        ("RL", REAR_AXLE_X, -REAR_TRACK_HALF_Z),
-        ("RR", REAR_AXLE_X, REAR_TRACK_HALF_Z),
-    ):
-        bpy.ops.mesh.primitive_cylinder_add(
-            vertices=32,
-            radius=TIRE_RADIUS,
-            depth=0.136,
-            location=t2b(wx, TIRE_RADIUS, wz),
-            rotation=(math.pi / 2, 0.0, 0.0),
-        )
-        wheel_obj = bpy.context.active_object
-        wheel_obj.name = f"OTL_Wheel_{label}"
-        wheel_obj.data.materials.append(mats["rubber"])
-        for c in list(wheel_obj.users_collection):
-            c.objects.unlink(wheel_obj)
-        col_wheel.objects.link(wheel_obj)
-
-        bpy.ops.mesh.primitive_cylinder_add(
-            vertices=24,
-            radius=0.090,
-            depth=0.142,
-            location=t2b(wx, TIRE_RADIUS, wz),
-            rotation=(math.pi / 2, 0.0, 0.0),
-        )
-        rim_obj = bpy.context.active_object
-        rim_obj.name = f"OTL_Rim_{label}"
-        rim_obj.data.materials.append(mats["alloy"])
-        for c in list(rim_obj.users_collection):
-            c.objects.unlink(rim_obj)
-        col_wheel.objects.link(rim_obj)
-
-        if label in ("FL", "FR"):
-            side = -1 if label == "FL" else 1
-            create_tube_curve(
-                f"OTL_Spindle_Stub_Axle_{label}",
-                [(wx, TIRE_RADIUS, side * 0.185), (wx, TIRE_RADIUS, wz + side * 0.072)],
-                0.014,
-                mats["steel"],
-                collection=col_wheel,
-            )
-
-    # Posed mechanical steering linkage (Pitman arm, Ackermann spindle steering arms, tie rods & Heim joints)
-    # and articulated footwell pedals for .blend / .glb / Cycles preview completeness
-    for side in (-1, 1):
-        create_tube_curve(
-            f"OTL_Pitman_Ear_{side}",
-            [(0.458, 0.192, 0.0), (0.450, 0.192, side * 0.038)],
-            0.007,
-            mats["alloy"],
-            collection=col_wheel,
-        )
-        create_tube_curve(
-            f"OTL_Knuckle_Steering_Arm_{side}",
-            [(0.540, 0.170, side * 0.185), (0.508, 0.188, side * 0.174), (0.474, 0.192, side * 0.163)],
-            0.0075,
-            mats["alloy"],
-            collection=col_wheel,
-        )
-        create_tube_curve(
-            f"OTL_Tie_Rod_{side}",
-            [(0.450, 0.192, side * 0.038), (0.474, 0.192, side * 0.163)],
-            0.0065,
-            mats["alloy"],
-            collection=col_wheel,
-        )
-        create_tube_curve(
-            f"OTL_Pedal_Arm_{side}",
-            [(0.428, 0.095, side * 0.075), (0.422, 0.188, side * 0.075)],
-            0.006,
-            mats["alloy"],
-            collection=col_wheel,
-        )
-        pedal_plate = [
-            superellipse_ring(0.419, 0.115, 0.192, side * 0.075, 0.022, power_y=0.35, power_z=0.35),
-            superellipse_ring(0.425, 0.115, 0.192, side * 0.075, 0.022, power_y=0.35, power_z=0.35),
-        ]
-        create_loft_mesh(f"OTL_Pedal_Plate_{side}", pedal_plate, mats["red" if side < 0 else "accent"], subsurf_levels=0, collection=col_wheel)
-
-    for side in (-1, 1):
-        arm_pts = [
-            (-0.335, 0.485, side * 0.122),
-            (-0.085, 0.372, side * 0.180),
-            (0.160, 0.352, side * GLOVE_OFFSET_Z),
-        ]
-        create_tube_curve(f"Driver_Sleeve_Posed_{side}", arm_pts, 0.040, mats["suit"], collection=col_driver_body)
 
     bpy.ops.wm.save_as_mainfile(filepath=BLEND_OUT)
     bpy.ops.export_scene.gltf(
@@ -1313,7 +2423,9 @@ def build_otl_superleggero():
         export_apply=True,
     )
 
-    # Render a studio 3/4 preview image using Blender's CPU Cycles renderer
+    # =========================================================================
+    # STUDIO CYCLES PREVIEW RENDER
+    # =========================================================================
     cam_data = bpy.data.cameras.new("Preview_Camera")
     cam_data.lens = 50
     cam_obj = bpy.data.objects.new("Preview_Camera", cam_data)
@@ -1324,9 +2436,9 @@ def build_otl_superleggero():
     scene.camera = cam_obj
 
     for lname, loc, energy in (
-        ("Studio_Key", (2.5, 2.2, 3.2), 180.0),
-        ("Studio_Fill", (-2.2, 2.0, 2.4), 90.0),
-        ("Studio_Rim", (-1.8, -2.5, 2.8), 110.0),
+        ("Studio_Key", (2.5, 2.2, 3.2), 200.0),
+        ("Studio_Fill", (-2.2, 2.0, 2.4), 100.0),
+        ("Studio_Rim", (-1.8, -2.5, 2.8), 120.0),
     ):
         ldata = bpy.data.lights.new(name=lname, type="AREA")
         ldata.energy = energy
@@ -1340,8 +2452,7 @@ def build_otl_superleggero():
     bpy.ops.mesh.primitive_plane_add(size=8.0, location=(0.0, 0.0, 0.0))
     floor_obj = bpy.context.active_object
     floor_obj.name = "Studio_Floor"
-    floor_mat = make_material("Studio_Floor_Mat", (0.16, 0.18, 0.21), roughness=0.72, metalness=0.0)
-    floor_obj.data.materials.append(floor_mat)
+    floor_obj.data.materials.append(make_pbr_material("Studio_Floor_Mat", (0.16, 0.18, 0.21), roughness=0.72))
 
     scene.render.engine = "CYCLES"
     scene.cycles.device = "CPU"
@@ -1352,10 +2463,7 @@ def build_otl_superleggero():
     scene.render.filepath = PREVIEW_OUT
     bpy.ops.render.render(write_still=True)
 
-    print(
-        f"SUCCESS: Verified zero 3D overlaps (rot_xl=[{min_rot_xl:.3f}, {max_rot_xl:.3f}], max_rl={max_rot_rl:.3f}) "
-        f"and generated {BLEND_OUT}, {GLB_OUT}, {PREVIEW_OUT}, and {TS_OUT} ({total_tris} triangles)"
-    )
+    print(f"SUCCESS: Generated {BLEND_OUT}, {GLB_OUT}, {PREVIEW_OUT}, and 8 PBR textures in {TEX_DIR}")
 
 
 if __name__ == "__main__":

@@ -22,13 +22,17 @@ At runtime, the application makes **zero** external network requests (no CDNs, r
 
 ## Bundled Local PBR Textures
 
-All Kart PBR textures under `public/textures/` are 1024×1024 original deterministic procedural maps generated locally by `tools/build-kart-model.py` with zero external downloads:
-
-- `public/textures/kart-livery-albedo.png` — Apex Bite #07 crimson/white/carbon flush bodywork livery (Original procedural asset, project license)
-- `public/textures/kart-carbon-albedo.png` — 2×2 twill carbon fiber weave albedo (Original procedural asset, project license)
-- `public/textures/kart-carbon-normal.png` — 2×2 twill carbon fiber weave tangent-space normal map (Original procedural asset, project license)
-- `public/textures/kart-carbon-roughness.png` — 2×2 twill carbon fiber roughness map (Original procedural asset, project license)
-- `public/textures/tire-albedo.png` — Molded indoor slick tire tread & sidewall lettering albedo (Original procedural asset, project license)
-- `public/textures/tire-normal.png` — Tire rubber grain & molded sidewall rib normal map (Original procedural asset, project license)
-- `public/textures/tire-roughness.png` — Scrubbed tread & matte sidewall roughness map (Original procedural asset, project license)
-- `public/textures/metal-alloy-roughness.png` — Brushed/turned CNC billet alloy roughness map (Original procedural asset, project license)
+- **Kart & Driver PBR Maps** (`public/textures/`, generated via `tools/build-kart-model.py` in Blender 5.2):
+  - `kart-livery-albedo.png` — Apex Bite #07 crimson/white/carbon flush bodywork livery
+  - `kart-carbon-albedo.png`, `kart-carbon-normal.png`, `kart-carbon-roughness.png` — 2×2 twill carbon fiber weave maps
+  - `tire-albedo.png`, `tire-normal.png`, `tire-roughness.png` — Molded indoor slick tire tread & sidewall lettering maps
+  - `metal-alloy-roughness.png` — Brushed/turned CNC billet alloy roughness map
+  - **Author**: Apex Bite project (original deterministic procedural Blender-generated 1024×1024 textures)
+  - **License**: Project original asset (all rights reserved to repository terms)
+- **Venue Concrete & Protex HDPE Barrier PBR Maps** (`public/textures/`, generated via `tools/build-venue-textures.py` in Blender 5.2):
+  - `track-concrete-albedo.png`, `track-concrete-normal.png`, `track-concrete-roughness.png`
+  - `infield-concrete-albedo.png`, `infield-concrete-roughness.png`
+  - `barrier-hdpe-albedo.png`, `barrier-hdpe-roughness.png`
+  - **Author**: Apex Bite project (original deterministic procedural Blender-generated tileable 1024×1024 textures)
+  - **License**: Project original asset (all rights reserved to repository terms)
+- All bundled texture maps are locally authored/baked procedural maps or vetted CC0 textures, each documented here with source and license before inclusion.

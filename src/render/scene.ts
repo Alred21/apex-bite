@@ -1,114 +1,258 @@
 import * as THREE from 'three';
-import { CircuitData, SessionSnapshot, type GhostPose } from '../simulation/types';
-import { createIndoorVenue, buildVenueBarriers } from './venue';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { CircuitData, RacingLinePoint, SessionSnapshot, type GhostPose } from '../simulation/types';
+import { createIndoorVenue } from './venue';
+import { buildSeamlessProtexBarriers } from './barriers';
+import { SkidRibbonSystem } from './skid-marks';
 import { applyGraphicsQuality, GraphicsQuality, loadGraphicsQuality } from './graphics';
 import { createKartRig } from './kart';
-import { createTireMarkMaterial } from './materials';
 import type { RendererAssets } from './assets';
 
-function buildTrackRibbonMesh(circuit: CircuitData, material: THREE.MeshStandardMaterial): THREE.Mesh {
+function nearestRacingLineDistance(
+  px: number,
+  pz: number,
+  progress: number,
+  points: ReadonlyArray<RacingLinePoint>,
+): number {
+  const count = points.length;
+  if (count === 0) return Infinity;
+  const centerIdx = Math.floor(((progress % 1) + 1) % 1 * count) % count;
+  const halfWindow = count > 48 ? 24 : count;
+  let bestDistSq = Infinity;
+  const span = Math.min(count, halfWindow * 2 + 1);
+  for (let offset = -halfWindow; offset < -halfWindow + span; offset++) {
+    const idx = ((centerIdx + offset) % count + count) % count;
+    const a = points[idx].position;
+    const b = points[(idx + 1) % count].position;
+    const dx = b.x - a.x;
+    const dz = b.z - a.z;
+    const lenSq = dx * dx + dz * dz;
+    const t = lenSq > 1e-10 ? Math.max(0, Math.min(1, ((px - a.x) * dx + (pz - a.z) * dz) / lenSq)) : 0;
+    const cx = a.x + dx * t;
+    const cz = a.z + dz * t;
+    const dSq = (px - cx) * (px - cx) + (pz - cz) * (pz - cz);
+    if (dSq < bestDistSq) bestDistSq = dSq;
+  }
+  return Math.sqrt(bestDistSq);
+}
+
+export function buildTrackRibbonMesh(
+  circuit: CircuitData,
+  material: THREE.Material,
+  racingLinePoints: ReadonlyArray<RacingLinePoint> = [],
+): THREE.Mesh {
   const samples = circuit.samples;
   const n = samples.length;
+  const crossCols = 18;
+  const stride = crossCols + 1;
+
   const positions: number[] = [];
+  const normals: number[] = [];
   const uvs: number[] = [];
+  const trackSurface: number[] = [];
   const indices: number[] = [];
 
   for (let i = 0; i <= n; i++) {
     const s = samples[i % n];
-    positions.push(s.leftBarrier.x, 0.01, s.leftBarrier.z);
-    positions.push(s.rightBarrier.x, 0.01, s.rightBarrier.z);
-    uvs.push(s.leftBarrier.x / 2, s.leftBarrier.z / 2, s.rightBarrier.x / 2, s.rightBarrier.z / 2);
+    const distMeters = i === n ? circuit.totalLengthMeters : s.distanceMeters;
+    const cornerWeight = 0.68 + 0.32 * Math.min(1, Math.abs(s.curvature) * 5.0);
+
+    for (let c = 0; c <= crossCols; c++) {
+      const u = c / crossCols;
+      const x = s.leftBarrier.x + (s.rightBarrier.x - s.leftBarrier.x) * u;
+      const z = s.leftBarrier.z + (s.rightBarrier.z - s.leftBarrier.z) * u;
+      positions.push(x, 0.01, z);
+      normals.push(0, 1, 0);
+      uvs.push(x / 2, z / 2);
+
+      let groove = 0;
+      if (racingLinePoints.length > 0) {
+        const dLine = nearestRacingLineDistance(x, z, s.progress, racingLinePoints);
+        groove = Math.exp(-0.5 * (dLine / 0.62) * (dLine / 0.62)) * cornerWeight;
+      }
+      const edgeMeters = Math.min(u, 1 - u) * s.widthMeters;
+      trackSurface.push(groove, edgeMeters, distMeters);
+    }
 
     if (i < n) {
-      const base = i * 2;
-      indices.push(base, base + 1, base + 2);
-      indices.push(base + 1, base + 3, base + 2);
+      const rowA = i * stride;
+      const rowB = (i + 1) * stride;
+      for (let c = 0; c < crossCols; c++) {
+        indices.push(rowA + c, rowA + c + 1, rowB + c);
+        indices.push(rowA + c + 1, rowB + c + 1, rowB + c);
+      }
     }
   }
 
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
   geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setAttribute('aTrackSurface', new THREE.Float32BufferAttribute(trackSurface, 3));
   geo.setIndex(indices);
-  geo.computeVertexNormals();
 
   const mesh = new THREE.Mesh(geo, material);
+  mesh.name = 'TrackSurfaceRibbon';
   mesh.receiveShadow = true;
   return mesh;
 }
 
 function buildStartFinishAndGridBoxes(circuit: CircuitData): THREE.Group {
   const group = new THREE.Group();
+  group.name = 'StartFinishAndGrid';
   const s0 = circuit.samples[0];
   const width = s0.widthMeters;
 
-  // Checkered Start/Finish line
+  // Deterministic PRNG for weathered paint flecks and tire-scuff streaks
+  let seed = 42054;
+  const rand = (): number => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+
+  // Weathered checkered Start/Finish line (single textured quad)
   const cols = 12;
   const rows = 2;
-  const tileW = (width - 0.3) / cols;
-  const tileL = 0.38;
-  const whiteMat = new THREE.MeshStandardMaterial({ color: 0xe7e4d9, roughness: 0.82 });
-  const blackMat = new THREE.MeshStandardMaterial({ color: 0x171a1b, roughness: 0.82 });
-  const tileGeo = new THREE.PlaneGeometry(tileW, tileL);
-  tileGeo.rotateX(-Math.PI / 2);
-
-  const heading = Math.atan2(s0.tangent.z, s0.tangent.x);
-
+  const sfWidth = width - 0.36;
+  const sfLength = 0.80;
+  const sfCanvas = document.createElement('canvas');
+  sfCanvas.width = 1024;
+  sfCanvas.height = 192;
+  const sfCtx = sfCanvas.getContext('2d')!;
+  const cellW = sfCanvas.width / cols;
+  const cellH = sfCanvas.height / rows;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      const lateral = (c - (cols - 1) * 0.5) * tileW;
-      const forward = (r - 0.5) * tileL;
-      const tile = new THREE.Mesh(tileGeo, (r + c) % 2 === 0 ? whiteMat : blackMat);
-      tile.position.set(
-        s0.center.x + s0.tangent.x * forward + s0.normal.x * lateral,
-        0.022,
-        s0.center.z + s0.tangent.z * forward + s0.normal.z * lateral,
+      sfCtx.fillStyle = (r + c) % 2 === 0 ? '#e3e0d3' : '#181b1d';
+      sfCtx.fillRect(c * cellW, r * cellH, cellW + 1, cellH + 1);
+    }
+  }
+  // Subtle rubber tire streaks & concrete wear speckles over checkers
+  for (let i = 0; i < 420; i++) {
+    sfCtx.fillStyle = rand() > 0.45 ? `rgba(55,58,60,${0.08 + rand() * 0.22})` : `rgba(22,24,26,${0.06 + rand() * 0.16})`;
+    sfCtx.fillRect(rand() * sfCanvas.width, rand() * sfCanvas.height, 2 + rand() * 14, 1 + rand() * 12);
+  }
+  const sfTex = new THREE.CanvasTexture(sfCanvas);
+  sfTex.colorSpace = THREE.SRGBColorSpace;
+  sfTex.anisotropy = 4;
+  const sfMat = new THREE.MeshStandardMaterial({
+    map: sfTex,
+    roughness: 0.78,
+    metalness: 0,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
+  });
+  const sfGeo = new THREE.PlaneGeometry(sfWidth, sfLength);
+  sfGeo.rotateX(-Math.PI / 2);
+  const sfMesh = new THREE.Mesh(sfGeo, sfMat);
+  const heading = Math.atan2(s0.tangent.z, s0.tangent.x);
+  sfMesh.position.set(s0.center.x, 0.015, s0.center.z);
+  sfMesh.rotation.y = -heading + Math.PI / 2;
+  sfMesh.receiveShadow = true;
+  group.add(sfMesh);
+
+  // 12 Numbered Starting Grid Boxes (2 columns x 6 rows behind start/finish) merged into 1 draw call
+  const atlasCanvas = document.createElement('canvas');
+  atlasCanvas.width = 512;
+  atlasCanvas.height = 512;
+  const ctx = atlasCanvas.getContext('2d')!;
+  ctx.clearRect(0, 0, 512, 512);
+  const atlasCols = 4;
+  const atlasRows = 3;
+  const boxW = 512 / atlasCols;
+  const boxH = 512 / atlasRows;
+
+  for (let idx = 0; idx < 12; idx++) {
+    const col = idx % atlasCols;
+    const row = Math.floor(idx / atlasCols);
+    const ox = col * boxW;
+    const oy = row * boxH;
+
+    // Weathered white U-shaped grid slot + grid position number (01..12)
+    ctx.strokeStyle = 'rgba(232, 229, 217, 0.9)';
+    ctx.lineWidth = 9;
+    ctx.beginPath();
+    ctx.moveTo(ox + 16, oy + boxH * 0.74);
+    ctx.lineTo(ox + 16, oy + 16);
+    ctx.lineTo(ox + boxW - 16, oy + 16);
+    ctx.lineTo(ox + boxW - 16, oy + boxH * 0.74);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(232, 229, 217, 0.86)';
+    ctx.font = 'bold 42px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(idx + 1).padStart(2, '0'), ox + boxW * 0.5, oy + boxH * 0.52);
+
+    // Subtle scuff wear specks across painted lines
+    for (let s = 0; s < 35; s++) {
+      ctx.clearRect(
+        ox + 10 + rand() * (boxW - 20),
+        oy + 10 + rand() * (boxH - 20),
+        2 + rand() * 5,
+        2 + rand() * 5,
       );
-      tile.rotation.y = -heading + Math.PI / 2;
-      group.add(tile);
     }
   }
 
-  // 12 Starting Grid Boxes (2 columns of 6 behind the start/finish line)
+  const gridTex = new THREE.CanvasTexture(atlasCanvas);
+  gridTex.colorSpace = THREE.SRGBColorSpace;
+  gridTex.anisotropy = 4;
+  const gridMat = new THREE.MeshStandardMaterial({
+    map: gridTex,
+    transparent: true,
+    alphaTest: 0.08,
+    roughness: 0.78,
+    metalness: 0,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
+  });
+
+  const gridGeos: THREE.BufferGeometry[] = [];
   const n = circuit.samples.length;
-  for (let row = 1; row <= 6; row++) {
-    const sampleIdx = (n - row * 4) % n;
+  for (let row = 0; row < 6; row++) {
+    const sampleIdx = (n - (row + 1) * 4) % n;
     const gs = circuit.samples[sampleIdx];
     const gHeading = Math.atan2(gs.tangent.z, gs.tangent.x);
-    for (const laneSign of [-1, 1]) {
+    for (let laneIdx = 0; laneIdx < 2; laneIdx++) {
+      const gridNumberIdx = row * 2 + laneIdx;
+      const laneSign = laneIdx === 0 ? -1 : 1;
       const lateralOffset = laneSign * 1.15;
-      const boxGroup = new THREE.Group();
 
-      const frontBar = new THREE.Mesh(
-        new THREE.PlaneGeometry(1.1, 0.1),
-        whiteMat,
-      );
-      frontBar.rotateX(-Math.PI / 2);
-      frontBar.position.set(0, 0, -0.55);
-
-      const leftBar = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.1, 0.8),
-        whiteMat,
-      );
-      leftBar.rotateX(-Math.PI / 2);
-      leftBar.position.set(-0.5, 0, -0.2);
-
-      const rightBar = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.1, 0.8),
-        whiteMat,
-      );
-      rightBar.rotateX(-Math.PI / 2);
-      rightBar.position.set(0.5, 0, -0.2);
-
-      boxGroup.add(frontBar, leftBar, rightBar);
-      boxGroup.position.set(
+      const plane = new THREE.PlaneGeometry(1.18, 1.05);
+      plane.rotateX(-Math.PI / 2);
+      plane.rotateY(-gHeading - Math.PI / 2);
+      plane.translate(
         gs.center.x + gs.normal.x * lateralOffset,
-        0.021,
+        0.015,
         gs.center.z + gs.normal.z * lateralOffset,
       );
-      boxGroup.rotation.y = -gHeading - Math.PI / 2;
-      group.add(boxGroup);
+
+      // Map UVs to cell (col, row) in the 4x3 atlas (flip Y for canvas top-down vs WebGL UV bottom-up)
+      const atlasCol = gridNumberIdx % atlasCols;
+      const atlasRow = Math.floor(gridNumberIdx / atlasCols);
+      const u0 = atlasCol / atlasCols;
+      const u1 = (atlasCol + 1) / atlasCols;
+      const v1 = 1 - atlasRow / atlasRows;
+      const v0 = 1 - (atlasRow + 1) / atlasRows;
+      const uv = plane.getAttribute('uv');
+      for (let k = 0; k < uv.count; k++) {
+        uv.setXY(k, u0 + uv.getX(k) * (u1 - u0), v0 + uv.getY(k) * (v1 - v0));
+      }
+      gridGeos.push(plane);
     }
+  }
+
+  const mergedGridGeo = mergeGeometries(gridGeos, false);
+  for (const g of gridGeos) g.dispose();
+  if (mergedGridGeo) {
+    const gridMesh = new THREE.Mesh(mergedGridGeo, gridMat);
+    gridMesh.name = 'StartingGridBoxes';
+    gridMesh.receiveShadow = true;
+    group.add(gridMesh);
   }
 
   return group;
@@ -230,15 +374,21 @@ export function createCircuitRenderer(
   );
 
   const circuit = initialSnapshot.circuit;
-  const venue = createIndoorVenue(renderer, scene, circuit);
+  const venue = createIndoorVenue(renderer, scene, circuit, assets);
   let graphicsQuality = loadGraphicsQuality();
   function setGraphicsQuality(quality: GraphicsQuality): void {
     graphicsQuality = quality;
     applyGraphicsQuality(renderer, venue.keyLight, quality);
   }
   setGraphicsQuality(graphicsQuality);
-  scene.add(buildTrackRibbonMesh(circuit, venue.materials.pavement));
-  scene.add(buildVenueBarriers(circuit, venue.materials));
+  scene.add(
+    buildTrackRibbonMesh(
+      circuit,
+      venue.materials.trackSurface,
+      initialSnapshot.racingLine.points,
+    ),
+  );
+  scene.add(buildSeamlessProtexBarriers(circuit, venue.materials));
   scene.add(buildStartFinishAndGridBoxes(circuit));
 
   const racingLineRibbon = buildRacingLineRibbon(initialSnapshot);
@@ -254,20 +404,8 @@ export function createCircuitRenderer(
   const personalBestGhost = buildGhostKartRig(0x22c55e, assets); // Emerald Personal Best Ghost
   scene.add(trackRecordGhost.root, personalBestGhost.root);
 
-  // Dynamic rear-tire scrub / skid marks pool on the indoor floor
-  const maxSkidMarks = 320;
-  const skidPool: THREE.Mesh[] = [];
-  const skidGeo = new THREE.PlaneGeometry(0.30, 0.12);
-  skidGeo.rotateX(-Math.PI / 2);
-  const skidMat = createTireMarkMaterial();
-  for (let i = 0; i < maxSkidMarks; i++) {
-    const m = new THREE.Mesh(skidGeo, skidMat);
-    m.visible = false;
-    scene.add(m);
-    skidPool.push(m);
-  }
-  let skidCursor = 0;
-  let lastSkidTick = -10;
+  const skidSystem = new SkidRibbonSystem(400);
+  scene.add(skidSystem.mesh);
 
   window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -306,32 +444,7 @@ export function createCircuitRenderer(
     updateGhost(trackRecordGhost, ghost.trackRecordPose, snapshot);
     updateGhost(personalBestGhost, ghost.personalBestPose, snapshot);
 
-    // Emit rear-tire scrub/skid marks when sliding or experiencing heavy Axle Scrub
-    if (
-      (kart.axleScrub > 0.22 || kart.slipRatio > 0.28) &&
-      kart.speedKph > 8 &&
-      snapshot.tick - lastSkidTick >= 2
-    ) {
-      lastSkidTick = snapshot.tick;
-      const cosH = Math.cos(kart.headingRad);
-      const sinH = Math.sin(kart.headingRad);
-      const rightX = -sinH;
-      const rightZ = cosH;
-      const rearAxleX = kart.position.x - cosH * 0.52;
-      const rearAxleZ = kart.position.z - sinH * 0.52;
-
-      for (const side of [-0.335, 0.335]) {
-        const mark = skidPool[skidCursor % maxSkidMarks];
-        skidCursor += 1;
-        mark.position.set(
-          rearAxleX + rightX * side,
-          0.018,
-          rearAxleZ + rightZ * side,
-        );
-        mark.rotation.y = -kart.headingRad;
-        mark.visible = true;
-      }
-    }
+    skidSystem.update(snapshot);
 
     if (camera.fov !== camState.settings.fieldOfViewDegrees) {
       camera.fov = camState.settings.fieldOfViewDegrees;
@@ -351,7 +464,7 @@ export function createCircuitRenderer(
       calls: renderer.info.render.calls, triangles: renderer.info.render.triangles,
       geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures,
       programs: renderer.info.programs?.length ?? 0,
-      activeSkidMarks: skidPool.filter((mark) => mark.visible).length, skidCapacity: maxSkidMarks,
+      activeSkidMarks: skidSystem.getActiveSegmentCount(), skidCapacity: skidSystem.capacity,
     }),
   };
 }

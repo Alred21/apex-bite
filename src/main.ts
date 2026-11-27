@@ -1,4 +1,5 @@
 import { createKartAudio } from './audio/kart-audio';
+import { preloadRendererAssets } from './render/assets';
 import { createCircuitRenderer } from './render/scene';
 import {
   createSimulationSession,
@@ -21,10 +22,13 @@ function pollGamepad(deadzone = 0.06): GamepadInputState | undefined {
   return { throttle, brake, steer, deadzone };
 }
 
-function bootstrap(): void {
+async function bootstrap(): Promise<void> {
   const canvas = document.querySelector<HTMLCanvasElement>('#viewport');
   const hudRoot = document.querySelector<HTMLElement>('#hud-root');
   if (!canvas || !hudRoot) return;
+  const bootLoader = document.querySelector<HTMLElement>('#boot-loader');
+
+  const assets = await preloadRendererAssets();
 
   const session = createSimulationSession({
     // Access localStorage inside the session's guarded adapter calls: some browsers
@@ -57,7 +61,7 @@ function bootstrap(): void {
     session.setPracticeMode(next);
     audio.reset();
   };
-  const renderer = createCircuitRenderer(canvas, session.getSnapshot());
+  const renderer = createCircuitRenderer(canvas, session.getSnapshot(), assets);
   controls = bindDriverControls((shortcut) => {
     if (shortcut === 'camera') session.toggleCamera();
     else if (shortcut === 'line') session.toggleRacingLine();
@@ -138,7 +142,8 @@ function bootstrap(): void {
     requestAnimationFrame(frame);
   }
 
+  bootLoader?.remove();
   requestAnimationFrame(frame);
 }
 
-bootstrap();
+void bootstrap();

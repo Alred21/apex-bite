@@ -3,10 +3,13 @@
 // It never changes internal state or bypasses lap crossings.
 import { createSimulationSession } from '../../src/simulation/session';
 import { createHudView } from '../../src/ui/hud';
+import { preloadRendererAssets } from '../../src/render/assets';
 import { createCircuitRenderer } from '../../src/render/scene';
 
+async function boot(): Promise<void> {
+const assets = await preloadRendererAssets();
 const session = createSimulationSession();
-const renderer = createCircuitRenderer(document.querySelector<HTMLCanvasElement>('#viewport')!, session.getSnapshot());
+const renderer = createCircuitRenderer(document.querySelector<HTMLCanvasElement>('#viewport')!, session.getSnapshot(), assets);
 const hud = createHudView(document.querySelector<HTMLElement>('#hud-root')!, {
   onSelectTimeTrialLapLimit: (limit) => { session.setTimeTrialLapLimit(limit); render(); },
   onReset: () => { session.reset(); render(); },
@@ -41,3 +44,6 @@ document.querySelector('#run')!.addEventListener('click', () => {
   }
   render();
 });
+}
+
+void boot();

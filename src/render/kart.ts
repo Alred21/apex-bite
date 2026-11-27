@@ -3,6 +3,7 @@ import { createSeatedDriver } from './driver';
 import { KART_DIMENSIONS, KART_WHEEL_GEOMETRY } from '../simulation/kart-parameters';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { SessionSnapshot } from '../simulation/types';
+import type { RendererAssets } from './assets';
 import {
   OTL_RIG_CONFIG,
   STATIONARY_BATCHES,
@@ -165,7 +166,7 @@ function consolidate(group: THREE.Group): void {
   }
 }
 
-export function createKartRig(): KartRig {
+export function createKartRig(_assets?: RendererAssets): KartRig {
   const root = new THREE.Group();
   root.name = 'Electric rental Kart';
   const stationary = new THREE.Group();

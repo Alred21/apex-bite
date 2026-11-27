@@ -1,10 +1,12 @@
 import { createHudView } from '../../src/ui/hud';
+import { preloadRendererAssets } from '../../src/render/assets';
 import { createCircuitRenderer } from '../../src/render/scene';
 import { createKartAudio } from '../../src/audio/kart-audio';
 import { createSimulationSession, FIXED_TIMESTEP_SECONDS } from '../../src/simulation/session';
 
 // QA-only playback of the documented executable Reference Lap, never player assistance.
 const moduleStarted = performance.now();
+async function boot(): Promise<void> {
 const errors: string[] = [];
 window.addEventListener('error', (event) => errors.push(event.message));
 window.addEventListener('unhandledrejection', (event) => errors.push(String(event.reason)));
@@ -66,9 +68,10 @@ check(portable.length > 0, 'PB portable export produced');
 check(Object.keys(restored.getSnapshot().drill.personalBests).length === 16, 'All sixteen drill records round trip');
 startup.functionalPreflightMs = performance.now() - preflightStarted;
 
+const assets = await preloadRendererAssets();
 const canvas = document.querySelector<HTMLCanvasElement>('#viewport')!;
 const rendererStarted = performance.now();
-const renderer = createCircuitRenderer(canvas, session.getSnapshot());
+const renderer = createCircuitRenderer(canvas, session.getSnapshot(), assets);
 renderer.setGraphicsQuality('Balanced');
 startup.rendererConstructionMs = performance.now() - rendererStarted;
 const audio = createKartAudio();
@@ -191,3 +194,6 @@ function frame(now: number): void {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+}
+
+void boot();

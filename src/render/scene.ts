@@ -4,6 +4,7 @@ import { createIndoorVenue, buildVenueBarriers } from './venue';
 import { applyGraphicsQuality, GraphicsQuality, loadGraphicsQuality } from './graphics';
 import { createKartRig } from './kart';
 import { createTireMarkMaterial } from './materials';
+import type { RendererAssets } from './assets';
 
 function buildTrackRibbonMesh(circuit: CircuitData, material: THREE.MeshStandardMaterial): THREE.Mesh {
   const samples = circuit.samples;
@@ -175,10 +176,10 @@ function buildRacingLineRibbon(initialSnapshot: SessionSnapshot): {
   return { mesh, updateColors };
 }
 
-function buildGhostKartRig(tintColor: number) {
+function buildGhostKartRig(tintColor: number, assets?: RendererAssets) {
   // Each rig owns its materials. Reusing the same model construction keeps
   // geometry and driver updates in step without tinting the player's Kart.
-  const rig = createKartRig();
+  const rig = createKartRig(assets);
   const tint = new THREE.Color(tintColor);
   const materials = new Map<THREE.Material, number>();
   rig.root.traverse((object) => {
@@ -213,6 +214,7 @@ export interface CircuitRenderer {
 export function createCircuitRenderer(
   canvas: HTMLCanvasElement,
   initialSnapshot: SessionSnapshot,
+  assets?: RendererAssets,
 ): CircuitRenderer {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -242,14 +244,14 @@ export function createCircuitRenderer(
   const racingLineRibbon = buildRacingLineRibbon(initialSnapshot);
   scene.add(racingLineRibbon.mesh);
 
-  const kartRig = createKartRig();
+  const kartRig = createKartRig(assets);
   kartRig.root.traverse((object) => {
     if (object instanceof THREE.Mesh) { object.castShadow = true; object.receiveShadow = true; }
   });
   scene.add(kartRig.root);
 
-  const trackRecordGhost = buildGhostKartRig(0xfacc15); // Gold executable Reference Lap Ghost
-  const personalBestGhost = buildGhostKartRig(0x22c55e); // Emerald Personal Best Ghost
+  const trackRecordGhost = buildGhostKartRig(0xfacc15, assets); // Gold executable Reference Lap Ghost
+  const personalBestGhost = buildGhostKartRig(0x22c55e, assets); // Emerald Personal Best Ghost
   scene.add(trackRecordGhost.root, personalBestGhost.root);
 
   // Dynamic rear-tire scrub / skid marks pool on the indoor floor

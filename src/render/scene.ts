@@ -379,6 +379,7 @@ export function createCircuitRenderer(
   function setGraphicsQuality(quality: GraphicsQuality): void {
     graphicsQuality = quality;
     applyGraphicsQuality(renderer, venue.keyLight, quality);
+    venue.applyQuality(quality);
   }
   setGraphicsQuality(graphicsQuality);
   scene.add(
@@ -437,6 +438,7 @@ export function createCircuitRenderer(
     const { kart, camera: camState, ghost } = snapshot;
     venue.keyLight.position.set(kart.position.x + 4, 14, kart.position.z + 7);
     venue.keyLight.target.position.set(kart.position.x, 0, kart.position.z);
+    venue.update(snapshot);
     racingLineRibbon.updateColors(snapshot);
 
     kartRig.update(snapshot);

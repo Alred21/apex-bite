@@ -1,0 +1,66 @@
+{
+  "script": "tools/audit-model-overlaps.py",
+  "blendAsset": "assets/otl-superleggero.blend",
+  "passed": true,
+  "exitCode": 0,
+  "kinematicStatesEvaluated": 20,
+  "steerAnglesRad": [
+    -0.46,
+    -0.23,
+    0.0,
+    0.23,
+    0.46
+  ],
+  "throttleInputs": [
+    0.0,
+    1.0
+  ],
+  "brakeInputs": [
+    0.0,
+    1.0
+  ],
+  "metrics": {
+    "maxTieRodLengthErrorMeters": 1.67e-08,
+    "tieRodLengthToleranceMeters": 0.0005,
+    "minTireToBodyworkClearanceMillimeters": 20.9,
+    "minTireClearanceThresholdMillimeters": 15.0,
+    "boundsMeters": {
+      "x": [
+        -0.795,
+        0.87
+      ],
+      "y": [
+        -0.012,
+        0.875
+      ],
+      "z": [
+        -0.432,
+        0.432
+      ]
+    },
+    "envelopeLimitsMeters": {
+      "x": [
+        -0.8,
+        0.88
+      ],
+      "yMaxRange": [
+        0.84,
+        0.89
+      ],
+      "zMaxAbs": 0.45
+    }
+  },
+  "checks": {
+    "bvhStaticVsDynamicOverlaps": 0,
+    "bvhDynamicVsDynamicOverlaps": 0,
+    "fourBarTieRodScaleAndLength": "PASS",
+    "coaxialBrakePushrodAlignment": "PASS",
+    "armAndLegTwoBoneIK": "PASS",
+    "tireBodyworkClearance": "PASS",
+    "strictEnvelopeBounds": "PASS"
+  },
+  "rawOutput": [
+    "AUDIT SUMMARY: states=20 | max_rod_err=1.67e-08 m | min_tire_gap=20.9 mm | bounds_x=[-0.795, 0.870] bounds_y=[-0.012, 0.875] bounds_z=[-0.432, 0.432]",
+    "PASS: Zero overlaps across all 20 kinematic states, exact linkage, and strict envelope bounds."
+  ]
+}

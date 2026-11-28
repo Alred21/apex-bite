@@ -295,11 +295,14 @@ def generate_pbr_textures() -> dict[str, bpy.types.Image]:
     # v in [0.55, 0.64]: clean crimson with subtle flake (Nassau fairing)
     # v in [0.64, 0.99]: Nose Cone with carbon side trim, APEX BITE / 07 plate, and white forward tip
     nose_mask = yy >= int(0.55 * N)
-    # Forward tip white band (v in [0.89, 0.98])
-    tip_band = nose_mask & (yy >= int(0.89 * N)) & (yy <= int(0.98 * N))
-    livery[tip_band, 0:3] = (0.94, 0.95, 0.96)
-    # Carbon outer edge trim on nose (v >= 0.65 and (u < 0.16 or u > 0.84))
-    nose_carbon = (yy >= int(0.65 * N)) & ((xx < int(0.16 * N)) | (xx > int(0.84 * N)))
+    # Forward tip white band extending cleanly to top edge (anti-aliased 3px feather at v = 0.895)
+    tip_edge = 0.895 * N
+    tip_blend = np.clip((yy - (tip_edge - 1.5)) / 3.0, 0.0, 1.0)
+    tip_mask = nose_mask & (tip_blend > 0.0)
+    for ch, target_c in enumerate((0.94, 0.95, 0.96)):
+        livery[tip_mask, ch] = livery[tip_mask, ch] * (1.0 - tip_blend[tip_mask]) + target_c * tip_blend[tip_mask]
+    # Carbon outer edge trim on nose (v in [0.65, 0.895) and (u < 0.16 or u > 0.84))
+    nose_carbon = (yy >= int(0.65 * N)) & (yy < int(0.895 * N) - 1) & ((xx < int(0.16 * N)) | (xx > int(0.84 * N)))
     livery[nose_carbon, 0:3] = carbon_albedo[nose_carbon, 0:3] * 1.15
     # Crisp dark number plate backing on flat nose plateau (u in [0.22, 0.78], v in [0.71, 0.86])
     plate_nose = nose_mask & (xx >= int(0.22 * N)) & (xx <= int(0.78 * N)) & (yy >= int(0.71 * N)) & (yy <= int(0.86 * N))
@@ -1199,6 +1202,20 @@ def build_otl_superleggero():
             normal_img=textures["suit_fabric_normal"],
             roughness_img=textures["suit_fabric_roughness"],
         ),
+        "suitRed": make_pbr_material(
+            "Suit_Nomex_Crimson",
+            rgb=(0.66, 0.055, 0.095),
+            roughness=0.86,
+            normal_img=textures["suit_fabric_normal"],
+            roughness_img=textures["suit_fabric_roughness"],
+        ),
+        "suitSlate": make_pbr_material(
+            "Suit_Nomex_Slate",
+            rgb=(0.18, 0.21, 0.26),
+            roughness=0.86,
+            normal_img=textures["suit_fabric_normal"],
+            roughness_img=textures["suit_fabric_roughness"],
+        ),
         "panel": make_pbr_material("Driver_Suit_Slate", rgb=(0.035, 0.045, 0.060), roughness=0.78),
         "glovePad": make_pbr_material("Driver_Glove_Grip", rgb=(0.21, 0.25, 0.28), roughness=0.76),
         "helmet": make_pbr_material(
@@ -1564,9 +1581,9 @@ def build_otl_superleggero():
     # 3. SCULPTED BEVELED NOSE CONE, NASSAU FAIRING & FLUSH UV LIVERY (NO STICKER PLANES!)
     # =========================================================================
     def nose_uv(tx: float, _ty: float, tz: float) -> tuple[float, float]:
-        # Front-facing readable livery on the sloped nose cone (tx in [0.485, 0.755])
+        # Front-facing readable livery on the sloped nose cone (tx in [0.485, 0.758])
         u = max(0.02, min(0.98, 0.5 - tz / 0.23))
-        v = max(0.65, min(0.99, 0.65 + ((tx - 0.485) / 0.270) * 0.34))
+        v = max(0.65, min(0.995, 0.65 + ((tx - 0.485) / 0.273) * 0.345))
         return (u, v)
 
     def nassau_uv(_tx: float, _ty: float, _tz: float) -> tuple[float, float]:
@@ -1586,8 +1603,12 @@ def build_otl_superleggero():
         superellipse_ring(0.485, 0.218, 0.258, 0.0, 0.086, power_y=0.25, power_z=0.55),
         superellipse_ring(0.545, 0.152, 0.245, 0.0, 0.098, power_y=0.25, power_z=0.55),
         superellipse_ring(0.585, 0.148, 0.239, 0.0, 0.104, power_y=0.25, power_z=0.55),
-        superellipse_ring(0.685, 0.148, 0.224, 0.0, 0.102, power_y=0.25, power_z=0.55),
-        superellipse_ring(0.755, 0.145, 0.210, 0.0, 0.084, power_y=0.35, power_z=0.55),
+        superellipse_ring(0.655, 0.148, 0.228, 0.0, 0.103, power_y=0.25, power_z=0.55),
+        superellipse_ring(0.679, 0.148, 0.224, 0.0, 0.102, power_y=0.25, power_z=0.55),
+        superellipse_ring(0.704, 0.147, 0.219, 0.0, 0.098, power_y=0.25, power_z=0.55),
+        superellipse_ring(0.730, 0.146, 0.214, 0.0, 0.091, power_y=0.30, power_z=0.55),
+        superellipse_ring(0.748, 0.147, 0.207, 0.0, 0.080, power_y=0.35, power_z=0.55),
+        superellipse_ring(0.756, 0.156, 0.194, 0.0, 0.060, power_y=0.45, power_z=0.55),
     ]
     create_loft_mesh(
         "OTL_Nose_Livery_Shell",
@@ -1687,14 +1708,40 @@ def build_otl_superleggero():
     # =========================================================================
     for side in (-1, 1):
         def make_pod_uv(s_sign: int):
+            pod_z_profile = (
+                (-0.320, 0.285),
+                (-0.230, 0.298),
+                (-0.020, 0.300),
+                (0.175, 0.298),
+                (0.255, 0.282),
+                (0.302, 0.260),
+            )
+
+            def pod_center_z(px: float) -> float:
+                if px <= pod_z_profile[0][0]:
+                    return pod_z_profile[0][1]
+                for idx in range(len(pod_z_profile) - 1):
+                    x0, z0 = pod_z_profile[idx]
+                    x1, z1 = pod_z_profile[idx + 1]
+                    if px <= x1:
+                        t = (px - x0) / (x1 - x0)
+                        return z0 + (z1 - z0) * t
+                return pod_z_profile[-1][1]
+
             def pod_uv(tx: float, ty: float, tz: float) -> tuple[float, float]:
                 u_raw = max(0.02, min(0.98, (tx + 0.32) / 0.62))
                 u = (1.0 - u_raw) if s_sign < 0 else u_raw
-                # Map top plateau |tz| ~0.29 to v in [0.22..0.46], outer lower skirt to [0.02..0.18]
-                lat = max(0.0, min(1.0, (abs(tz) - 0.23) / 0.14))
-                vert = max(0.0, min(1.0, (ty - 0.14) / 0.15))
-                v = max(0.02, min(0.53, 0.04 + vert * 0.36 + (1.0 - lat) * 0.12))
-                return (u, v)
+                # Keep entire inboard cockpit-facing sidepod wall clean solid crimson (zero mirrored badge or sliver)
+                z_mid = pod_center_z(tx)
+                az = abs(tz)
+                if az <= z_mid + 0.004:
+                    return (u, 0.50)
+                vert = max(0.0, min(1.0, (ty - 0.140) / 0.148))
+                v_out = 0.04 + vert * 0.43
+                if vert > 0.65 and az < z_mid + 0.032:
+                    blend = max(0.0, min(1.0, (z_mid + 0.032 - az) / 0.028))
+                    v_out = v_out * (1.0 - blend) + 0.50 * blend
+                return (u, max(0.02, min(0.53, v_out)))
             return pod_uv
 
         pod_rings = [
@@ -1728,12 +1775,37 @@ def build_otl_superleggero():
             ]
             create_loft_mesh(f"OTL_Sidepod_Louver_{side}_{lv_idx}", louver, mats["black"], subsurf_levels=0, parent=chassis_static)
 
-        # Routed orange HV battery-to-inverter cable
+        # Routed orange HV battery-to-inverter cable anchored flush into subsurfed bulkhead faces
         create_tube_curve(
             f"OTL_HV_Cable_{side}",
-            [(-0.310, 0.162, side * 0.235), (-0.385, 0.160, side * 0.175), (-0.455, 0.172, side * 0.132)],
+            [
+                (-0.270, 0.188, side * 0.285),
+                (-0.298, 0.188, side * 0.280),
+                (-0.348, 0.194, side * 0.215),
+                (-0.398, 0.208, side * 0.148),
+                (-0.440, 0.220, side * 0.106),
+                (-0.472, 0.222, side * 0.092),
+            ],
             0.0065,
             mats["orange"],
+            parent=chassis_static,
+        )
+        create_cylinder_between(
+            f"OTL_HV_Grommet_Pod_{side}",
+            (-0.290, 0.188, side * 0.282),
+            (-0.305, 0.189, side * 0.274),
+            0.011,
+            mats["rubber"],
+            segments=12,
+            parent=chassis_static,
+        )
+        create_cylinder_between(
+            f"OTL_HV_Grommet_Shroud_{side}",
+            (-0.432, 0.218, side * 0.114),
+            (-0.448, 0.221, side * 0.100),
+            0.011,
+            mats["rubber"],
+            segments=12,
             parent=chassis_static,
         )
 
@@ -2791,15 +2863,36 @@ def build_otl_superleggero():
         parent=driver_head,
         origin_three=DRIVER_NECK_PIVOT,
     )
-    spoiler_rings = [
-        superellipse_ring(-0.422, 0.782, 0.794, 0.0, 0.056, power_y=0.35, power_z=0.35),
-        superellipse_ring(-0.402, 0.776, 0.790, 0.0, 0.062, power_y=0.35, power_z=0.35),
-    ]
+    # Low-profile curved carbon rear aero spoiler lip hugging the helmet shell curvature
+    def helmet_rear_profile(hy: float) -> tuple[float, float, float]:
+        if hy <= 0.766:
+            t = max(0.0, min(1.0, (hy - 0.736) / 0.030))
+            return (-0.318 - 0.006 * t, 0.110 - 0.004 * t, 0.118 - 0.007 * t)
+        t = max(0.0, min(1.0, (hy - 0.766) / 0.028))
+        return (-0.324 - 0.004 * t, 0.106 - 0.014 * t, 0.111 - 0.023 * t)
+
+    spoiler_rings = []
+    n_sp = 14
+    sp_half_arc = 0.56
+    for sy, lip_aft in ((0.744, 0.002), (0.754, 0.0065), (0.764, 0.0055), (0.773, 0.0015)):
+        hx_s, rxb_s, rz_s = helmet_rear_profile(sy)
+        ring = []
+        for j in range(n_sp + 1):
+            frac = (j / n_sp) * 2.0 - 1.0
+            ang = math.pi + frac * sp_half_arc
+            taper = max(0.15, math.cos(frac * math.pi * 0.5))
+            rxb_o = rxb_s + lip_aft * taper
+            ring.append((hx_s + math.cos(ang) * rxb_o, sy, math.sin(ang) * (rz_s + 0.0015 * taper)))
+        for j in range(n_sp, -1, -1):
+            frac = (j / n_sp) * 2.0 - 1.0
+            ang = math.pi + frac * sp_half_arc
+            ring.append((hx_s + math.cos(ang) * (rxb_s - 0.0025), sy, math.sin(ang) * (rz_s - 0.0020)))
+        spoiler_rings.append(ring)
     create_loft_mesh(
         "Driver_Helmet_Spoiler",
         spoiler_rings,
-        mats["red"],
-        subsurf_levels=0,
+        mats["carbon"],
+        subsurf_levels=1,
         parent=driver_head,
         origin_three=DRIVER_NECK_PIVOT,
     )
@@ -2811,6 +2904,7 @@ def build_otl_superleggero():
         mat: bpy.types.Material,
         parent_obj: bpy.types.Object,
         stripe_mat: bpy.types.Material | None = None,
+        stripe_z_range: tuple[float, float] | None = None,
     ) -> None:
         rings = []
         for z_pos, rx, ry, fold_amp in stations:
@@ -2826,7 +2920,7 @@ def build_otl_superleggero():
             ang = math.atan2(ty, tx)
             return ((ang / (math.pi * 2.0)) + 0.5, tz * 3.2)
 
-        create_loft_mesh(
+        obj = create_loft_mesh(
             name,
             rings,
             mat,
@@ -2835,20 +2929,18 @@ def build_otl_superleggero():
             origin_three=(0.0, 0.0, 0.0),
             uv_fn=limb_uv,
         )
-        if stripe_mat is not None:
-            z0 = stations[1][0]
-            z1 = stations[-2][0]
-            ry0 = stations[1][2]
-            ry_mid = stations[len(stations) // 2][2]
-            ry1 = stations[-2][2]
-            create_tube_curve(
-                f"{name}_Stripe",
-                [(0.0, ry0 * 1.01, z0), (0.0, ry_mid * 1.02, 0.5 * (z0 + z1)), (0.0, ry1 * 1.01, z1)],
-                0.0038,
-                stripe_mat,
-                parent=parent_obj,
-                origin_three=(0.0, 0.0, 0.0),
-            )
+        if stripe_mat is not None and stripe_z_range is not None:
+            obj.data.materials.append(stripe_mat)
+            z_lo, z_hi = stripe_z_range
+            verts = obj.data.vertices
+            for poly in obj.data.polygons:
+                if len(poly.vertices) < 3:
+                    continue
+                center = sum((verts[vi].co for vi in poly.vertices), Vector((0.0, 0.0, 0.0))) / len(poly.vertices)
+                # Convert Blender local (bx, by, bz) back to Three.js local (tx, ty, tz) = (bx, bz, -by)
+                cx, cy, cz = center.x, center.z, -center.y
+                if cy > 0.0 and abs(math.atan2(cx, cy)) < 0.20 and z_lo <= cz <= z_hi:
+                    poly.material_index = 1
 
     # Sculpted 2-bone IK arms + detailed racing gloves (posed at rest steering=0)
     steer_hub_v = Vector(STEER_MOUNT_POS)
@@ -2903,36 +2995,44 @@ def build_otl_superleggero():
                 origin_three=g_origin,
             )
 
-        # UpperArm & Forearm authored along local +Z, then posed via exact 2-bone IK at rest
+        # UpperArm & Forearm authored along local +Z with hemispherical joint caps & flush fabric stripes
         build_sculpted_limb(
             f"Driver_UpperArm_{side}",
             [
-                (0.000, 0.030, 0.030, 0.0),
-                (0.014, 0.042, 0.044, 0.0),
-                (0.095, 0.041, 0.042, 0.015),
-                (0.195, 0.037, 0.038, 0.025),
-                (0.275, 0.034, 0.034, 0.035),
-                (DRIVER_UPPER_ARM_LEN - 0.008, 0.032, 0.032, 0.0),
-                (DRIVER_UPPER_ARM_LEN, 0.018, 0.018, 0.0),
+                (-0.020, 0.016, 0.016, 0.0),
+                (-0.012, 0.032, 0.033, 0.0),
+                (0.000, 0.041, 0.042, 0.0),
+                (0.022, 0.042, 0.043, 0.0),
+                (0.095, 0.041, 0.042, 0.014),
+                (0.195, 0.037, 0.038, 0.018),
+                (0.272, 0.034, 0.034, 0.012),
+                (DRIVER_UPPER_ARM_LEN - 0.012, 0.032, 0.032, 0.0),
+                (DRIVER_UPPER_ARM_LEN, 0.0305, 0.0305, 0.0),
+                (DRIVER_UPPER_ARM_LEN + 0.014, 0.024, 0.024, 0.0),
+                (DRIVER_UPPER_ARM_LEN + 0.022, 0.011, 0.011, 0.0),
             ],
             mats["suit"],
             ua_node,
-            stripe_mat=mats["red"],
+            stripe_mat=mats["suitRed"],
+            stripe_z_range=(0.022, DRIVER_UPPER_ARM_LEN - 0.022),
         )
         build_sculpted_limb(
             f"Driver_Forearm_{side}",
             [
-                (0.000, 0.020, 0.020, 0.0),
-                (0.012, 0.033, 0.033, 0.0),
-                (0.085, 0.035, 0.036, 0.018),
-                (0.185, 0.030, 0.030, 0.022),
-                (0.255, 0.025, 0.025, 0.030),
-                (DRIVER_FOREARM_LEN - 0.006, 0.022, 0.022, 0.0),
-                (DRIVER_FOREARM_LEN, 0.014, 0.014, 0.0),
+                (-0.020, 0.013, 0.013, 0.0),
+                (-0.012, 0.028, 0.028, 0.0),
+                (0.000, 0.0345, 0.0345, 0.0),
+                (0.016, 0.035, 0.0355, 0.0),
+                (0.085, 0.034, 0.035, 0.014),
+                (0.185, 0.029, 0.029, 0.016),
+                (0.255, 0.024, 0.024, 0.010),
+                (DRIVER_FOREARM_LEN - 0.008, 0.021, 0.021, 0.0),
+                (DRIVER_FOREARM_LEN + 0.006, 0.015, 0.015, 0.0),
             ],
             mats["suit"],
             fa_node,
-            stripe_mat=mats["red"],
+            stripe_mat=mats["suitRed"],
+            stripe_z_range=(0.020, DRIVER_FOREARM_LEN - 0.028),
         )
 
         shoulder_v = Vector((DRIVER_SHOULDER[0], DRIVER_SHOULDER[1], side * DRIVER_SHOULDER[2]))
@@ -2950,33 +3050,45 @@ def build_otl_superleggero():
         build_sculpted_limb(
             f"Driver_Thigh_{side}",
             [
-                (0.000, 0.032, 0.032, 0.0),
-                (0.018, 0.050, 0.051, 0.0),
-                (0.105, 0.048, 0.049, 0.016),
-                (0.205, 0.044, 0.045, 0.024),
-                (0.275, 0.040, 0.041, 0.020),
-                (DRIVER_THIGH_LEN - 0.008, 0.036, 0.036, 0.0),
-                (DRIVER_THIGH_LEN, 0.022, 0.022, 0.0),
+                (-0.010, 0.028, 0.028, 0.0),
+                (0.000, 0.044, 0.044, 0.0),
+                (0.022, 0.048, 0.049, 0.0),
+                (0.105, 0.047, 0.048, 0.014),
+                (0.205, 0.044, 0.045, 0.016),
+                (0.275, 0.041, 0.041, 0.010),
+                (DRIVER_THIGH_LEN - 0.014, 0.040, 0.040, 0.0),
+                (DRIVER_THIGH_LEN, 0.039, 0.039, 0.0),
+                (DRIVER_THIGH_LEN + 0.016, 0.032, 0.032, 0.0),
+                (DRIVER_THIGH_LEN + 0.028, 0.014, 0.014, 0.0),
             ],
             mats["suit"],
             th_node,
-            stripe_mat=mats["panel"],
+            stripe_mat=mats["suitSlate"],
+            stripe_z_range=(0.030, DRIVER_THIGH_LEN - 0.035),
         )
-        # Sculpted knee pad on anterior +Y near knee end of thigh
-        knee_pad_rings = [
-            superellipse_ring(0.0, 0.032, 0.048, DRIVER_THIGH_LEN - 0.050, 0.030, power_y=0.4, power_z=0.4),
-            superellipse_ring(0.0, 0.036, 0.050, DRIVER_THIGH_LEN - 0.012, 0.028, power_y=0.4, power_z=0.4),
-        ]
-        # Note superellipse_ring takes (x, y_b, y_t, z_c, half_w) -> rotate coordinates: z along bone, y up!
-        kp_rings_local = [
-            [(math.sin(a) * 0.030, 0.042 + math.cos(a) * 0.010, z_p) for a in [i / 12 * math.pi * 2 for i in range(12)]]
-            for z_p in (DRIVER_THIGH_LEN - 0.048, DRIVER_THIGH_LEN - 0.008)
-        ]
+        # Conformal curved carbon knee pad hugging the anterior knee arc (flush with zero air gap)
+        kp_rings_local = []
+        n_kp = 9
+        for z_off, r_base, half_ang in (
+            (-0.040, 0.041, 0.68),
+            (-0.018, 0.040, 0.82),
+            (0.004, 0.038, 0.78),
+            (0.018, 0.032, 0.50),
+        ):
+            zp = DRIVER_THIGH_LEN + z_off
+            ring = []
+            for i in range(n_kp + 1):
+                a = -half_ang + (i / n_kp) * (2.0 * half_ang)
+                ring.append((math.sin(a) * (r_base + 0.0035), math.cos(a) * (r_base + 0.0035), zp))
+            for i in range(n_kp, -1, -1):
+                a = -half_ang + (i / n_kp) * (2.0 * half_ang)
+                ring.append((math.sin(a) * (r_base - 0.0015), math.cos(a) * (r_base - 0.0015), zp))
+            kp_rings_local.append(ring)
         create_loft_mesh(
             f"Driver_Knee_Pad_{side}",
             kp_rings_local,
             mats["carbon"],
-            subsurf_levels=0,
+            subsurf_levels=1,
             parent=th_node,
             origin_three=(0.0, 0.0, 0.0),
         )
@@ -2984,17 +3096,20 @@ def build_otl_superleggero():
         build_sculpted_limb(
             f"Driver_Shin_{side}",
             [
-                (0.000, 0.024, 0.024, 0.0),
-                (0.014, 0.039, 0.041, 0.0),
-                (0.095, 0.038, 0.040, 0.016),
-                (0.195, 0.032, 0.033, 0.022),
-                (0.252, 0.028, 0.028, 0.030),
-                (DRIVER_SHIN_LEN - 0.006, 0.025, 0.025, 0.0),
-                (DRIVER_SHIN_LEN, 0.016, 0.016, 0.0),
+                (-0.022, 0.013, 0.013, 0.0),
+                (-0.012, 0.029, 0.029, 0.0),
+                (0.000, 0.0365, 0.0365, 0.0),
+                (0.018, 0.039, 0.040, 0.0),
+                (0.095, 0.038, 0.040, 0.014),
+                (0.195, 0.032, 0.033, 0.016),
+                (0.252, 0.027, 0.027, 0.012),
+                (DRIVER_SHIN_LEN - 0.006, 0.024, 0.024, 0.0),
+                (DRIVER_SHIN_LEN + 0.005, 0.016, 0.016, 0.0),
             ],
             mats["suit"],
             sh_node,
-            stripe_mat=mats["red"],
+            stripe_mat=mats["suitRed"],
+            stripe_z_range=(0.025, DRIVER_SHIN_LEN - 0.025),
         )
 
         # Detailed karting boot authored relative to ankle origin (0, 0, 0)

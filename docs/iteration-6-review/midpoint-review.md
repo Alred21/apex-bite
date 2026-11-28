@@ -1,7 +1,14 @@
 # Iteration 6 Midpoint Visual & Zero-Overlap Review Packet (`#56`)
 
-**Branch:** `ticket/iteration-6-56` (based on `feat/iteration-6` at `b5a5f03`)
-**Scope:** Verification, static/kinematic Blender `BVHTree` overlap audit, Cycles close-up renders, Playwright browser QA & live screenshots before starting Lighting/FX (`#57`), Camera (`#58`), HUD (`#59`), and Audio (`#60`) polish slices.
+**Branch:** `ticket/iteration-6-56-polish` (merged into `feat/iteration-6`)
+**Scope:** Verification, static/kinematic Blender `BVHTree` overlap audit, Cycles close-up renders (including all 5 post-review Kart/Driver close-up visual fixes), Playwright browser QA & live screenshots before starting Lighting/FX (`#57`), Camera (`#58`), HUD (`#59`), and Audio (`#60`) polish slices.
+
+### Midpoint Close-Up Visual Fixes Applied (`tools/build-kart-model.py`)
+1. **Flush Nomex Limb Racing Stripes & Helmet Rear Aero Lip:** Removed protruding 3D limb piping curves and applied flush per-face Nomex fabric stripe materials (`Suit_Nomex_Crimson` / `Suit_Nomex_Slate`) along a uniform dorsal/lateral quad ribbon; reshaped `Driver_Helmet_Spoiler` into a low-profile curved carbon rear lip hugging the helmet shell curvature (`y <= 0.774`).
+2. **Smooth Spherical Joint Caps & Conformal Carbon Knee Pads:** Added smooth hemispherical pivot caps/sockets across shoulder, elbow, and knee joints (`Driver_UpperArm_*`, `Driver_Forearm_*`, `Driver_Thigh_*`, `Driver_Shin_*`) and rebuilt `Driver_Knee_Pad_*` as conformal curved carbon shells flush against the knee curvature.
+3. **Clean Cockpit-Facing Sidepod Inner Walls:** Replaced naive lateral projection in `pod_uv` with piecewise centerline masking (`pod_center_z(tx)`) mapping all inboard cockpit-facing surfaces cleanly to solid crimson, eliminating mirrored `ETIB XEPA` text inside the cockpit.
+4. **Razor-Smooth White/Red Nose Tip Boundary:** Extended `tip_band` cleanly to the texture upper edge (`v >= 0.895`, 3 px feathering), cropped carbon edge trim at the white band, and added denser tapering front rings straddling `x = 0.679..0.756` in `nose_shell`.
+5. **Bulkhead-Anchored HV Cables & Strain-Relief Grommets:** Rerouted `OTL_HV_Cable_{side}` cleanly from the post-subsurf rear sidepod wall (`x = -0.298`) through `OTL_HV_Grommet_Pod_{side}` into `OTL_Rear_Powertrain_Shroud` (`x = -0.440`) through `OTL_HV_Grommet_Shroud_{side}`, clear ahead of belt/pinion/rotor.
 
 ---
 
